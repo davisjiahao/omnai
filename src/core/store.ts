@@ -11,6 +11,7 @@ import {
   type ReadinessStatus,
   type WorkflowLock,
 } from '../domain/types.js';
+import { createInitialIssueState } from './issues.js';
 import { getScenario } from './scenarios.js';
 import {
   changeArtifactPath,
@@ -82,6 +83,7 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
         task: 1,
         evidence: 1,
         revision: 1,
+        issue: 1,
       },
       promptVersions: {
         frame: 1,
@@ -91,12 +93,17 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
         spec: 1,
         design: 1,
         plan: 1,
+        triage: 1,
         reproduce: 1,
+        debug: 1,
         diagnose: 1,
+        experiment: 1,
+        fix: 1,
         work: 1,
         review: 2,
         verify: 2,
         qa: 1,
+        ship: 1,
         release: 2,
         learn: 1,
         reconcile: 1,
@@ -153,14 +160,14 @@ export async function createChange(
     updatedAt: now,
     readiness: readinessSchema.parse({
       frame: scenario.stages.includes('frame') ? 'MISSING' : 'NOT_APPLICABLE',
-      research: scenario.stages.includes('research') || scenario.stages.includes('reproduce') || scenario.stages.includes('diagnose') ? 'MISSING' : 'NOT_APPLICABLE',
+      research: scenario.stages.some((stage) => ['research', 'triage', 'reproduce', 'debug', 'diagnose'].includes(stage)) ? 'MISSING' : 'NOT_APPLICABLE',
       domain: scenario.stages.includes('model') ? 'MISSING' : 'NOT_APPLICABLE',
       spec: scenario.stages.includes('spec') ? 'MISSING' : 'NOT_APPLICABLE',
       design: scenario.stages.includes('design') ? 'MISSING' : 'NOT_APPLICABLE',
       plan: scenario.stages.includes('plan') ? 'MISSING' : 'NOT_APPLICABLE',
       implementation: scenario.stages.includes('work') ? 'MISSING' : 'NOT_APPLICABLE',
       verification: scenario.stages.includes('verify') ? 'MISSING' : 'NOT_APPLICABLE',
-      release: scenario.stages.includes('release') ? 'MISSING' : 'NOT_APPLICABLE',
+      release: scenario.stages.some((stage) => ['ship', 'release'].includes(stage)) ? 'MISSING' : 'NOT_APPLICABLE',
       learning: scenario.stages.includes('learn') ? 'MISSING' : 'NOT_APPLICABLE',
     }),
   });
@@ -187,9 +194,10 @@ export async function createChange(
   }
   if (scenario.id === 'bug-fix' || scenario.id === 'emergency-hotfix') {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);
+    await writeYaml(changeArtifactPath(repoRoot, directoryName, 'issue.yaml'), createInitialIssueState());
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);
   }
-  if (scenario.stages.includes('release')) {
+  if (scenario.stages.some((stage) => ['ship', 'release'].includes(stage))) {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'delivery.md'), deliveryTemplate);
   }
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'tasks.yaml'), emptyTaskFile);

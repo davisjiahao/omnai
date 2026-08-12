@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getScenario } from '../src/core/scenarios.js';
-import { buildEvidenceMatrix, selectReviewLenses } from '../src/core/policy.js';
+import { buildEvidenceMatrix, selectReviewLenses, type ReviewLens } from '../src/core/policy.js';
 import { evaluateGuard } from '../src/core/guards.js';
 
 test('derives evidence from scenario risk and impact instead of a fixed global checklist', () => {
@@ -55,9 +55,8 @@ test('selects review lenses from impact and risk', () => {
     observability: true,
   });
 
-  for (const lens of ['business', 'domain', 'architecture', 'contract', 'engineering', 'data', 'security', 'operations']) {
-    assert.equal(lenses.includes(lens), true, `missing ${lens}`);
-  }
+  const expected: ReviewLens[] = ['business', 'domain', 'architecture', 'contract', 'engineering', 'data', 'security', 'operations'];
+  for (const lens of expected) assert.equal(lenses.includes(lens), true, `missing ${lens}`);
 });
 
 test('guard blocks bug edits before confirmed root cause and blocks high-risk ship without gates', () => {

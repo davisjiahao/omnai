@@ -39,6 +39,8 @@ export const TASK_STATUSES = [
 ] as const;
 
 export const RECONCILE_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5'] as const;
+export const RISK_LEVELS = ['P0', 'P1', 'P2', 'P3'] as const;
+export const RISK_DIMENSION_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 
 export const WORK_MODES = [
   'READ_ONLY_QUERY',
@@ -51,6 +53,8 @@ export const WORK_MODES = [
   'PERFORMANCE',
   'SECURITY',
   'RELEASE',
+  'EXPERIMENT',
+  'QUALITY',
 ] as const;
 
 export const CAPABILITIES = [
@@ -80,6 +84,8 @@ export type ChangeStatus = (typeof CHANGE_STATUSES)[number];
 export type ReadinessStatus = (typeof READINESS_STATUSES)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type ReconcileLevel = (typeof RECONCILE_LEVELS)[number];
+export type RiskLevel = (typeof RISK_LEVELS)[number];
+export type RiskDimensionLevel = (typeof RISK_DIMENSION_LEVELS)[number];
 export type WorkMode = (typeof WORK_MODES)[number];
 export type Capability = (typeof CAPABILITIES)[number];
 
@@ -97,6 +103,42 @@ export const readinessSchema = z.object({
 });
 
 export type Readiness = z.infer<typeof readinessSchema>;
+
+const riskDimensionsSchema = z.object({
+  businessCriticality: z.enum(RISK_DIMENSION_LEVELS).default('MEDIUM'),
+  data: z.enum(RISK_DIMENSION_LEVELS).default('LOW'),
+  compatibility: z.enum(RISK_DIMENSION_LEVELS).default('LOW'),
+  reversibility: z.enum(RISK_DIMENSION_LEVELS).default('MEDIUM'),
+  security: z.enum(RISK_DIMENSION_LEVELS).default('LOW'),
+  operational: z.enum(RISK_DIMENSION_LEVELS).default('LOW'),
+});
+
+export const riskModelSchema = z.object({
+  level: z.enum(RISK_LEVELS).default('P2'),
+  dimensions: riskDimensionsSchema.default({
+    businessCriticality: 'MEDIUM',
+    data: 'LOW',
+    compatibility: 'LOW',
+    reversibility: 'MEDIUM',
+    security: 'LOW',
+    operational: 'LOW',
+  }),
+});
+
+export type RiskModel = z.infer<typeof riskModelSchema>;
+
+export const impactModelSchema = z.object({
+  frontend: z.boolean().default(false),
+  backend: z.boolean().default(false),
+  apiContract: z.boolean().default(false),
+  database: z.boolean().default(false),
+  mq: z.boolean().default(false),
+  remoteService: z.boolean().default(false),
+  security: z.boolean().default(false),
+  observability: z.boolean().default(false),
+});
+
+export type ImpactModel = z.infer<typeof impactModelSchema>;
 
 export const projectConfigSchema = z.object({
   schemaVersion: z.literal(1),
@@ -129,6 +171,29 @@ export const changeMetadataSchema = z.object({
   workMode: z.enum(WORK_MODES),
   status: z.enum(CHANGE_STATUSES),
   activeRevision: z.string().regex(/^REV-\d{4}$/),
+  baseline: z.string().default('BL-0001'),
+  artifactVersions: z.record(z.string(), z.number().int().nonnegative()).default({}),
+  risk: riskModelSchema.default({
+    level: 'P2',
+    dimensions: {
+      businessCriticality: 'MEDIUM',
+      data: 'LOW',
+      compatibility: 'LOW',
+      reversibility: 'MEDIUM',
+      security: 'LOW',
+      operational: 'LOW',
+    },
+  }),
+  impact: impactModelSchema.default({
+    frontend: false,
+    backend: false,
+    apiContract: false,
+    database: false,
+    mq: false,
+    remoteService: false,
+    security: false,
+    observability: false,
+  }),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   readiness: readinessSchema,
@@ -186,7 +251,7 @@ export const evidenceRecordSchema = z.object({
   changeId: z.string(),
   revision: z.string(),
   taskId: z.string().optional(),
-  type: z.enum(['build', 'test', 'lint', 'typecheck', 'review', 'qa', 'security', 'migration', 'runtime', 'manual']),
+  type: z.enum(['build', 'test', 'lint', 'typecheck', 'review', 'qa', 'security', 'migration', 'runtime', 'manual', 'contract', 'data', 'rollback', 'reproduction']),
   status: z.enum(['PASS', 'FAIL', 'INCONCLUSIVE']),
   command: z.string().optional(),
   exitCode: z.number().int().optional(),
@@ -237,7 +302,9 @@ export interface ScenarioProfile {
   gates: string[];
   requiredEvidence: string[];
   signals: string[];
-  risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  risk: RiskLevel;
+  riskDimensions?: Partial<RiskModel['dimensions']>;
+  defaultImpact?: Partial<ImpactModel>;
 }
 
 export interface StageRunManifest {

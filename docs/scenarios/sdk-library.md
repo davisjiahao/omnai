@@ -1,20 +1,7 @@
-# Shared SDK or Library
+# Legacy alias: `sdk-library`
 
-Use for packages consumed by other repositories, teams, or applications.
+This page is retained only for compatibility with older OmnAI identifiers.
 
-## Route
+Canonical profile: [`shared-library`](shared-library.md)
 
-```text
-consumer research → public contract → compatibility design → implementation → consumer verification → publish artifact
-```
-
-## Gates
-
-- Public interfaces, error semantics, and versioning policy are explicit.
-- Consumer behavior is considered before implementation detail.
-- Breaking changes require migration guidance and approval.
-- The package can be built, tested, and published independently.
-
-## Evidence
-
-Require API compatibility results, representative consumer tests, package build output, artifact identity, and publication evidence. Deployment stages are not applicable unless the library has a hosted component.
+The CLI resolves `sdk-library` to `shared-library`. Do not treat this alias as a separate scenario or maintain separate routing rules here.

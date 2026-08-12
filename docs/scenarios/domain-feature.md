@@ -1,21 +1,7 @@
-# Complex Domain Feature
+# Legacy alias: `domain-feature`
 
-Use when business terminology, ownership, lifecycle, or rules are ambiguous or historically mixed across code.
+This page is retained only for compatibility with older OmnAI identifiers.
 
-## Route
+Canonical profile: [`complex-domain-feature`](complex-domain-feature.md)
 
-```text
-current-state research → domain decision tree → delta spec → technical design → vertical tasks → independent review → verify → learn
-```
-
-## Gates
-
-- Code facts and business decisions are recorded separately.
-- Blocking domain questions are resolved before technical design.
-- Terms have one canonical meaning within the affected context.
-- Ownership and lifecycle changes require human approval.
-- Edge cases challenge the model before implementation.
-
-## Evidence
-
-Preserve code references, domain decisions, acceptance tests, integration evidence, and any approved ADRs. Promote glossary changes only after the change is verified.
+The CLI resolves `domain-feature` to `complex-domain-feature`. Do not treat this alias as a separate scenario or maintain separate routing rules here.

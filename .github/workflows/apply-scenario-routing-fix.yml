@@ -1,0 +1,146 @@
+name: Apply scenario routing fix
+
+on:
+  push:
+    branches:
+      - feat/omnai-v0.1
+    paths:
+      - .omnai-maintenance/scenario-routing-fix
+
+permissions:
+  contents: write
+
+concurrency:
+  group: omnai-scenario-routing-fix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/omnai-v0.1
+          fetch-depth: 0
+
+      - name: Apply readiness and reconcile corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              if new in text:
+                  print(label, 'already applied')
+                  return
+              if old not in text:
+                  raise SystemExit(f'{label}: expected text not found in {path}')
+              p.write_text(text.replace(old, new))
+              print(label, 'applied')
+
+          replace(
+              'src/domain/types.ts',
+              "  frame: z.enum(READINESS_STATUSES).default('MISSING'),\n  research: z.enum(READINESS_STATUSES).default('MISSING'),\n  triage: z.enum(READINESS_STATUSES).default('MISSING'),",
+              "  frame: z.enum(READINESS_STATUSES).default('MISSING'),\n  map: z.enum(READINESS_STATUSES).default('MISSING'),\n  research: z.enum(READINESS_STATUSES).default('MISSING'),\n  mitigation: z.enum(READINESS_STATUSES).default('MISSING'),\n  triage: z.enum(READINESS_STATUSES).default('MISSING'),",
+              'readiness map/mitigation',
+          )
+          replace(
+              'src/domain/types.ts',
+              "  release: z.enum(READINESS_STATUSES).default('NOT_APPLICABLE'),\n  learning: z.enum(READINESS_STATUSES).default('MISSING'),",
+              "  release: z.enum(READINESS_STATUSES).default('NOT_APPLICABLE'),\n  canary: z.enum(READINESS_STATUSES).default('MISSING'),\n  learning: z.enum(READINESS_STATUSES).default('MISSING'),",
+              'readiness canary',
+          )
+
+          replace(
+              'src/core/store.ts',
+              "      frame: required('frame'),\n      research: required('research'),\n      triage: required('triage'),",
+              "      frame: required('frame'),\n      map: required('map'),\n      research: required('research'),\n      mitigation: required('mitigate'),\n      triage: required('triage'),",
+              'store readiness map/mitigation',
+          )
+          replace(
+              'src/core/store.ts',
+              "      release: scenario.stages.some((stage) => stage === 'ship' || stage === 'release') ? 'MISSING' : 'NOT_APPLICABLE',\n      learning: required('learn'),",
+              "      release: scenario.stages.some((stage) => stage === 'ship' || stage === 'release') ? 'MISSING' : 'NOT_APPLICABLE',\n      canary: required('canary'),\n      learning: required('learn'),",
+              'store readiness canary',
+          )
+
+          p = Path('src/core/store.ts')
+          text = p.read_text()
+          old = """  if (scenario.id === 'bug-fix' || scenario.id === 'emergency-hotfix') {\n    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);\n    await writeYaml(changeArtifactPath(repoRoot, directoryName, 'issue.yaml'), createInitialIssueState());\n    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);\n  }\n"""
+          new = """  if (scenario.id === 'bug-fix' || scenario.id === 'emergency-hotfix') {\n    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);\n    await writeYaml(changeArtifactPath(repoRoot, directoryName, 'issue.yaml'), createInitialIssueState());\n  }\n  if (scenario.stages.includes('fix')) {\n    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);\n  }\n"""
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('store fix artifact block not found')
+              p.write_text(text.replace(old, new))
+
+          replace(
+              'src/core/readiness.ts',
+              "  frame: 'frame',\n  research: 'research',\n  triage: 'triage',",
+              "  frame: 'frame',\n  map: 'map',\n  research: 'research',\n  mitigate: 'mitigation',\n  triage: 'triage',",
+              'router map/mitigation',
+          )
+          replace(
+              'src/core/readiness.ts',
+              "  release: 'release',\n  learn: 'learning',",
+              "  release: 'release',\n  canary: 'canary',\n  learn: 'learning',",
+              'router canary',
+          )
+
+          replace(
+              'src/core/stages.ts',
+              "  map: { outputs: ['map.yaml'], context:",
+              "  map: { outputs: ['map.yaml'], readiness: 'map', context:",
+              'stage map readiness',
+          )
+          replace(
+              'src/core/stages.ts',
+              "  mitigate: { outputs: ['research.md'], context:",
+              "  mitigate: { outputs: ['research.md'], readiness: 'mitigation', context:",
+              'stage mitigation readiness',
+          )
+          replace(
+              'src/core/stages.ts',
+              "  canary: { outputs: ['evidence/canary.json'], context:",
+              "  canary: { outputs: ['evidence/canary.json'], readiness: 'canary', context:",
+              'stage canary readiness',
+          )
+
+          replace(
+              'src/core/scenarios.ts',
+              "    workMode: 'QUALITY', stages: ['research', 'review', 'qa', 'verify', 'learn'], optionalStages: ['plan', 'work', 'reconcile'], requiredArtifacts: ['research.md'],",
+              "    workMode: 'QUALITY', stages: ['research', 'review', 'verify', 'learn'], optionalStages: ['qa', 'plan', 'work', 'reconcile'], requiredArtifacts: ['research.md'],",
+              'quality hardening conditional QA',
+          )
+
+          p = Path('src/core/reconcile.ts')
+          text = p.read_text()
+          start = text.index('const IMPACTS: Record<ReconcileLevel')
+          end = text.index('\n\nexport interface ReconcileInput', start)
+          replacement = """const IMPACTS: Record<ReconcileLevel, Array<keyof ChangeMetadata['readiness']>> = {\n  L0: ['implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],\n  L1: ['plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],\n  L2: ['design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],\n  L3: ['domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],\n  L4: ['frame', 'map', 'research', 'mitigation', 'triage', 'reproduction', 'diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],\n  L5: ['review', 'verification', 'qa', 'release', 'canary'],\n};"""
+          if text[start:end] != replacement:
+              text = text[:start] + replacement + text[end:]
+          text = text.replace("  change.metadata.status = 'NEEDS_RECONCILE';", "  change.metadata.status = 'IN_PROGRESS';")
+          p.write_text(text)
+          PY
+
+          rm -f .omnai-maintenance/scenario-routing-fix
+          rm -f .github/workflows/apply-scenario-routing-fix.yml
+          rmdir .omnai-maintenance 2>/dev/null || true
+
+      - name: Verify focused regression set
+        shell: bash
+        run: |
+          npm install
+          npm run typecheck
+          npm test
+
+      - name: Commit corrections
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: complete scenario readiness and reconcile routing"
+          git push origin HEAD:feat/omnai-v0.1

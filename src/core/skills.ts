@@ -43,7 +43,11 @@ export function locateSkillsRoot(): string {
     resolve(dirname(currentFile), '../../../skills'),
     resolve(process.cwd(), 'skills'),
   ];
-  return candidates.find((candidate) => pathExistsSync(join(candidate, 'omnai', 'SKILL.md'))) ?? candidates[0];
+  const packaged = candidates.find((candidate) => pathExistsSync(join(candidate, 'omnai', 'SKILL.md')));
+  if (packaged) return packaged;
+  const fallback = candidates[0];
+  if (!fallback) throw new Error('Unable to resolve the packaged OmnAI skills directory.');
+  return fallback;
 }
 
 function pathExistsSync(path: string): boolean {
@@ -56,7 +60,6 @@ function pathExistsSync(path: string): boolean {
 }
 
 function requireFs(): typeof import('node:fs') {
-  // Kept in a function so browser-oriented bundlers do not eagerly evaluate it.
   return globalThis.process.getBuiltinModule?.('node:fs') as typeof import('node:fs') ?? failBuiltin();
 }
 

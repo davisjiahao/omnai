@@ -13,10 +13,38 @@ export interface VerificationCommandResult {
   stderr: string;
 }
 
+type EvidenceInput = Omit<EvidenceRecord, 'schemaVersion' | 'id' | 'changeId' | 'revision' | 'createdAt'>;
+
+const RESERVED_REQUIREMENT_IDS = new Set(['human-approval']);
+
 export async function recordEvidence(
   repoRoot: string,
   change: ChangeRef,
-  input: Omit<EvidenceRecord, 'schemaVersion' | 'id' | 'changeId' | 'revision' | 'createdAt'>,
+  input: EvidenceInput,
+): Promise<EvidenceRecord> {
+  if (input.requirementId && RESERVED_REQUIREMENT_IDS.has(input.requirementId)) {
+    throw new Error(`Evidence requirement '${input.requirementId}' is reserved and cannot be recorded through generic evidence APIs. Use the dedicated approval path.`);
+  }
+  return persistEvidence(repoRoot, change, input);
+}
+
+export async function recordHumanApproval(
+  repoRoot: string,
+  change: ChangeRef,
+  summary = 'Explicit human approval recorded for the active revision',
+): Promise<EvidenceRecord> {
+  return persistEvidence(repoRoot, change, {
+    requirementId: 'human-approval',
+    type: 'manual',
+    status: 'PASS',
+    summary,
+  });
+}
+
+async function persistEvidence(
+  repoRoot: string,
+  change: ChangeRef,
+  input: EvidenceInput,
 ): Promise<EvidenceRecord> {
   const root = changeEvidenceRoot(repoRoot, change.directoryName);
   await ensureDir(root);

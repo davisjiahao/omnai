@@ -39,9 +39,11 @@ export function transitionIssue(issue: IssueState, next: IssueTriageState): Issu
     if (issue.fixStrategy !== 'needs-experiment') throw new Error('Fix strategy must require an experiment.');
   }
   if (next === 'ready-for-fix') {
-    if (issue.reproduction !== 'confirmed') throw new Error('Confirmed reproduction is required before a fix.');
-    if (issue.rootCause !== 'confirmed') throw new Error('Confirmed root cause is required before a fix.');
-    if (issue.fixStrategy !== 'ready') throw new Error('Fix strategy must be ready before a fix.');
+    const missing: string[] = [];
+    if (issue.reproduction !== 'confirmed') missing.push('confirmed reproduction');
+    if (issue.rootCause !== 'confirmed') missing.push('confirmed root cause');
+    if (issue.fixStrategy !== 'ready') missing.push('ready fix strategy');
+    if (missing.length > 0) throw new Error(`Issue is not ready for fix: ${missing.join(', ')}.`);
   }
   issue.triageState = next;
   return issue;

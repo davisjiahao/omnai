@@ -1,3 +1,4 @@
+import { existsSync as existsSyncCompat } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
@@ -25,15 +26,19 @@ import {
   workflowLockPath,
 } from './paths.js';
 import {
+  contractTemplate,
+  deliveryTemplate,
+  designTemplate,
   domainTemplate,
   emptyTaskFile,
+  fixTemplate,
   intentTemplate,
+  issueTemplate,
   learningsIndexTemplate,
   projectGlossaryTemplate,
   projectPoliciesTemplate,
   researchTemplate,
   specTemplate,
-  designTemplate,
 } from './templates.js';
 import { appendJsonLine, ensureDir, pathExists, readYaml, writeTextAtomic, writeYaml } from './files.js';
 
@@ -80,7 +85,7 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
       },
       promptVersions: {
         frame: 1,
-        research: 1,
+        research: 2,
         map: 1,
         model: 1,
         spec: 1,
@@ -89,10 +94,10 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
         reproduce: 1,
         diagnose: 1,
         work: 1,
-        review: 1,
-        verify: 1,
+        review: 2,
+        verify: 2,
         qa: 1,
-        release: 1,
+        release: 2,
         learn: 1,
         reconcile: 1,
       },
@@ -137,11 +142,18 @@ export async function createChange(
     workMode: scenario.workMode,
     status: 'DRAFT',
     activeRevision: 'REV-0001',
+    baseline: 'BL-0001',
+    artifactVersions: {},
+    risk: {
+      level: scenario.risk,
+      dimensions: scenario.riskDimensions ?? {},
+    },
+    impact: scenario.defaultImpact ?? {},
     createdAt: now,
     updatedAt: now,
     readiness: readinessSchema.parse({
       frame: scenario.stages.includes('frame') ? 'MISSING' : 'NOT_APPLICABLE',
-      research: scenario.stages.includes('research') ? 'MISSING' : 'NOT_APPLICABLE',
+      research: scenario.stages.includes('research') || scenario.stages.includes('reproduce') || scenario.stages.includes('diagnose') ? 'MISSING' : 'NOT_APPLICABLE',
       domain: scenario.stages.includes('model') ? 'MISSING' : 'NOT_APPLICABLE',
       spec: scenario.stages.includes('spec') ? 'MISSING' : 'NOT_APPLICABLE',
       design: scenario.stages.includes('design') ? 'MISSING' : 'NOT_APPLICABLE',
@@ -160,12 +172,26 @@ export async function createChange(
   await ensureDir(changeRevisionsRoot(repoRoot, directoryName));
   await ensureDir(changeRunsRoot(repoRoot, directoryName));
 
+  if (['bug-fix', 'emergency-hotfix', 'performance-investigation', 'technical-experiment'].includes(scenario.id)) {
+    await ensureDir(join(root, 'experiments'));
+  }
+
   await writeYaml(changeMetadataPath(repoRoot, directoryName), metadata);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'intent.md'), intentTemplate(title, scenario));
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'research.md'), researchTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'domain.md'), domainTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'spec.md'), specTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'design.md'), designTemplate);
+  if (metadata.impact.apiContract || scenario.requiredArtifacts.includes('contract.md')) {
+    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'contract.md'), contractTemplate);
+  }
+  if (scenario.id === 'bug-fix' || scenario.id === 'emergency-hotfix') {
+    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);
+    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);
+  }
+  if (scenario.stages.includes('release')) {
+    await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'delivery.md'), deliveryTemplate);
+  }
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'tasks.yaml'), emptyTaskFile);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'progress.jsonl'), '');
   await writeYaml(join(changeRevisionsRoot(repoRoot, directoryName), 'REV-0001.yaml'), {
@@ -186,6 +212,7 @@ export async function createChange(
     changeId: id,
     revision: 'REV-0001',
     detail: `Scenario ${scenario.id}`,
+    data: { risk: metadata.risk, impact: metadata.impact, baseline: metadata.baseline },
   });
 
   await saveProjectConfig(repoRoot, { ...config, activeChange: id });
@@ -293,9 +320,5 @@ function pathExistsSync(path: string): boolean {
 }
 
 function requireStat(path: string): boolean {
-  // Dynamic require is deliberately avoided in ESM; access through process binding is not portable.
-  // This tiny helper is replaced at build time by Node's synchronous access check through fs.existsSync.
   return existsSyncCompat(path);
 }
-
-import { existsSync as existsSyncCompat } from 'node:fs';

@@ -1,135 +1,53 @@
 import { randomUUID } from 'node:crypto';
 import { basename, join, relative } from 'node:path';
-import type { Capability, StageRunManifest } from '../domain/types.js';
+import type { Capability, ChangeMetadata, StageRunManifest } from '../domain/types.js';
 import { changeArtifactPath, changeRunsRoot, projectKnowledgeRoot } from './paths.js';
 import { appendJsonLine, ensureDir, pathExists, readText, writeTextAtomic, writeYaml } from './files.js';
 import type { ChangeRef } from './store.js';
 import { markReadiness } from './store.js';
 import { capabilityPrompt } from './prompts.js';
 import { loadTasks } from './tasks.js';
+import { getScenario } from './scenarios.js';
+import { buildEvidenceMatrix, selectReviewLenses } from './policy.js';
 
 interface StageDefinition {
   outputs: string[];
-  readiness?: 'frame' | 'research' | 'domain' | 'spec' | 'design' | 'plan' | 'implementation' | 'verification' | 'release' | 'learning';
+  readiness?: keyof ChangeMetadata['readiness'];
   context: string[];
   outputContract: string;
 }
 
 const STAGES: Record<Capability, StageDefinition> = {
-  frame: {
-    outputs: ['intent.md'], readiness: 'frame', context: [],
-    outputContract: 'Update intent.md with target user, problem, demand evidence, narrowest wedge, success signals, scope, and non-goals.',
-  },
-  research: {
-    outputs: ['research.md'], readiness: 'research', context: ['intent.md'],
-    outputContract: 'Update research.md. Every load-bearing finding must cite repository paths and line ranges. Separate facts, assumptions, open questions, and historical lineage when the scenario requires it.',
-  },
-  map: {
-    outputs: ['map.yaml'], context: ['intent.md', 'research.md'],
-    outputContract: 'Write map.yaml with destination, decisions.resolved, decisions.frontier, decisions.blocked, fog, and outOfScope.',
-  },
-  model: {
-    outputs: ['domain.md'], readiness: 'domain', context: ['intent.md', 'research.md'],
-    outputContract: 'Update domain.md with canonical terms, actors, entities, lifecycle, boundaries, invariants, edge cases, resolved decisions, open decisions, and ADR candidates.',
-  },
-  spec: {
-    outputs: ['spec.md'], readiness: 'spec', context: ['intent.md', 'research.md', 'domain.md', 'contract.md'],
-    outputContract: 'Update spec.md with added/modified/removed/preserved requirements, stable acceptance criteria, compatibility, migration expectations, non-goals, and open questions.',
-  },
-  design: {
-    outputs: ['design.md'], readiness: 'design', context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md'],
-    outputContract: 'Update design.md with approaches, recommendation, components, contracts, data flow, state, failure handling, security, observability, tests, delivery, rollback, and risks. Keep contract.md aligned when a boundary changes.',
-  },
-  plan: {
-    outputs: ['tasks.yaml'], readiness: 'plan', context: ['research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md'],
-    outputContract: 'Update tasks.yaml using schemaVersion 1, the active revision, generatedFrom, and dependency-ordered tasks with IDs TASK-001 onward. Every task must be independently verifiable.',
-  },
-  triage: {
-    outputs: ['issue.md'], context: ['intent.md', 'research.md'],
-    outputContract: 'Update issue.md with triage state, missing information, severity, affected scope, expected versus actual behavior, reproduction status, and the justified next state. Do not edit production code.',
-  },
-  reproduce: {
-    outputs: ['issue.md'], readiness: 'research', context: ['intent.md', 'issue.md'],
-    outputContract: 'Update issue.md with exact reproduction conditions, steps, expected behavior, actual behavior, and evidence, or a concrete instrumentation plan if deterministic reproduction is not yet possible.',
-  },
-  debug: {
-    outputs: ['issue.md'], context: ['issue.md', 'research.md'],
-    outputContract: 'Update issue.md with boundary trace, hypotheses tested, evidence, and a confirmed root cause. Do not propose or apply production edits until root cause is confirmed.',
-  },
-  diagnose: {
-    outputs: ['research.md'], readiness: 'research', context: ['research.md'],
-    outputContract: 'Legacy diagnosis path: add Root Cause Analysis to research.md with evidence, data-flow trace, hypotheses tested, and the identified source rather than only the symptom.',
-  },
-  experiment: {
-    outputs: ['experiments/'], context: ['issue.md', 'research.md', 'domain.md', 'spec.md', 'design.md'],
-    outputContract: 'Create one experiment record per candidate with question, metric, setup, one-variable change, result, evidence, cleanup, and conclusion. Preserve failed attempts; do not silently promote experiment code.',
-  },
-  fix: {
-    outputs: ['fix.md'], context: ['issue.md', 'research.md', 'experiments/'],
-    outputContract: 'Update fix.md with confirmed root cause, chosen minimal fix, rejected alternatives, regression guard, compatibility impact, scope, and rollback or recovery.',
-  },
-  mitigate: {
-    outputs: ['research.md'], context: ['intent.md', 'research.md'],
-    outputContract: 'Record mitigation actions, reversibility, side effects, remaining impact, and evidence in research.md.',
-  },
-  work: {
-    outputs: ['progress.jsonl'], readiness: 'implementation', context: ['spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml'],
-    outputContract: 'Implement only the selected task and append execution status through the OmnAI CLI. Do not rewrite progress.jsonl manually.',
-  },
-  simplify: {
-    outputs: ['progress.jsonl'], context: ['design.md', 'tasks.yaml'],
-    outputContract: 'Simplify the selected diff without behavior change, then record verification evidence.',
-  },
-  review: {
-    outputs: ['evidence/review.json'], context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml'],
-    outputContract: 'Create structured independent review evidence. Select lenses from risk and impact; separately report specification compliance and relevant business/domain/architecture/contract/engineering/data/security/performance/operations/UX findings.',
-  },
-  verify: {
-    outputs: ['evidence/'], readiness: 'verification', context: ['spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml', 'delivery.md'],
-    outputContract: 'Build the evidence matrix from scenario, risk, and impact; gather fresh evidence for every required item and record PASS, FAIL, or INCONCLUSIVE results.',
-  },
-  qa: {
-    outputs: ['evidence/qa.json'], context: ['spec.md', 'design.md'],
-    outputContract: 'Record browser or experience QA evidence only when UI impact or project policy requires it. Use project-defined viewports and budgets rather than global constants.',
-  },
-  ship: {
-    outputs: ['delivery.md'], readiness: 'release', context: ['spec.md', 'contract.md', 'design.md', 'tasks.yaml', 'delivery.md'],
-    outputContract: 'Update delivery.md with artifact identity, satisfied gates, rollout strategy, rollback/forward-fix capability, activation plan, post-release signals, and human approval. Return readiness; do not deploy directly.',
-  },
-  release: {
-    outputs: ['evidence/release.json'], readiness: 'release', context: ['spec.md', 'design.md', 'tasks.yaml', 'delivery.md'],
-    outputContract: 'Legacy release evidence: record artifact identity, environment, approval, strategy, rollout result, rollback capability, and runtime verification.',
-  },
-  canary: {
-    outputs: ['evidence/canary.json'], context: ['spec.md', 'design.md', 'delivery.md'],
-    outputContract: 'Record observation window, thresholds, technical metrics, business metrics, anomalies, and continue/pause/rollback decision.',
-  },
-  learn: {
-    outputs: ['learning.md'], readiness: 'learning', context: ['research.md', 'domain.md', 'spec.md', 'design.md', 'fix.md'],
-    outputContract: 'Write learning.md for one validated learning with problem, context, root cause, solution, evidence, applicability, limitations, source revision, and invalidation conditions.',
-  },
-  archive: {
-    outputs: ['change.yaml'], context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'tasks.yaml', 'delivery.md'],
-    outputContract: 'Confirm the canonical artifacts and evidence agree before marking the change archived.',
-  },
-  reconcile: {
-    outputs: ['revisions/'], context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml', 'delivery.md'],
-    outputContract: 'Create a revision through omnai reconcile. Preserve the previous revision and baseline; do not silently overwrite them.',
-  },
+  frame: { outputs: ['intent.md'], readiness: 'frame', context: [], outputContract: 'Update intent.md with target user, problem, demand evidence, narrowest wedge, success signals, scope, and non-goals.' },
+  research: { outputs: ['research.md'], readiness: 'research', context: ['intent.md'], outputContract: 'Update research.md. Every load-bearing finding must cite repository paths and line ranges. Separate facts, assumptions, open questions, and historical lineage when the scenario requires it.' },
+  map: { outputs: ['map.yaml'], context: ['intent.md', 'research.md'], outputContract: 'Write map.yaml with destination, decisions.resolved, decisions.frontier, decisions.blocked, fog, and outOfScope.' },
+  model: { outputs: ['domain.md'], readiness: 'domain', context: ['intent.md', 'research.md'], outputContract: 'Update domain.md with canonical terms, actors, entities, lifecycle, boundaries, invariants, edge cases, resolved decisions, open decisions, and ADR candidates.' },
+  spec: { outputs: ['spec.md'], readiness: 'spec', context: ['intent.md', 'research.md', 'domain.md', 'contract.md'], outputContract: 'Update spec.md with added/modified/removed/preserved requirements, stable acceptance criteria, compatibility, migration expectations, non-goals, and open questions.' },
+  design: { outputs: ['design.md'], readiness: 'design', context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md'], outputContract: 'Update design.md with approaches, recommendation, components, contracts, data flow, state, failure handling, security, observability, tests, delivery, rollback, and risks. Keep contract.md aligned when a boundary changes.' },
+  plan: { outputs: ['tasks.yaml'], readiness: 'plan', context: ['research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md'], outputContract: 'Update tasks.yaml using schemaVersion 1, the active revision, generatedFrom, and dependency-ordered tasks with IDs TASK-001 onward. Every task must be independently verifiable.' },
+  triage: { outputs: ['issue.md'], readiness: 'triage', context: ['intent.md', 'research.md', 'issue.yaml'], outputContract: 'Update issue.md and issue.yaml with triage state, missing information, severity, affected scope, expected versus actual behavior, reproduction status, and the justified next state. Do not edit production code.' },
+  reproduce: { outputs: ['issue.md'], readiness: 'reproduction', context: ['intent.md', 'issue.md', 'issue.yaml'], outputContract: 'Update issue.md and issue.yaml with exact reproduction conditions, steps, expected behavior, actual behavior, and evidence, or a concrete instrumentation plan if deterministic reproduction is not yet possible.' },
+  debug: { outputs: ['issue.md'], readiness: 'diagnosis', context: ['issue.md', 'issue.yaml', 'research.md'], outputContract: 'Update issue.md and issue.yaml with boundary trace, hypotheses tested, evidence, and a confirmed root cause. Do not propose or apply production edits until root cause is confirmed.' },
+  diagnose: { outputs: ['research.md'], readiness: 'diagnosis', context: ['research.md'], outputContract: 'Add Root Cause Analysis to research.md with evidence, data-flow trace, hypotheses tested, and the identified source rather than only the symptom.' },
+  experiment: { outputs: ['experiments/'], readiness: 'experiment', context: ['issue.md', 'issue.yaml', 'research.md', 'domain.md', 'spec.md', 'design.md'], outputContract: 'Create one experiment record per candidate with question, metric, setup, one-variable change, result, evidence, cleanup, and conclusion. Preserve failed attempts; do not silently promote experiment code.' },
+  fix: { outputs: ['fix.md'], readiness: 'fix', context: ['issue.md', 'issue.yaml', 'research.md', 'experiments/'], outputContract: 'Update fix.md with confirmed root cause, chosen minimal fix, rejected alternatives, regression guard, compatibility impact, scope, and rollback or recovery.' },
+  mitigate: { outputs: ['research.md'], context: ['intent.md', 'research.md'], outputContract: 'Record mitigation actions, reversibility, side effects, remaining impact, and evidence in research.md.' },
+  work: { outputs: ['progress.jsonl'], readiness: 'implementation', context: ['spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml'], outputContract: 'Implement only the selected task and append execution status through the OmnAI CLI. Do not rewrite progress.jsonl manually.' },
+  simplify: { outputs: ['progress.jsonl'], context: ['design.md', 'tasks.yaml'], outputContract: 'Simplify the selected diff without behavior change, then record verification evidence.' },
+  review: { outputs: ['evidence/review.json'], readiness: 'review', context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml'], outputContract: 'Create structured independent review evidence. Separately report specification compliance and findings from only the review lenses selected for this change.' },
+  verify: { outputs: ['evidence/'], readiness: 'verification', context: ['spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml', 'delivery.md'], outputContract: 'Gather fresh evidence for every required Evidence Matrix item and record PASS, FAIL, or INCONCLUSIVE results using stable requirement IDs.' },
+  qa: { outputs: ['evidence/qa.json'], readiness: 'qa', context: ['spec.md', 'design.md'], outputContract: 'Record browser or experience QA evidence only when UI impact or project policy requires it. Use project-defined viewports and budgets rather than global constants.' },
+  ship: { outputs: ['delivery.md'], readiness: 'release', context: ['spec.md', 'contract.md', 'design.md', 'tasks.yaml', 'delivery.md'], outputContract: 'Update delivery.md with artifact identity, satisfied gates, rollout strategy, rollback/forward-fix capability, activation plan, post-release signals, and human approval. Return readiness; do not deploy directly.' },
+  release: { outputs: ['evidence/release.json'], readiness: 'release', context: ['spec.md', 'design.md', 'tasks.yaml', 'delivery.md'], outputContract: 'Legacy release evidence: record artifact identity, environment, approval, strategy, rollout result, rollback capability, and runtime verification.' },
+  canary: { outputs: ['evidence/canary.json'], context: ['spec.md', 'design.md', 'delivery.md'], outputContract: 'Record observation window, thresholds, technical metrics, business metrics, anomalies, and continue/pause/rollback decision.' },
+  learn: { outputs: ['learning.md'], readiness: 'learning', context: ['research.md', 'domain.md', 'spec.md', 'design.md', 'fix.md'], outputContract: 'Write learning.md for one validated learning with problem, context, root cause, solution, evidence, applicability, limitations, source revision, and invalidation conditions.' },
+  archive: { outputs: ['change.yaml'], context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'tasks.yaml', 'delivery.md'], outputContract: 'Confirm the canonical artifacts and evidence agree before marking the change archived.' },
+  reconcile: { outputs: ['revisions/'], context: ['intent.md', 'research.md', 'domain.md', 'spec.md', 'contract.md', 'design.md', 'fix.md', 'tasks.yaml', 'delivery.md'], outputContract: 'Create a revision through omnai reconcile. Preserve the previous revision and baseline; do not silently overwrite them.' },
 };
 
-export interface PreparedStage {
-  manifest: StageRunManifest;
-  runDirectory: string;
-  promptPath: string;
-}
+export interface PreparedStage { manifest: StageRunManifest; runDirectory: string; promptPath: string; }
 
-export async function prepareStage(
-  repoRoot: string,
-  change: ChangeRef,
-  capability: Capability,
-  instruction: string,
-): Promise<PreparedStage> {
+export async function prepareStage(repoRoot: string, change: ChangeRef, capability: Capability, instruction: string): Promise<PreparedStage> {
   const definition = STAGES[capability];
   const runId = `RUN-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`;
   const runDirectory = join(changeRunsRoot(repoRoot, change.directoryName), runId);
@@ -137,57 +55,38 @@ export async function prepareStage(
 
   const contextEntries: Array<{ path: string; content: string }> = [];
   for (const artifact of definition.context) {
+    if (artifact.endsWith('/')) continue;
     const path = changeArtifactPath(repoRoot, change.directoryName, artifact);
-    if (await pathExists(path)) {
-      if (artifact.endsWith('/')) continue;
-      contextEntries.push({ path: relative(repoRoot, path), content: await readText(path) });
-    }
+    if (await pathExists(path)) contextEntries.push({ path: relative(repoRoot, path), content: await readText(path) });
   }
-
   for (const projectFile of ['glossary.md', 'policies.md', 'learnings.md']) {
     const path = join(projectKnowledgeRoot(repoRoot), projectFile);
     if (await pathExists(path)) contextEntries.push({ path: relative(repoRoot, path), content: await readText(path) });
   }
 
+  const scenario = getScenario(change.metadata.scenario);
+  const policy = policyGuidance(capability, change, scenario);
   const outputPaths = definition.outputs.map((output) => relative(repoRoot, changeArtifactPath(repoRoot, change.directoryName, output)));
   const promptPath = join(runDirectory, 'prompt.md');
-  const prompt = `${capabilityPrompt(capability, instruction, definition.outputContract)}\nAuthoritative context:\n${contextEntries
-    .map((entry) => `\n---\nSOURCE: ${entry.path}\n${entry.content}`)
-    .join('\n')}\n\nCanonical outputs:\n${outputPaths.map((path) => `- ${path}`).join('\n')}\n`;
+  const prompt = `${capabilityPrompt(capability, instruction, definition.outputContract)}\nScenario policy:\n${policy}\n\nAuthoritative context:\n${contextEntries
+    .map((entry) => `\n---\nSOURCE: ${entry.path}\n${entry.content}`).join('\n')}\n\nCanonical outputs:\n${outputPaths.map((path) => `- ${path}`).join('\n')}\n`;
   await writeTextAtomic(promptPath, prompt);
 
   const now = new Date().toISOString();
   const manifest: StageRunManifest = {
-    schemaVersion: 1,
-    id: runId,
-    changeId: change.metadata.id,
-    revision: change.metadata.activeRevision,
-    capability,
-    status: 'PREPARED',
-    instruction,
-    promptPath: relative(repoRoot, promptPath),
-    outputPaths,
-    createdAt: now,
+    schemaVersion: 1, id: runId, changeId: change.metadata.id, revision: change.metadata.activeRevision,
+    capability, status: 'PREPARED', instruction, promptPath: relative(repoRoot, promptPath), outputPaths, createdAt: now,
   };
   await writeYaml(join(runDirectory, 'run.yaml'), manifest);
   await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
-    timestamp: now,
-    event: 'CAPABILITY_PREPARED',
-    changeId: change.metadata.id,
-    revision: change.metadata.activeRevision,
-    runId,
-    data: { capability, prompt: manifest.promptPath },
+    timestamp: now, event: 'CAPABILITY_PREPARED', changeId: change.metadata.id, revision: change.metadata.activeRevision,
+    runId, data: { capability, prompt: manifest.promptPath },
   });
   if (definition.readiness) await markReadiness(repoRoot, change, definition.readiness, 'IN_PROGRESS');
-
   return { manifest, runDirectory, promptPath };
 }
 
-export async function completeStage(
-  repoRoot: string,
-  change: ChangeRef,
-  capability: Capability,
-): Promise<void> {
+export async function completeStage(repoRoot: string, change: ChangeRef, capability: Capability): Promise<void> {
   const definition = STAGES[capability];
   for (const output of definition.outputs) {
     if (output.endsWith('/')) continue;
@@ -196,33 +95,34 @@ export async function completeStage(
     const content = await readText(path);
     if (!content.trim()) throw new Error(`Required output '${output}' is empty`);
   }
-
-  if (capability === 'plan') {
-    await loadTasks(changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml'));
-  }
+  if (capability === 'plan') await loadTasks(changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml'));
   if (definition.readiness) await markReadiness(repoRoot, change, definition.readiness, 'READY');
   await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
-    timestamp: new Date().toISOString(),
-    event: 'CAPABILITY_COMPLETED',
-    changeId: change.metadata.id,
-    revision: change.metadata.activeRevision,
-    detail: capability,
+    timestamp: new Date().toISOString(), event: 'CAPABILITY_COMPLETED', changeId: change.metadata.id,
+    revision: change.metadata.activeRevision, detail: capability,
   });
 }
 
-export function outputContract(capability: Capability): string {
-  return STAGES[capability].outputContract;
-}
-
-export function stageOutputs(capability: Capability): string[] {
-  return [...STAGES[capability].outputs];
-}
-
+export function outputContract(capability: Capability): string { return STAGES[capability].outputContract; }
+export function stageOutputs(capability: Capability): string[] { return [...STAGES[capability].outputs]; }
 export function shortRunSummary(prepared: PreparedStage): string {
-  return [
-    `Run: ${prepared.manifest.id}`,
-    `Capability: ${prepared.manifest.capability}`,
-    `Prompt: ${prepared.manifest.promptPath}`,
-    `Outputs: ${prepared.manifest.outputPaths.map((path) => basename(path)).join(', ')}`,
-  ].join('\n');
+  return [`Run: ${prepared.manifest.id}`, `Capability: ${prepared.manifest.capability}`, `Prompt: ${prepared.manifest.promptPath}`, `Outputs: ${prepared.manifest.outputPaths.map((path) => basename(path)).join(', ')}`].join('\n');
+}
+
+function policyGuidance(capability: Capability, change: ChangeRef, scenario: ReturnType<typeof getScenario>): string {
+  const base = [
+    `Scenario: ${scenario.id}`,
+    `Risk: ${change.metadata.risk.level}`,
+    `Impact: ${JSON.stringify(change.metadata.impact)}`,
+    `Human gates: ${scenario.gates.join(' | ')}`,
+  ];
+  if (capability === 'review') {
+    base.push(`Required review lenses: ${selectReviewLenses(scenario, change.metadata.risk, change.metadata.impact).join(', ')}`);
+  }
+  if (capability === 'verify' || capability === 'ship') {
+    const matrix = buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact);
+    base.push('Evidence Matrix:');
+    for (const item of matrix) base.push(`- ${item.id}: ${item.required ? 'REQUIRED' : 'OPTIONAL'} — ${item.because}`);
+  }
+  return base.join('\n');
 }

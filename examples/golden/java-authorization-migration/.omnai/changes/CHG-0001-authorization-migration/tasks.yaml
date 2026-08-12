@@ -1,0 +1,100 @@
+schemaVersion: 1
+revision: REV-0002
+generatedFrom: [domain@2, spec@2, contract@2, design@2]
+tasks:
+  - id: TASK-001
+    title: Add neutral authorization tracing
+    objective: Establish metrics usable by both old and new paths.
+    status: DONE
+    dependsOn: []
+    slice: VERTICAL
+    risk: LOW
+    files:
+      create: []
+      modify: [mall-service/src/main/java/example/auth/AuthorizationTracing.java]
+      tests: [mall-service/src/test/java/example/auth/AuthorizationTracingTest.java]
+    consumes: []
+    produces: [authorization-trace]
+    steps: [write failing test, implement trace tags, run test]
+    evidenceRequired: [tests]
+    notes: [Unaffected by L3 correction]
+  - id: TASK-002
+    title: Implement REV-0001 one-to-one migration schema
+    objective: Original schema based on invalid one-row/one-usage assumption.
+    status: SUPERSEDED
+    dependsOn: []
+    slice: EXPAND
+    risk: HIGH
+    files:
+      create: [user-center/src/main/resources/db/V001__authorization.sql]
+      modify: []
+      tests: []
+    consumes: [REV-0001-domain]
+    produces: [old-schema-draft]
+    steps: [superseded by reconciliation]
+    evidenceRequired: [data-reconciliation]
+    notes: [Superseded by REV-0002]
+  - id: TASK-003
+    title: Expand user-center durable Authorization
+    objective: Store durable grant/revoke/expiry independently of quote usage.
+    status: READY
+    dependsOn: [TASK-001]
+    slice: EXPAND
+    risk: HIGH
+    files:
+      create: [user-center/src/main/java/example/auth/Authorization.java]
+      modify: []
+      tests: [user-center/src/test/java/example/auth/AuthorizationRepositoryTest.java]
+    consumes: [domain@2]
+    produces: [AuthorizationRepository]
+    steps: [write migration tests, add schema, implement repository, run module tests]
+    evidenceRequired: [tests, data-reconciliation]
+    notes: []
+  - id: TASK-004
+    title: Expand quote AuthorizationUsage
+    objective: Persist immutable per-quote usage with idempotent quote execution identity.
+    status: PENDING
+    dependsOn: [TASK-003]
+    slice: EXPAND
+    risk: HIGH
+    files:
+      create: [quote-center/src/main/java/example/auth/AuthorizationUsage.java]
+      modify: [quote-center/src/main/java/example/QuoteApplicationService.java]
+      tests: [quote-center/src/test/java/example/auth/AuthorizationUsageTest.java]
+    consumes: [AuthorizationRepository]
+    produces: [AuthorizationUsageRepository]
+    steps: [write retry regression test, add usage model, implement idempotency, run integration tests]
+    evidenceRequired: [tests, contract-test]
+    notes: []
+  - id: TASK-005
+    title: Backfill and reconcile historical authorization
+    objective: Produce durable authorizations and evidence-backed usages while quarantining ambiguous history.
+    status: PENDING
+    dependsOn: [TASK-003, TASK-004]
+    slice: MIGRATE
+    risk: CRITICAL
+    files:
+      create: [migration/src/main/java/example/auth/AuthorizationBackfill.java]
+      modify: []
+      tests: [migration/src/test/java/example/auth/AuthorizationBackfillTest.java]
+    consumes: [old-authorization-data]
+    produces: [reconciliation-report]
+    steps: [dry run, classify zero/one/many histories, reconcile counts, review quarantine, execute approved batches]
+    evidenceRequired: [data-reconciliation, rehearsal-or-dry-run]
+    notes: []
+  - id: TASK-006
+    title: Migrate consumers and contract mall path
+    objective: Move consumers, observe zero legacy traffic, then retire legacy ownership.
+    status: PENDING
+    dependsOn: [TASK-005]
+    slice: CONTRACT
+    risk: CRITICAL
+    files:
+      create: []
+      modify: [mall-service/src/main/java/example/auth/LegacyAuthorizationFacade.java]
+      tests: [integration-tests/src/test/java/example/auth/AuthorizationMigrationContractTest.java]
+    consumes: [reconciliation-report]
+    produces: [retirement-proof]
+    steps: [migrate consumers, run contract suite, canary, observe legacy traffic, remove after approval]
+    evidenceRequired: [contract-test, runtime-health, rollback-plan, human-approval]
+    notes: []

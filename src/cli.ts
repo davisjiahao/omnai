@@ -28,7 +28,7 @@ import {
   transitionTask,
 } from './core/tasks.js';
 import { appendJsonLine, pathExists } from './core/files.js';
-import { evidenceSummary, findEvidenceGaps, listEvidence, recordEvidence, runVerificationCommand } from './core/evidence.js';
+import { evidenceSummary, findEvidenceGaps, listEvidence, recordEvidence, recordHumanApproval, runVerificationCommand } from './core/evidence.js';
 import { reconcileChange } from './core/reconcile.js';
 import { installHostSkills, type SupportedHost } from './core/host-skills.js';
 import { createInvestigation, promoteInvestigation, type InvestigationKind } from './core/investigations.js';
@@ -381,9 +381,7 @@ program
     const change = await resolveChange(repoRoot, options.change);
     const scenario = getScenario(change.metadata.scenario);
     if (options.approve) {
-      await recordEvidence(repoRoot, change, {
-        requirementId: 'human-approval', type: 'manual', status: 'PASS', summary: 'Explicit human approval recorded by omnai ship --approve',
-      });
+      await recordHumanApproval(repoRoot, change, 'Explicit human approval recorded by omnai ship --approve');
     }
     if (!options.complete) {
       const prepared = await prepareStage(repoRoot, change, 'ship', instruction ?? 'Assess delivery readiness.');

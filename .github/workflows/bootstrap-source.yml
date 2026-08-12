@@ -27,7 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           ready=true
-          for part in 00 01 02 03; do
+          for part in $(seq -w 0 17); do
             if [[ ! -f ".omnai-bootstrap/part-${part}" ]]; then
               ready=false
             fi

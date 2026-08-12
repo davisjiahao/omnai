@@ -100,7 +100,7 @@ export type WorkflowLock = z.infer<typeof workflowLockSchema>;
 export const changeMetadataSchema = z.object({
   schemaVersion: z.literal(1), id: z.string().regex(/^CHG-\d{4}$/), slug: z.string().min(1), title: z.string().min(1),
   scenario: z.string().min(1), workMode: z.enum(WORK_MODES), status: z.enum(CHANGE_STATUSES),
-  activeRevision: z.string().regex(/^REV-\d{4}$/), baseline: z.string().default('BL-0001'),
+  activeRevision: z.string().regex(/^REV-\d{4}$/), baseline: z.string().regex(/^BL-\d{4}$/).default('BL-0001'),
   artifactVersions: z.record(z.string(), z.number().int().nonnegative()).default({}),
   risk: riskModelSchema.default({
     level: 'P2', dimensions: { businessCriticality: 'MEDIUM', data: 'LOW', compatibility: 'LOW', reversibility: 'MEDIUM', security: 'LOW', operational: 'LOW' },
@@ -151,6 +151,7 @@ export type ReconcileSignal = z.infer<typeof reconcileSignalSchema>;
 
 export const revisionSchema = z.object({
   schemaVersion: z.literal(1), id: z.string().regex(/^REV-\d{4}$/), changeId: z.string(), previousRevision: z.string().nullable(),
+  previousBaseline: z.string().regex(/^BL-\d{4}$/).optional(), baseline: z.string().regex(/^BL-\d{4}$/).optional(),
   reason: z.string(), level: z.enum(RECONCILE_LEVELS), affectedArtifacts: z.array(z.string()), affectedTasks: z.array(z.string()), createdAt: z.string().datetime(),
 });
 export type Revision = z.infer<typeof revisionSchema>;

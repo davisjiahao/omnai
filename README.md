@@ -2,59 +2,56 @@
 
 OmnAI is a lightweight, repository-local, native AI engineering workflow for Claude Code, Codex, OpenCode, and other coding agents.
 
-It does **not** run HumanLayer, Matt Pocock Skills, OpenSpec, Superpowers, or other workflow projects at runtime. OmnAI independently implements selected engineering ideas in one coherent artifact and state model:
-
-- **Reality** — recover how an existing codebase actually works.
-- **Meaning** — clarify domain language, boundaries, lifecycle, and decisions.
-- **Change** — manage intent, delta requirements, design, revisions, and task dependencies per change.
-- **Delivery** — execute incrementally, review independently, and prove completion with fresh evidence.
-- **Reconcile** — respond to new facts through impact analysis and selective invalidation rather than restarting everything.
-
-## Why OmnAI
-
-AI coding workflows commonly fail in four ways:
-
-1. Chat history is treated as durable project truth.
-2. Requirements, domain language, design, and execution plans are mixed together.
-3. A plan silently becomes wrong during implementation, but the agent keeps executing it.
-4. “Done” is claimed from confidence or an agent report rather than fresh evidence.
-
-OmnAI separates four kinds of facts:
+It does **not** run HumanLayer, Matt Pocock Skills, OpenSpec, Superpowers, GSD, BMAD, gstack, Compound Engineering, Spec Kit, Trellis, OMC, or ECC at runtime. OmnAI independently reimplements selected engineering mechanisms behind one artifact, state, policy, evidence, and revision model.
 
 ```text
-Code, configuration, Git, runtime evidence   → Reality facts
-Reviewed domain decisions                    → Semantic facts
-The active change specification              → Intent facts
-Fresh tests, review, build and runtime proof  → Completion facts
+Reality      current code / config / Git / runtime evidence
+Meaning      reviewed domain language, ownership, lifecycle, invariants
+Intent       the active Change revision and specification
+Completion   fresh evidence proving the active revision
 ```
+
+The core rule is simple: **conversation history and agent confidence are context, not project truth.**
+
+## What OmnAI adds
+
+- repository-local `.omnai/` state instead of chat-only plans;
+- read-only Investigation separated from implementation Change;
+- 19 canonical scenario profiles with P0-P3 risk and impact-aware routing;
+- explicit `Revision + Baseline` lineage and selective reconciliation;
+- independent readiness for framing, mapping, research, mitigation, bug diagnosis, domain, specification, design, experiments, fixes, implementation, review, verification, QA, delivery, canary, and learning;
+- task DAGs with evidence requirements and bounded executor context;
+- dynamic Evidence Matrix derived from scenario + risk + impact;
+- machine guards for issue-backed edits and high-risk delivery;
+- thin native skills installable for Claude Code, Codex, and OpenCode;
+- no backend service, database, daemon, or built-in LLM API.
 
 ## Install from this repository
 
 ```bash
-npm install
 git checkout feat/omnai-v0.1
+npm install
 npm run build
 npm link
 ```
 
 Node.js 20 or newer is required.
 
-## Quick start
+## Quick start: implementation Change
 
 ```bash
 # Inside an existing Git repository
 omnai init --host claude
 
-# Create a change with an explicit scenario profile
-omnai new "Move authorization to user center" --scenario domain-feature
+# Use a canonical scenario profile
+omnai new "Move authorization to user center" --scenario complex-domain-feature
 
-# Inspect readiness and ask what is required next
 omnai status
 omnai next
 
-# Prepare native workflow capabilities
+# Recover reality and domain meaning before changing a legacy system
 omnai research "Map authorization code, data, callers, and historical behavior"
-omnai model "Separate durable authorization from per-quote authorization usage"
+omnai model "Separate durable Authorization from per-quote AuthorizationUsage"
 omnai spec
 omnai design
 omnai plan
@@ -62,10 +59,11 @@ omnai plan
 # Execute one ready task at a time
 omnai work
 omnai work TASK-001 --done
+omnai verify --matrix
 omnai verify --command "npm test"
 omnai work TASK-001 --verified
 
-# Revise safely when implementation discovers a wrong assumption
+# New facts create a revision/baseline instead of silently rewriting history
 omnai reconcile \
   --level L3 \
   --type DOMAIN_ASSUMPTION_INVALIDATED \
@@ -73,7 +71,21 @@ omnai reconcile \
   --task TASK-002
 ```
 
-Each capability creates a bounded prompt under the active change's `runs/` directory. Thin host skills read that prompt, update canonical artifacts, and call the corresponding `--complete` gate.
+Each capability prepares a bounded prompt under the active Change's `runs/` directory. The coding agent reads authoritative artifacts, performs the bounded capability, writes canonical outputs, and completes the stage through the CLI gate.
+
+## Quick start: read-only investigation
+
+Do not create a Change just to answer a question about the current system:
+
+```bash
+omnai investigate create field-lineage "Trace premiumAmount from API request to database and downstream events"
+```
+
+`system-query`, `field-lineage`, and `business-flow` live under `.omnai/investigations/` and are read-only. Implementation intent exists only after explicit promotion:
+
+```bash
+omnai investigate promote INV-0001 "Correct premium amount ownership" --scenario complex-domain-feature
+```
 
 ## Canonical repository state
 
@@ -81,6 +93,7 @@ Each capability creates a bounded prompt under the active change's `runs/` direc
 .omnai/
 ├── config.yaml
 ├── workflow.lock.yaml
+├── investigations/
 ├── project/
 │   ├── glossary.md
 │   ├── policies.md
@@ -93,78 +106,112 @@ Each capability creates a bounded prompt under the active change's `runs/` direc
         ├── research.md
         ├── domain.md
         ├── spec.md
+        ├── contract.md          # conditional
         ├── design.md
+        ├── issue.md             # issue-backed scenarios
+        ├── issue.yaml           # machine bug/incident state
+        ├── fix.md               # correction scenarios
         ├── tasks.yaml
+        ├── delivery.md          # delivery scenarios
         ├── progress.jsonl
         ├── decisions/
+        ├── experiments/
         ├── evidence/
         ├── revisions/
         └── runs/
 ```
 
-Markdown is the human-readable contract. YAML and JSONL hold machine-readable state, dependencies, revisions, task status, and evidence.
+Markdown is human-readable engineering context. YAML and JSONL carry machine state, task status, risk/impact, evidence, revisions, and baselines.
 
-## Scenario profiles
+## Canonical 19 scenarios
 
-OmnAI v0.1 includes profiles for:
+| Scenario | Purpose | Default risk |
+| --- | --- | --- |
+| `system-query` | Read-only code/system question | P3 |
+| `field-lineage` | Trace one field end to end | P3 |
+| `business-flow` | Recover an end-to-end business flow | P2 |
+| `bug-fix` | Triage → reproduce → RCA → focused correction | P2 |
+| `small-feature` | Focused, well-understood feature | P3 |
+| `complex-domain-feature` | Domain-heavy business capability | P1 |
+| `cross-service-change` | Contract/ownership/rollout across services | P1 |
+| `migration-program` | Long-running capability/system migration | P0 |
+| `data-migration` | Schema/data/backfill migration | P0 |
+| `architecture-governance` | Architecture and boundary evolution | P1 |
+| `performance-investigation` | Measured diagnosis and optimization | P1 |
+| `product-discovery` | Product idea to measurable wedge | P2 |
+| `ui-ux-feature` | User-facing interaction/UI change | P2 |
+| `quality-hardening` | Strengthen an existing implementation | P2 |
+| `shared-library` | SDK/library/public API evolution | P1 |
+| `emergency-hotfix` | Minimal high-pressure production correction | P0 |
+| `incident-response` | Mitigate and resolve live production impact | P0 |
+| `release-failure` | Diagnose failed release/deployment | P0 |
+| `technical-experiment` | Compare uncertain technical options | P2 |
 
-- read-only queries
-- bug fixes
-- production incidents
-- small features
-- complex domain features
-- cross-service changes
-- long-running migration programs
-- architecture evolution
-- performance investigations
-- security-sensitive changes
-- data migrations
-- frontend and UX features
-- new products
-- shared SDKs and libraries
-- emergency hotfixes
-- release failures
-
-See [docs/scenarios](docs/scenarios/README.md) or run:
+Legacy IDs remain aliases for compatibility but are not canonical profiles. See [`docs/scenarios/README.md`](docs/scenarios/README.md).
 
 ```bash
 omnai scenario list
-omnai scenario show domain-feature
+omnai scenario show complex-domain-feature
 omnai scenario detect "migrate historical data with dual writes"
 ```
 
-## Native workflow commands
+## Risk, impact and evidence
+
+Every Change stores a P0-P3 risk level plus dimensions for business criticality, data, compatibility, reversibility, security, and operations. Impact tracks frontend, backend, API contract, database, MQ, remote service, security, and observability.
+
+Those values change the required review lenses and Evidence Matrix. Examples include tests/build, contract checks, data reconciliation, browser QA, security review, runtime health, rollback evidence, explicit approval, and P0 rehearsal when applicable.
+
+Evidence is keyed by stable requirement ID. A requirement is satisfied only by matching **PASS** evidence for the active Change lineage.
+
+```bash
+omnai verify --matrix
+omnai verify --record contract --requirement contract-test --status PASS --summary "Consumer contract suite passed"
+```
+
+## Issue-backed correction safety
+
+`bug-fix`, `emergency-hotfix`, `incident-response`, and `release-failure` use `issue.yaml`. Production edits are blocked until machine state confirms:
+
+```text
+reproduction = confirmed
+rootCause    = confirmed
+fixStrategy  = ready
+triageState  = ready-for-fix
+```
+
+Incident mitigation is intentionally separate from root-cause correction. `reconcile` is an event-driven loop when new facts invalidate the active baseline, not a mandatory ceremony in every correction.
+
+## Native commands
 
 | Command | Purpose |
 | --- | --- |
 | `omnai init` | Initialize project-local state and optional host skills |
-| `omnai new` | Create a change workspace |
-| `omnai use` | Select an active change |
-| `omnai status` | Show readiness, tasks, evidence, and next action |
-| `omnai next` | Resolve the next required capability |
-| `omnai frame` | Challenge product framing and define the narrowest wedge |
-| `omnai research` | Recover current code and system reality |
-| `omnai map` | Map a large program as decisions, frontier, blockers, and fog |
-| `omnai model` | Resolve domain language, lifecycle, ownership, and invariants |
-| `omnai spec` | Define delta requirements and acceptance criteria |
-| `omnai design` | Compare approaches and produce technical design |
-| `omnai plan` | Build a dependency-ordered task graph |
-| `omnai work` | Execute and track one task |
-| `omnai verify` | Record fresh completion evidence |
-| `omnai reconcile` | Create a revision and selectively invalidate affected work |
-| `omnai archive` | Archive a verified change without deleting history |
+| `omnai investigate` | Create/promote read-only investigations |
+| `omnai new` / `use` / `list` | Manage Change workspaces |
+| `omnai status` / `next` | Inspect readiness and deterministic next action |
+| `omnai frame` / `map` / `research` / `model` | Product, program, reality and domain work |
+| `omnai spec` / `design` / `plan` | Define implementation intent and task graph |
+| `omnai triage` / `reproduce` / `debug` / `experiment` / `fix` | Correction workflow |
+| `omnai work` / `simplify` | Execute bounded implementation tasks |
+| `omnai review` / `verify` / `qa` | Independent review and evidence collection |
+| `omnai mitigate` | Reduce production impact while preserving evidence |
+| `omnai ship` / `canary` | Assess delivery readiness and post-activation evidence |
+| `omnai reconcile` | Advance revision/baseline and selectively invalidate work |
+| `omnai learn` / `archive` | Promote validated knowledge and close lifecycle |
+| `omnai guard` | Evaluate host-independent hard transitions |
+| `omnai doctor` | Validate repository-local OmnAI state |
 
-Additional capability commands include `reproduce`, `diagnose`, `mitigate`, `simplify`, `review`, `qa`, `release`, `canary`, and `learn`.
+`ship` assesses readiness; it does **not** deploy. Existing enterprise CI/CD remains the delivery executor.
 
-## Design principles
+## Design and implementation references
 
-- One canonical artifact model; no duplicate OpenSpec/Superpowers/Matt/HumanLayer documents.
-- Scenario-dependent depth instead of one mandatory pipeline.
-- A thin orchestrator and fresh, bounded task contexts.
-- Evidence before completion claims.
-- Change revisions are append-only and previous baselines remain inspectable.
-- New facts trigger selective reconciliation, not an all-or-nothing reset.
-- Knowledge is promoted only after verification and review.
+The current source of truth is:
+
+- [`docs/design/omnai-v0.1-native-workflow.md`](docs/design/omnai-v0.1-native-workflow.md)
+- [`docs/implementation/omnai-v0.1-plan.md`](docs/implementation/omnai-v0.1-plan.md)
+- [`examples/golden/java-authorization-migration/`](examples/golden/java-authorization-migration/)
+
+The older `docs/superpowers/` documents are retained as historical planning material and are not the current v0.1 contract.
 
 ## Development
 
@@ -173,9 +220,11 @@ npm install
 npm run typecheck
 npm test
 npm run build
+npm pack --dry-run
+git diff --check
 ```
 
-The detailed v0.1 design and implementation plan are under `docs/superpowers/` on the feature branch.
+CI runs the supported Node matrix and the same release-oriented checks.
 
 ## License
 

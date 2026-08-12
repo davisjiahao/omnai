@@ -67,6 +67,7 @@ export async function runVerificationCommand(
   command: string,
   type: EvidenceRecord['type'] = 'test',
   requirementId?: string,
+  taskId?: string,
 ): Promise<VerificationCommandResult> {
   const execution = spawnSync(command, {
     cwd: repoRoot,
@@ -83,8 +84,10 @@ export async function runVerificationCommand(
   const outputPath = join(outputRoot, `command-${Date.now()}-${randomUUID().slice(0, 8)}.log`);
   await writeTextAtomic(outputPath, `$ ${command}\n\nSTDOUT\n${stdout}\n\nSTDERR\n${stderr}\n`);
   const optionalRequirement = requirementId ? { requirementId } : {};
+  const optionalTask = taskId ? { taskId } : {};
   const record = await recordEvidence(repoRoot, change, {
     ...optionalRequirement,
+    ...optionalTask,
     type,
     status,
     command,
@@ -118,9 +121,17 @@ export function evidenceSummary(records: EvidenceRecord[]): Record<string, numbe
   return summary;
 }
 
-export function findEvidenceGaps(matrix: EvidenceRequirement[], records: EvidenceRecord[]): EvidenceRequirement[] {
+export function evidenceForRevision(records: EvidenceRecord[], activeRevision: string): EvidenceRecord[] {
+  return records.filter((record) => record.revision === activeRevision);
+}
+
+export function findEvidenceGaps(
+  matrix: EvidenceRequirement[],
+  records: EvidenceRecord[],
+  activeRevision: string,
+): EvidenceRequirement[] {
   const passed = new Set(
-    records
+    evidenceForRevision(records, activeRevision)
       .filter((record) => record.status === 'PASS' && record.requirementId)
       .map((record) => record.requirementId as string),
   );

@@ -105,7 +105,7 @@ program
     const next = resolveNextAction(change.metadata, scenario);
     const evidence = await listEvidence(repoRoot, change);
     const matrix = buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact);
-    const gaps = findEvidenceGaps(matrix, evidence);
+    const gaps = findEvidenceGaps(matrix, evidence, change.metadata.activeRevision);
     console.log(`${change.metadata.id}: ${change.metadata.title}`);
     console.log(`Scenario: ${scenario.id} | Status: ${change.metadata.status} | Revision: ${change.metadata.activeRevision} | Baseline: ${change.metadata.baseline}`);
     console.log(`Risk: ${change.metadata.risk.level} | Impact: ${JSON.stringify(change.metadata.impact)}`);
@@ -285,7 +285,7 @@ program
     }
     if (options.verified) {
       const evidence = await listEvidence(repoRoot, change);
-      const missing = task.evidenceRequired.filter((requirement) => !evidence.some((record) => record.status === 'PASS' && record.requirementId === requirement && (!record.taskId || record.taskId === task.id)));
+      const missing = task.evidenceRequired.filter((requirement) => !evidence.some((record) => record.revision === change.metadata.activeRevision && record.status === 'PASS' && record.requirementId === requirement && (!record.taskId || record.taskId === task.id)));
       if (missing.length > 0) throw new Error(`${task.id} is missing PASS evidence for: ${missing.join(', ')}`);
       if (task.status === 'IMPLEMENTED') transitionTask(taskFile, task.id, 'VERIFYING');
       if (task.status === 'VERIFYING') transitionTask(taskFile, task.id, 'VERIFIED');
@@ -327,7 +327,7 @@ program
     const matrix = buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact);
     if (options.matrix) {
       const evidence = await listEvidence(repoRoot, change);
-      const gaps = new Set(findEvidenceGaps(matrix, evidence).map((item) => item.id));
+      const gaps = new Set(findEvidenceGaps(matrix, evidence, change.metadata.activeRevision).map((item) => item.id));
       for (const item of matrix) console.log(`${gaps.has(item.id) ? 'MISSING' : 'SATISFIED'} ${item.id} — ${item.because}`);
       return;
     }
@@ -358,12 +358,12 @@ program
     let commandsPassed = true;
     for (const command of commands) {
       const type = inferEvidenceType(command);
-      const result = await runVerificationCommand(repoRoot, change, command, type, defaultRequirementForEvidenceType(type));
+      const result = await runVerificationCommand(repoRoot, change, command, type, defaultRequirementForEvidenceType(type), options.task);
       console.log(`${result.record.status} ${command}`);
       if (result.record.status !== 'PASS') commandsPassed = false;
     }
     const evidence = await listEvidence(repoRoot, change);
-    const gaps = findEvidenceGaps(matrix, evidence);
+    const gaps = findEvidenceGaps(matrix, evidence, change.metadata.activeRevision);
     const ready = commandsPassed && gaps.length === 0;
     await markReadiness(repoRoot, change, 'verification', ready ? 'READY' : 'CONCERNS');
     if (gaps.length > 0) console.log(`Evidence gaps: ${gaps.map((item) => item.id).join(', ')}`);
@@ -391,7 +391,7 @@ program
     }
     const evidence = await listEvidence(repoRoot, change);
     const matrix = buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact);
-    const gaps = findEvidenceGaps(matrix, evidence);
+    const gaps = findEvidenceGaps(matrix, evidence, change.metadata.activeRevision);
     const decision = evaluateGuard({
       action: 'ship',
       scenario: scenario.id,
@@ -399,7 +399,7 @@ program
       verificationReady: change.metadata.readiness.verification === 'READY',
       reviewReady: !scenario.stages.includes('review') || change.metadata.readiness.review === 'READY',
       evidenceSatisfied: gaps.length === 0,
-      humanApproval: evidence.some((record) => record.requirementId === 'human-approval' && record.status === 'PASS'),
+      humanApproval: evidence.some((record) => record.revision === change.metadata.activeRevision && record.requirementId === 'human-approval' && record.status === 'PASS'),
     });
     if (!decision.allowed) throw new Error(`${decision.code}: ${decision.reason}${gaps.length > 0 ? ` Missing: ${gaps.map((item) => item.id).join(', ')}` : ''}`);
     await completeStage(repoRoot, change, 'ship');
@@ -417,7 +417,7 @@ program
     const change = await resolveChange(repoRoot, options.change);
     const scenario = getScenario(change.metadata.scenario);
     const evidence = await listEvidence(repoRoot, change);
-    const gaps = findEvidenceGaps(buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact), evidence);
+    const gaps = findEvidenceGaps(buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact), evidence, change.metadata.activeRevision);
     const issuePath = changeArtifactPath(repoRoot, change.directoryName, 'issue.yaml');
     const issue = await pathExists(issuePath) ? await loadIssueState(issuePath) : undefined;
     const decision = evaluateGuard({
@@ -428,7 +428,7 @@ program
       verificationReady: change.metadata.readiness.verification === 'READY',
       reviewReady: !scenario.stages.includes('review') || change.metadata.readiness.review === 'READY',
       evidenceSatisfied: gaps.length === 0,
-      humanApproval: evidence.some((record) => record.requirementId === 'human-approval' && record.status === 'PASS'),
+      humanApproval: evidence.some((record) => record.revision === change.metadata.activeRevision && record.requirementId === 'human-approval' && record.status === 'PASS'),
     });
     console.log(JSON.stringify(decision, null, 2));
     if (!decision.allowed) process.exitCode = 2;
@@ -472,7 +472,7 @@ program
     const scenario = getScenario(change.metadata.scenario);
     const tasks = await loadTasks(changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml'));
     const evidence = await listEvidence(repoRoot, change);
-    const gaps = findEvidenceGaps(buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact), evidence);
+    const gaps = findEvidenceGaps(buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact), evidence, change.metadata.activeRevision);
     const unfinished = tasks.tasks.filter((task) => !['DONE', 'CANCELLED', 'SUPERSEDED'].includes(task.status));
     const reviewReady = !scenario.stages.includes('review') || change.metadata.readiness.review === 'READY';
     const releaseReady = !scenario.stages.some((stage) => stage === 'ship' || stage === 'release') || change.metadata.readiness.release === 'READY';

@@ -72,6 +72,9 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
   await initializeProject(repoRoot);
   const config = await loadProjectConfig(repoRoot);
   const scenario = getScenario(scenarioId ?? config.defaultScenario);
+  if (scenario.workMode === 'READ_ONLY_QUERY') {
+    throw new Error(`Scenario '${scenario.id}' is a read-only investigation. Use 'omnai investigate create ${scenario.id} "<question>"' and explicitly promote it before implementation.`);
+  }
   const id = await nextChangeId(repoRoot);
   const slug = slugify(title);
   const directoryName = `${id}-${slug}`;

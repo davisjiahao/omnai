@@ -1,0 +1,47 @@
+name: Apply issue gate fix
+
+on:
+  push:
+    branches:
+      - feat/omnai-v0.1
+    paths:
+      - .omnai-maintenance/issue-gate-fix
+
+permissions:
+  contents: write
+
+concurrency:
+  group: omnai-issue-gate-fix
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/omnai-v0.1
+          fetch-depth: 0
+      - name: Apply focused state-machine fix
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/core/issues.ts')
+          text = path.read_text()
+          old = """  if (next === 'ready-for-fix') {\n    if (issue.reproduction !== 'confirmed') throw new Error('Confirmed reproduction is required before a fix.');\n    if (issue.rootCause !== 'confirmed') throw new Error('Confirmed root cause is required before a fix.');\n    if (issue.fixStrategy !== 'ready') throw new Error('Fix strategy must be ready before a fix.');\n  }\n"""
+          new = """  if (next === 'ready-for-fix') {\n    const missing: string[] = [];\n    if (issue.reproduction !== 'confirmed') missing.push('confirmed reproduction');\n    if (issue.rootCause !== 'confirmed') missing.push('confirmed root cause');\n    if (issue.fixStrategy !== 'ready') missing.push('ready fix strategy');\n    if (missing.length > 0) throw new Error(`Issue is not ready for fix: ${missing.join(', ')}.`);\n  }\n"""
+          if old not in text:
+              raise SystemExit('expected ready-for-fix block not found')
+          path.write_text(text.replace(old, new))
+          PY
+          rm -f .omnai-maintenance/issue-gate-fix
+          rm -f .github/workflows/apply-issue-gate-fix.yml
+      - name: Commit focused fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: report all missing bug fix prerequisites"
+          git push origin HEAD:feat/omnai-v0.1

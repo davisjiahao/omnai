@@ -80,6 +80,10 @@ The CLI does not call an LLM. Skills instruct the active host; repository-local 
 
 Each profile declares required and optional capabilities, artifacts, P0-P3 default risk, risk dimensions, impact defaults, gates, evidence, and detection signals. Legacy IDs resolve to aliases but never appear in the canonical catalog.
 
+### Scenario reclassification
+
+A Change cannot silently switch profiles. `omnai scenario select <scenario> [change] --reason <reason>` performs an **L4 reclassification**: it creates a new Revision/Baseline, materializes newly required artifacts, recalculates readiness, invalidates existing task work as affected by the product/scope change, and preserves or escalates existing risk and impact. Automatic reclassification never lowers an already-established risk/impact signal. Implementation Changes cannot be reclassified into read-only Investigation profiles.
+
 ## Risk and impact
 
 Risk:
@@ -97,7 +101,7 @@ Risk and impact alter design depth, review lenses, evidence requirements, and hu
 
 ## Read-only investigations
 
-`system-query`, `field-lineage`, and `business-flow` use `.omnai/investigations/` for normal read-only work. They do not create implementation intent or modify source. Explicit promotion creates a Change only when implementation is actually requested.
+`system-query`, `field-lineage`, and `business-flow` use `.omnai/investigations/` for normal read-only work. They do not create implementation intent or modify source. Explicit promotion creates a Change only when implementation is actually requested. Promotion updates machine metadata to `PROMOTED` and records the resulting Change ID, preserving Investigation → Change lineage and preventing duplicate promotion.
 
 ## Issue-backed correction state
 
@@ -147,6 +151,8 @@ Tasks have stable IDs, dependencies, slice type (`VERTICAL`, `CONTRACT_FIRST`, `
 
 Each executor receives the active Revision/Baseline, selected task, relevant authoritative artifacts/project policies, scope, and evidence contract—not the entire accumulated conversation.
 
+Task verification only accepts PASS evidence from the active Revision. `verify --command --task TASK-xxx` records task scope explicitly; reconciliation therefore cannot accidentally reuse stale task proof from a previous Revision.
+
 ## Completion gate
 
 A capability cannot become `READY` simply because its scaffold file exists. Completion validates required output, rejects unchanged canonical scaffolds, requires non-empty experiment records for experiment directories, and requires real task definitions when a plan feeds implementation.
@@ -157,13 +163,15 @@ This prevents `--complete` from turning generated placeholders into false projec
 
 Verification derives evidence requirements from scenario + risk + impact. Possible requirements include tests/build, contract/event/integration checks, data reconciliation, browser QA, security review, runtime health, rollback plan, approval, P0 rehearsal, and scenario-specific proof.
 
-Evidence carries a stable `requirementId` and `PASS`, `FAIL`, or `INCONCLUSIVE`. A requirement is satisfied only by PASS evidence for the same ID. Verification is READY only when configured command verification passes and all required Evidence Matrix gaps are closed.
+Evidence carries a stable `requirementId`, its producing Revision, and `PASS`, `FAIL`, or `INCONCLUSIVE`. A requirement is satisfied only by **PASS evidence for the same requirement ID and the active Revision**. Historical evidence remains inspectable but becomes non-authoritative after Revision/Baseline advancement. Verification is READY only when configured command verification passes and all required active-Revision Evidence Matrix gaps are closed.
+
+`human-approval` is a reserved requirement. Generic evidence recording cannot synthesize it; the dedicated ship approval path records approval for the active Revision.
 
 ## Independent review
 
 Review asks whether the implemented change is the **right** change; verification asks whether claims are **proven**. Dynamic review lenses can include business, domain, architecture, contract, engineering, data, security, performance, operations, and UX.
 
-Fresh-context review separates specification compliance from implementation quality. Findings are classified rather than rubber-stamped.
+Fresh-context review separates specification compliance from implementation quality. `evidence/review.json` is machine-validated before review readiness can become `READY`. The record must identify the current Change and active Revision, cover every risk/impact-required review lens, report PASS for specification compliance and implementation quality, conclude PASS, and contain no open CRITICAL/IMPORTANT finding. Arbitrary, stale, incomplete, or concern-bearing review JSON cannot satisfy the gate.
 
 ## Rules / Skills / Guards
 
@@ -171,7 +179,7 @@ Fresh-context review separates specification compliance from implementation qual
 - Skills describe how an agent performs work.
 - Guards are host-independent CLI decisions for hard transitions.
 
-`guard edit` protects all issue-backed correction routes. `guard complete` requires fresh verification and satisfied evidence. `guard ship` additionally enforces P0/P1 independent review and explicit approval.
+`guard edit` protects all issue-backed correction routes. `guard complete` requires fresh verification and satisfied active-Revision evidence. `guard ship` additionally enforces P0/P1 independent review and explicit active-Revision approval.
 
 Host skill installation checks for same-name foreign skills before copying and refuses to overwrite them.
 
@@ -194,7 +202,7 @@ Unaffected work stays done. Directly affected completed work can become `NEEDS_R
 
 ## Ship semantics
 
-`ship` assesses delivery readiness, not deployment. It checks artifact identity, Evidence Matrix, required review, rollout, rollback/forward-fix, activation, post-release signals, and explicit approval. Existing enterprise CI/CD remains the executor.
+`ship` assesses delivery readiness, not deployment. It checks artifact identity, active-Revision Evidence Matrix, required structured review, rollout, rollback/forward-fix, activation, post-release signals, and explicit active-Revision approval. Existing enterprise CI/CD remains the executor.
 
 ## Knowledge promotion
 

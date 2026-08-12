@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findEvidenceGaps, recordEvidence } from '../src/core/evidence.js';
+import { findEvidenceGaps, recordEvidence, recordHumanApproval } from '../src/core/evidence.js';
 import type { EvidenceRequirement } from '../src/core/policy.js';
 import type { EvidenceRecord } from '../src/domain/types.js';
 import { createChange } from '../src/core/store.js';
@@ -32,7 +32,7 @@ test('evidence matrix is satisfied only by PASS evidence for the same requiremen
   assert.deepEqual(findEvidenceGaps(matrix, matrix.map((item) => record(item.id, 'PASS'))), []);
 });
 
-test('generic evidence recording cannot synthesize reserved human approval', async () => {
+test('human approval is reserved to the dedicated approval recorder', async () => {
   const fixture = await createTestRepository();
   try {
     const change = await createChange(fixture.root, 'Cross-service approval guard', 'cross-service-change');
@@ -45,6 +45,11 @@ test('generic evidence recording cannot synthesize reserved human approval', asy
       }),
       /human-approval.*reserved|reserved.*human-approval/i,
     );
+
+    const approval = await recordHumanApproval(fixture.root, change, 'Explicit human approval for this revision');
+    assert.equal(approval.requirementId, 'human-approval');
+    assert.equal(approval.status, 'PASS');
+    assert.equal(approval.revision, change.metadata.activeRevision);
   } finally {
     await fixture.cleanup();
   }

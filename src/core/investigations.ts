@@ -60,12 +60,15 @@ export async function resolveInvestigation(repoRoot: string, reference: string):
   if (!entry) throw new Error(`Investigation '${reference}' was not found.`);
   const match = /^(INV-\d{4})-(system-query|field-lineage|business-flow)$/.exec(entry.name);
   if (!match) throw new Error(`Invalid investigation directory '${entry.name}'.`);
+  const id = match[1];
+  const kind = match[2];
+  if (!id || !kind) throw new Error(`Invalid investigation directory '${entry.name}'.`);
   const directory = join(root, entry.name);
   const research = await readText(join(directory, 'research.md'));
   const queryMatch = /^## Query\n\n(.+)$/m.exec(research);
   return {
-    id: match[1],
-    kind: match[2] as InvestigationKind,
+    id,
+    kind: kind as InvestigationKind,
     query: queryMatch?.[1] ?? '',
     directory,
   };

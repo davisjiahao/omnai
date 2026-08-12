@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
 import { createTestRepository } from './helpers.js';
-import { createChange, resolveChange } from '../src/core/store.js';
+import { createChange, resolveChange, saveChange } from '../src/core/store.js';
 import { loadTasks, saveTasks } from '../src/core/tasks.js';
 import { changeArtifactPath } from '../src/core/paths.js';
 import { reconcileChange } from '../src/core/reconcile.js';
@@ -36,6 +36,13 @@ test('creates a new revision and baseline while invalidating only the affected t
   await saveTasks(tasksPath, taskFile);
 
   const change = await resolveChange(fixture.root, created.metadata.id);
+  change.metadata.readiness.domain = 'READY';
+  change.metadata.readiness.spec = 'READY';
+  change.metadata.readiness.design = 'READY';
+  change.metadata.readiness.plan = 'READY';
+  change.metadata.readiness.implementation = 'IN_PROGRESS';
+  await saveChange(fixture.root, change);
+
   const result = await reconcileChange(fixture.root, change, {
     level: 'L3',
     type: 'DOMAIN_ASSUMPTION_INVALIDATED',
@@ -44,6 +51,8 @@ test('creates a new revision and baseline while invalidating only the affected t
   });
 
   assert.equal(result.revision.id, 'REV-0002');
+  assert.equal(result.revision.previousBaseline, 'BL-0001');
+  assert.equal(result.revision.baseline, 'BL-0002');
   assert.equal(change.metadata.baseline, 'BL-0002');
   assert.deepEqual(result.affectedTasks, ['TASK-002', 'TASK-003']);
   const updated = await loadTasks(tasksPath);

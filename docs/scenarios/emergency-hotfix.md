@@ -1,21 +1,43 @@
-# Emergency Hotfix
+# Scenario: emergency-hotfix
 
-Use when a production defect requires immediate correction but a full feature workflow would delay recovery.
+## Purpose
+
+Restore production safely under time pressure using a reduced but explicit process—not a process-free shortcut.
+
+## When to use
+
+Use when active production impact requires a code/config correction faster than the normal workflow, but the situation is not primarily incident coordination (otherwise start `incident-response`).
 
 ## Route
 
-```text
-reproduce → root-cause evidence → smallest reversible fix → focused and smoke verification → release → mandatory follow-up
-```
+`triage → reproduce → debug → fix → work(minimal) → verify(focused + smoke) → review/waiver → ship → learn/postmortem`
 
-## Gates
+`experiment` is available only if uncertainty cannot be resolved otherwise.
 
-- The scope is limited to restoring expected behavior.
-- Any waived check is recorded with reason and approver.
-- The fix is independently reversible where possible.
-- Production health is checked after release.
-- Deferred cleanup, broader testing, and root-cause follow-up become explicit tasks rather than disappearing.
+## Artifacts
+
+`issue.md`/`issue.yaml` capture evidence and RCA; `fix.md` limits scope; tasks are minimal; `delivery.md` records approval/recovery/post-release signals. Waived normal gates must be explicitly recorded rather than silently omitted.
+
+## Risk and impact
+
+Default P0 with critical business/operational risk. P0 requires recovery, human approval, and rehearsal/dry-run when feasible.
+
+## Human gates
+
+A human controls emergency scope, waivers, production delivery, and rollback/forward-fix decisions. The agent may not equate urgency with authorization.
 
 ## Evidence
 
-Record the symptom, focused regression, smoke tests, release record, production health, waivers, and the mandatory follow-up change or postmortem.
+Reproduction, focused regression, smoke test, relevant build/tests, runtime/production health, approval, and later postmortem/learning. Evidence can be narrower than normal but not imaginary.
+
+## Reconciliation
+
+If root cause requires a domain/architecture change larger than an emergency correction, stabilize with the minimum safe measure, then open/reconcile into follow-up normal work.
+
+## Example
+
+A production NPE blocks quote submission. Reproduce with the problematic insurer payload, prove a previously non-null field is omitted, add the smallest tolerant parsing/regression fix, run focused + smoke tests, record approval/recovery, ship through company release tooling, then create follow-up contract hardening.
+
+## Exit condition
+
+Production is healthy, the emergency correction is evidenced, waivers/follow-ups are visible, and no untracked temporary workaround remains.

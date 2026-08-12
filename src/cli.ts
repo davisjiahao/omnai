@@ -30,6 +30,7 @@ import {
 import { appendJsonLine, pathExists } from './core/files.js';
 import { evidenceSummary, findEvidenceGaps, listEvidence, recordEvidence, recordHumanApproval, runVerificationCommand } from './core/evidence.js';
 import { reconcileChange } from './core/reconcile.js';
+import { reclassifyChange } from './core/reclassify.js';
 import { installHostSkills, type SupportedHost } from './core/host-skills.js';
 import { createInvestigation, promoteInvestigation, type InvestigationKind } from './core/investigations.js';
 import { loadIssueState, saveIssueState, transitionIssue, ISSUE_TRIAGE_STATES } from './core/issues.js';
@@ -209,14 +210,14 @@ scenarioCommand
   .command('select')
   .argument('<id>')
   .argument('[change]')
-  .action(async (id: string, reference?: string) => {
+  .requiredOption('-r, --reason <reason>', 'Why the scenario classification changed')
+  .action(async (id: string, reference: string | undefined, options: { reason: string }) => {
     const repoRoot = findRepositoryRoot();
-    const scenario = getScenario(id);
     const change = await resolveChange(repoRoot, reference);
-    change.metadata.scenario = scenario.id;
-    change.metadata.workMode = scenario.workMode;
-    await saveChange(repoRoot, change);
-    console.log(`Selected ${scenario.id} for ${change.metadata.id}. Re-run status and reconcile readiness before execution.`);
+    const result = await reclassifyChange(repoRoot, change, id, options.reason);
+    console.log(`Reclassified ${result.change.metadata.id} to ${result.change.metadata.scenario}.`);
+    console.log(`Created ${result.reconcile.revision.id} / ${result.change.metadata.baseline} with L4 reconciliation.`);
+    console.log(`Affected tasks: ${result.reconcile.affectedTasks.join(', ') || 'none'}`);
   });
 
 for (const capability of CAPABILITIES.filter((item) => !['work', 'verify', 'ship', 'archive', 'reconcile'].includes(item))) {

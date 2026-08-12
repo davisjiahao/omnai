@@ -106,8 +106,8 @@ export const SCENARIOS: readonly ScenarioProfile[] = [
   {
     id: 'quality-hardening', label: 'Quality hardening',
     description: 'Strengthen an existing implementation through targeted review, tests, QA, and evidence without inventing new product scope.',
-    workMode: 'QUALITY', stages: ['research', 'review', 'qa', 'verify', 'learn'], optionalStages: ['plan', 'work', 'reconcile'], requiredArtifacts: ['research.md'],
-    gates: ['Quality findings are tied to an explicit contract or observed behavior', 'Fixes remain within the hardening scope'], requiredEvidence: ['review', 'tests', 'qa'],
+    workMode: 'QUALITY', stages: ['research', 'review', 'verify', 'learn'], optionalStages: ['qa', 'plan', 'work', 'reconcile'], requiredArtifacts: ['research.md'],
+    gates: ['Quality findings are tied to an explicit contract or observed behavior', 'Fixes remain within the hardening scope'], requiredEvidence: ['review', 'tests'],
     signals: ['quality hardening', 'hardening', 'test coverage', 'pre release review', 'stabilize'], risk: 'P2',
   },
   {
@@ -129,7 +129,7 @@ export const SCENARIOS: readonly ScenarioProfile[] = [
     id: 'incident-response', label: 'Production incident response',
     description: 'Mitigate customer impact first, preserve evidence, find root cause, apply a bounded correction, verify recovery, and require a postmortem.',
     workMode: 'INCIDENT', stages: ['mitigate', 'research', 'debug', 'fix', 'work', 'verify', 'review', 'ship', 'learn'], optionalStages: ['reconcile'],
-    requiredArtifacts: ['research.md', 'fix.md', 'tasks.yaml', 'delivery.md'], gates: ['Mitigation and root-cause correction are recorded separately', 'Emergency changes require explicit delivery approval'],
+    requiredArtifacts: ['issue.md', 'issue.yaml', 'research.md', 'fix.md', 'tasks.yaml', 'delivery.md'], gates: ['Mitigation and root-cause correction are recorded separately', 'Emergency changes require explicit delivery approval'],
     requiredEvidence: ['incident-timeline', 'recovery-check', 'production-health', 'postmortem'], signals: ['production outage', 'customer impact', 'incident', 'production down', 'outage', 'sev'], risk: 'P0',
     riskDimensions: { businessCriticality: 'CRITICAL', operational: 'CRITICAL' }, defaultImpact: { observability: true },
   },
@@ -137,7 +137,7 @@ export const SCENARIOS: readonly ScenarioProfile[] = [
     id: 'release-failure', label: 'Release or deployment failure',
     description: 'Pause promotion, inspect delivery evidence, choose rollback or forward-fix, and verify environment health.',
     workMode: 'RELEASE', stages: ['mitigate', 'research', 'debug', 'reconcile', 'fix', 'work', 'verify', 'review', 'ship', 'learn'], optionalStages: [],
-    requiredArtifacts: ['research.md', 'fix.md', 'tasks.yaml', 'delivery.md'], gates: ['Promotion is paused before investigation', 'Rollback capability is checked instead of assumed'],
+    requiredArtifacts: ['issue.md', 'issue.yaml', 'research.md', 'fix.md', 'tasks.yaml', 'delivery.md'], gates: ['Promotion is paused before investigation', 'Rollback capability is checked instead of assumed'],
     requiredEvidence: ['deployment-logs', 'rollback-or-forward-fix-result', 'environment-health'], signals: ['deployment failed', 'release failed', 'rollback', 'canary failed', 'ci/cd'], risk: 'P0',
     riskDimensions: { operational: 'CRITICAL', reversibility: 'HIGH' }, defaultImpact: { observability: true },
   },

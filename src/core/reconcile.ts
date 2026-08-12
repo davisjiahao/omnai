@@ -11,12 +11,12 @@ import { saveChange } from './store.js';
 import { invalidateTasks, loadTasks, saveTasks } from './tasks.js';
 
 const IMPACTS: Record<ReconcileLevel, Array<keyof ChangeMetadata['readiness']>> = {
-  L0: ['implementation', 'review', 'verification', 'qa'],
-  L1: ['plan', 'implementation', 'review', 'verification', 'qa'],
-  L2: ['design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release'],
-  L3: ['diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release'],
-  L4: ['frame', 'research', 'triage', 'reproduction', 'diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'learning'],
-  L5: ['review', 'verification', 'qa', 'release'],
+  L0: ['implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
+  L1: ['plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
+  L2: ['design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
+  L3: ['domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
+  L4: ['frame', 'map', 'research', 'mitigation', 'triage', 'reproduction', 'diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
+  L5: ['review', 'verification', 'qa', 'release', 'canary'],
 };
 
 export interface ReconcileInput {
@@ -88,7 +88,7 @@ export async function reconcileChange(repoRoot: string, change: ChangeRef, input
   }
   change.metadata.activeRevision = nextRevision;
   change.metadata.baseline = nextBaseline;
-  change.metadata.status = 'NEEDS_RECONCILE';
+  change.metadata.status = 'IN_PROGRESS';
   await saveChange(repoRoot, change);
   await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
     timestamp: now,

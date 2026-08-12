@@ -1,4 +1,4 @@
-import { existsSync as existsSyncCompat } from 'node:fs';
+import { existsSync as existsSyncCompat, readFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
@@ -86,7 +86,9 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
     updatedAt: now,
     readiness: readinessSchema.parse({
       frame: required('frame'),
+      map: required('map'),
       research: required('research'),
+      mitigation: required('mitigate'),
       triage: required('triage'),
       reproduction: required('reproduce'),
       diagnosis: scenario.stages.some((stage) => stage === 'debug' || stage === 'diagnose') ? 'MISSING' : 'NOT_APPLICABLE',
@@ -101,6 +103,7 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
       verification: required('verify'),
       qa: required('qa'),
       release: scenario.stages.some((stage) => stage === 'ship' || stage === 'release') ? 'MISSING' : 'NOT_APPLICABLE',
+      canary: required('canary'),
       learning: required('learn'),
     }),
   });
@@ -111,7 +114,7 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
   await ensureDir(changeEvidenceRoot(repoRoot, directoryName));
   await ensureDir(changeRevisionsRoot(repoRoot, directoryName));
   await ensureDir(changeRunsRoot(repoRoot, directoryName));
-  if (['bug-fix', 'emergency-hotfix', 'performance-investigation', 'technical-experiment'].includes(scenario.id)) await ensureDir(join(root, 'experiments'));
+  if (scenario.stages.includes('experiment') || scenario.optionalStages.includes('experiment')) await ensureDir(join(root, 'experiments'));
 
   await writeYaml(changeMetadataPath(repoRoot, directoryName), metadata);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'intent.md'), intentTemplate(title, scenario));
@@ -120,9 +123,11 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'spec.md'), specTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'design.md'), designTemplate);
   if (metadata.impact.apiContract || scenario.requiredArtifacts.includes('contract.md')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'contract.md'), contractTemplate);
-  if (scenario.id === 'bug-fix' || scenario.id === 'emergency-hotfix') {
+  if (scenario.stages.some((stage) => ['triage', 'reproduce', 'debug'].includes(stage))) {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);
     await writeYaml(changeArtifactPath(repoRoot, directoryName, 'issue.yaml'), createInitialIssueState());
+  }
+  if (scenario.stages.includes('fix')) {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);
   }
   if (scenario.stages.some((stage) => stage === 'ship' || stage === 'release')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'delivery.md'), deliveryTemplate);
@@ -196,10 +201,32 @@ async function createIfMissing(path: string, content: string): Promise<void> { i
 
 function discoverVerificationCommands(repoRoot: string): string[] {
   const commands: string[] = [];
-  if (pathExistsSync(join(repoRoot, 'package.json'))) commands.push('npm test');
-  if (pathExistsSync(join(repoRoot, 'pom.xml'))) commands.push('./mvnw test');
-  if (pathExistsSync(join(repoRoot, 'build.gradle')) || pathExistsSync(join(repoRoot, 'build.gradle.kts'))) commands.push('./gradlew test');
-  if (pathExistsSync(join(repoRoot, 'pyproject.toml'))) commands.push('pytest');
+  const packagePath = join(repoRoot, 'package.json');
+  if (pathExistsSync(packagePath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(packagePath, 'utf8')) as { scripts?: Record<string, unknown> };
+      if (typeof pkg.scripts?.test === 'string' && pkg.scripts.test.trim()) commands.push('npm test');
+    } catch {
+      // Invalid package metadata is surfaced by repository tooling; do not invent a test command.
+    }
+  }
+  if (pathExistsSync(join(repoRoot, 'pom.xml'))) {
+    if (pathExistsSync(join(repoRoot, 'mvnw'))) commands.push('./mvnw test');
+    else if (pathExistsSync(join(repoRoot, 'mvnw.cmd'))) commands.push('mvnw.cmd test');
+    else commands.push('mvn test');
+  }
+  if (pathExistsSync(join(repoRoot, 'build.gradle')) || pathExistsSync(join(repoRoot, 'build.gradle.kts'))) {
+    if (pathExistsSync(join(repoRoot, 'gradlew'))) commands.push('./gradlew test');
+    else if (pathExistsSync(join(repoRoot, 'gradlew.bat'))) commands.push('gradlew.bat test');
+    else commands.push('gradle test');
+  }
+  if (pathExistsSync(join(repoRoot, 'pyproject.toml'))) {
+    try {
+      if (readFileSync(join(repoRoot, 'pyproject.toml'), 'utf8').toLowerCase().includes('pytest')) commands.push('pytest');
+    } catch {
+      // Ignore unreadable optional metadata.
+    }
+  }
   if (pathExistsSync(join(repoRoot, 'go.mod'))) commands.push('go test ./...');
   return commands;
 }

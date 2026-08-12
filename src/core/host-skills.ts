@@ -1,10 +1,10 @@
-import { cp, readdir } from 'node:fs/promises';
+import { cp, readdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProjectConfig } from '../domain/types.js';
 import { ensureDir } from './files.js';
-import { loadProjectConfig, saveProjectConfig } from './store.js';
+import { initializeProject, loadProjectConfig, saveProjectConfig } from './store.js';
 
 export type SupportedHost = 'claude' | 'codex' | 'opencode';
 
@@ -17,13 +17,26 @@ const HOST_DIRECTORIES: Record<SupportedHost, string> = {
 export async function installHostSkills(repoRoot: string, host: SupportedHost): Promise<string[]> {
   const sourceRoot = locateSkillsRoot();
   const destinationRoot = join(repoRoot, HOST_DIRECTORIES[host]);
+  const entries = (await readdir(sourceRoot, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && existsSync(join(sourceRoot, entry.name, 'SKILL.md')));
+
+  for (const entry of entries) {
+    const destination = join(destinationRoot, entry.name);
+    if (!existsSync(destination)) continue;
+    const skillPath = join(destination, 'SKILL.md');
+    if (!existsSync(skillPath)) throw new Error(`Refusing to overwrite existing foreign skill directory '${destination}'`);
+    const content = await readFile(skillPath, 'utf8');
+    const name = /^name:\s*([^\r\n]+)$/m.exec(content)?.[1]?.trim();
+    if (name !== entry.name || !/^# OmnAI\b/m.test(content)) {
+      throw new Error(`Refusing to overwrite existing foreign skill '${destination}'`);
+    }
+  }
+
+  await initializeProject(repoRoot);
   await ensureDir(destinationRoot);
   const installed: string[] = [];
-  const entries = await readdir(sourceRoot, { withFileTypes: true });
   for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
     const source = join(sourceRoot, entry.name);
-    if (!existsSync(join(source, 'SKILL.md'))) continue;
     const destination = join(destinationRoot, entry.name);
     await cp(source, destination, { recursive: true, force: true });
     installed.push(destination);

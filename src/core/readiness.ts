@@ -2,7 +2,9 @@ import type { Capability, ChangeMetadata, ReadinessStatus, ScenarioProfile } fro
 
 const STAGE_READINESS: Partial<Record<Capability, keyof ChangeMetadata['readiness']>> = {
   frame: 'frame',
+  map: 'map',
   research: 'research',
+  mitigate: 'mitigation',
   triage: 'triage',
   reproduce: 'reproduction',
   debug: 'diagnosis',
@@ -19,6 +21,7 @@ const STAGE_READINESS: Partial<Record<Capability, keyof ChangeMetadata['readines
   qa: 'qa',
   ship: 'release',
   release: 'release',
+  canary: 'canary',
   learn: 'learning',
 };
 

@@ -39,7 +39,9 @@ export type Capability = (typeof CAPABILITIES)[number];
 
 export const readinessSchema = z.object({
   frame: z.enum(READINESS_STATUSES).default('MISSING'),
+  map: z.enum(READINESS_STATUSES).default('MISSING'),
   research: z.enum(READINESS_STATUSES).default('MISSING'),
+  mitigation: z.enum(READINESS_STATUSES).default('MISSING'),
   triage: z.enum(READINESS_STATUSES).default('MISSING'),
   reproduction: z.enum(READINESS_STATUSES).default('MISSING'),
   diagnosis: z.enum(READINESS_STATUSES).default('MISSING'),
@@ -54,6 +56,7 @@ export const readinessSchema = z.object({
   verification: z.enum(READINESS_STATUSES).default('MISSING'),
   qa: z.enum(READINESS_STATUSES).default('MISSING'),
   release: z.enum(READINESS_STATUSES).default('NOT_APPLICABLE'),
+  canary: z.enum(READINESS_STATUSES).default('MISSING'),
   learning: z.enum(READINESS_STATUSES).default('MISSING'),
 });
 

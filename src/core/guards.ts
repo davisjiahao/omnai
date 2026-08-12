@@ -21,9 +21,12 @@ export interface GuardDecision {
 }
 
 export function evaluateGuard(input: GuardInput): GuardDecision {
-  if (input.action === 'edit' && input.scenario === 'bug-fix') {
-    if (!input.issue || input.issue.rootCause !== 'confirmed' || input.issue.triageState !== 'ready-for-fix') {
-      return deny('BUG_RCA_REQUIRED', 'Bug fixes cannot edit production code until reproduction, root cause, and fix strategy are confirmed.');
+  // The presence of issue state, rather than a scenario-name allowlist, is the
+  // machine contract for root-cause-gated correction work. This keeps bug,
+  // hotfix, incident and release-failure routes consistent and future-proof.
+  if (input.action === 'edit' && input.issue) {
+    if (input.issue.rootCause !== 'confirmed' || input.issue.reproduction !== 'confirmed' || input.issue.fixStrategy !== 'ready' || input.issue.triageState !== 'ready-for-fix') {
+      return deny('BUG_RCA_REQUIRED', 'Issue-backed changes cannot edit production code until reproduction, root cause, and fix strategy are confirmed.');
     }
   }
 

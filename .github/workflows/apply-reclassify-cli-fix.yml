@@ -1,0 +1,42 @@
+name: Apply reclassify CLI fix
+
+on:
+  push:
+    branches:
+      - feat/omnai-v0.1
+    paths:
+      - .omnai-maintenance/reclassify-cli-fix
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/omnai-v0.1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: python scripts/apply-reclassify-cli-fix.py
+      - run: |
+          npm install
+          npm run typecheck
+          npm test
+          npm run build
+          npm pack --dry-run
+          git diff --check
+      - name: Commit verified CLI wiring
+        run: |
+          rm -f scripts/apply-reclassify-cli-fix.py
+          rm -f .omnai-maintenance/reclassify-cli-fix
+          rm -f .github/workflows/apply-reclassify-cli-fix.yml
+          rmdir .omnai-maintenance 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: route scenario selection through L4 reclassification"
+          git push origin HEAD:feat/omnai-v0.1

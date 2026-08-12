@@ -27,7 +27,7 @@ test('creates a canonical change with all core artifacts and selects it', async 
   const change = await createChange(fixture.root, 'Authorization migration', 'domain-feature');
 
   assert.equal(change.metadata.id, 'CHG-0001');
-  assert.equal(change.metadata.scenario, 'domain-feature');
+  assert.equal(change.metadata.scenario, 'complex-domain-feature');
   for (const artifact of ['intent.md', 'research.md', 'domain.md', 'spec.md', 'design.md', 'tasks.yaml', 'progress.jsonl']) {
     assert.equal(await pathExists(join(fixture.root, '.omnai/changes', change.directoryName, artifact)), true);
   }

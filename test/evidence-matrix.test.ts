@@ -12,12 +12,12 @@ const matrix: EvidenceRequirement[] = [
   { id: 'human-approval', required: true, because: 'P1' },
 ];
 
-function record(requirementId: string, status: EvidenceRecord['status']): EvidenceRecord {
+function record(requirementId: string, status: EvidenceRecord['status'], revision = 'REV-0001'): EvidenceRecord {
   return {
     schemaVersion: 1,
-    id: `EVD-${requirementId}`,
+    id: `EVD-${requirementId}-${revision}`,
     changeId: 'CHG-0001',
-    revision: 'REV-0001',
+    revision,
     requirementId,
     type: requirementId === 'contract-test' ? 'contract' : 'manual',
     status,
@@ -26,10 +26,25 @@ function record(requirementId: string, status: EvidenceRecord['status']): Eviden
   };
 }
 
-test('evidence matrix is satisfied only by PASS evidence for the same requirement id', () => {
-  assert.deepEqual(findEvidenceGaps(matrix, [record('tests', 'PASS')]).map((item) => item.id), ['contract-test', 'human-approval']);
-  assert.deepEqual(findEvidenceGaps(matrix, [record('tests', 'PASS'), record('contract-test', 'FAIL'), record('human-approval', 'PASS')]).map((item) => item.id), ['contract-test']);
-  assert.deepEqual(findEvidenceGaps(matrix, matrix.map((item) => record(item.id, 'PASS'))), []);
+test('evidence matrix is satisfied only by PASS evidence for the same requirement id and active revision', () => {
+  assert.deepEqual(findEvidenceGaps(matrix, [record('tests', 'PASS')], 'REV-0001').map((item) => item.id), ['contract-test', 'human-approval']);
+  assert.deepEqual(findEvidenceGaps(matrix, [record('tests', 'PASS'), record('contract-test', 'FAIL'), record('human-approval', 'PASS')], 'REV-0001').map((item) => item.id), ['contract-test']);
+  assert.deepEqual(findEvidenceGaps(matrix, matrix.map((item) => record(item.id, 'PASS')), 'REV-0001'), []);
+});
+
+test('evidence from a previous revision cannot satisfy the active revision', () => {
+  const oldEvidence = matrix.map((item) => record(item.id, 'PASS', 'REV-0001'));
+  assert.deepEqual(
+    findEvidenceGaps(matrix, oldEvidence, 'REV-0002').map((item) => item.id),
+    ['tests', 'contract-test', 'human-approval'],
+  );
+
+  const mixed = [
+    ...oldEvidence,
+    record('tests', 'PASS', 'REV-0002'),
+    record('contract-test', 'PASS', 'REV-0002'),
+  ];
+  assert.deepEqual(findEvidenceGaps(matrix, mixed, 'REV-0002').map((item) => item.id), ['human-approval']);
 });
 
 test('human approval is reserved to the dedicated approval recorder', async () => {

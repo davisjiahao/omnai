@@ -13,10 +13,10 @@ afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()?.();
 });
 
-test('creates a new revision and invalidates only the affected task subtree', async () => {
+test('creates a new revision and baseline while invalidating only the affected task subtree', async () => {
   const fixture = await createTestRepository();
   cleanups.push(fixture.cleanup);
-  const created = await createChange(fixture.root, 'Authorization migration', 'domain-feature');
+  const created = await createChange(fixture.root, 'Authorization migration', 'complex-domain-feature');
   const tasksPath = changeArtifactPath(fixture.root, created.directoryName, 'tasks.yaml');
   const taskFile = await loadTasks(tasksPath);
   taskFile.tasks = [
@@ -44,6 +44,7 @@ test('creates a new revision and invalidates only the affected task subtree', as
   });
 
   assert.equal(result.revision.id, 'REV-0002');
+  assert.equal(change.metadata.baseline, 'BL-0002');
   assert.deepEqual(result.affectedTasks, ['TASK-002', 'TASK-003']);
   const updated = await loadTasks(tasksPath);
   assert.equal(updated.tasks[0]!.status, 'DONE');
@@ -51,5 +52,6 @@ test('creates a new revision and invalidates only the affected task subtree', as
   assert.equal(updated.tasks[2]!.status, 'INVALIDATED');
   assert.equal(change.metadata.readiness.spec, 'STALE');
   assert.equal(change.metadata.readiness.design, 'INVALIDATED');
+  assert.equal(change.metadata.readiness.review, 'MISSING');
   assert.equal(await pathExists(join(fixture.root, '.omnai/changes', created.directoryName, 'revisions/REV-0002.yaml')), true);
 });

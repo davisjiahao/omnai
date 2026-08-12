@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import YAML from 'yaml';
@@ -10,7 +10,7 @@ export async function ensureDir(path: string): Promise<void> {
 
 export async function pathExists(path: string): Promise<boolean> {
   try {
-    await readFile(path);
+    await access(path);
     return true;
   } catch (error) {
     if (isNotFound(error)) return false;

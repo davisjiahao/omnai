@@ -136,7 +136,7 @@ export const SCENARIOS: readonly ScenarioProfile[] = [
   {
     id: 'release-failure', label: 'Release or deployment failure',
     description: 'Pause promotion, inspect delivery evidence, choose rollback or forward-fix, and verify environment health.',
-    workMode: 'RELEASE', stages: ['mitigate', 'research', 'debug', 'reconcile', 'fix', 'work', 'verify', 'review', 'ship', 'learn'], optionalStages: [],
+    workMode: 'RELEASE', stages: ['mitigate', 'research', 'debug', 'fix', 'work', 'verify', 'review', 'ship', 'learn'], optionalStages: ['reconcile'],
     requiredArtifacts: ['issue.md', 'issue.yaml', 'research.md', 'fix.md', 'tasks.yaml', 'delivery.md'], gates: ['Promotion is paused before investigation', 'Rollback capability is checked instead of assumed'],
     requiredEvidence: ['deployment-logs', 'rollback-or-forward-fix-result', 'environment-health'], signals: ['deployment failed', 'release failed', 'rollback', 'canary failed', 'ci/cd'], risk: 'P0',
     riskDimensions: { operational: 'CRITICAL', reversibility: 'HIGH' }, defaultImpact: { observability: true },

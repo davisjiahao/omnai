@@ -256,10 +256,13 @@ program
     const task = taskId ? requireTask(taskFile, taskId) : taskFrontier(taskFile)[0];
     if (!task) throw new Error('No ready task exists. Run omnai status or reconcile the task graph.');
 
-    if (!options.block && !options.done && !options.verified && (change.metadata.scenario === 'bug-fix' || change.metadata.scenario === 'emergency-hotfix')) {
-      const issue = await loadIssueState(changeArtifactPath(repoRoot, change.directoryName, 'issue.yaml'));
-      const decision = evaluateGuard({ action: 'edit', scenario: change.metadata.scenario, riskLevel: change.metadata.risk.level, issue });
-      if (!decision.allowed) throw new Error(`${decision.code}: ${decision.reason}`);
+    if (!options.block && !options.done && !options.verified) {
+      const issuePath = changeArtifactPath(repoRoot, change.directoryName, 'issue.yaml');
+      if (await pathExists(issuePath)) {
+        const issue = await loadIssueState(issuePath);
+        const decision = evaluateGuard({ action: 'edit', scenario: change.metadata.scenario, riskLevel: change.metadata.risk.level, issue });
+        if (!decision.allowed) throw new Error(`${decision.code}: ${decision.reason}`);
+      }
     }
 
     if (options.block) {
@@ -532,7 +535,7 @@ function assertInvestigationKind(value: string): asserts value is InvestigationK
 }
 
 function assertIssueScenario(scenario: string): void {
-  if (!['bug-fix', 'emergency-hotfix'].includes(scenario)) throw new Error(`Scenario '${scenario}' does not use issue.yaml triage state.`);
+  if (!['bug-fix', 'emergency-hotfix', 'incident-response', 'release-failure'].includes(scenario)) throw new Error(`Scenario '${scenario}' does not use issue.yaml triage state.`);
 }
 
 function formatScenario(scenario: ReturnType<typeof getScenario>): string {

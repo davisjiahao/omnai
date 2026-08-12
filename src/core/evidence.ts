@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { join, relative } from 'node:path';
-import {
-  evidenceRecordSchema,
-  type EvidenceRecord,
-} from '../domain/types.js';
+import { evidenceRecordSchema, type EvidenceRecord } from '../domain/types.js';
+import type { EvidenceRequirement } from './policy.js';
 import { ensureDir, readYaml, writeTextAtomic, writeYaml } from './files.js';
 import { changeEvidenceRoot } from './paths.js';
 import type { ChangeRef } from './store.js';
@@ -40,6 +38,7 @@ export async function runVerificationCommand(
   change: ChangeRef,
   command: string,
   type: EvidenceRecord['type'] = 'test',
+  requirementId?: string,
 ): Promise<VerificationCommandResult> {
   const execution = spawnSync(command, {
     cwd: repoRoot,
@@ -55,7 +54,9 @@ export async function runVerificationCommand(
   await ensureDir(outputRoot);
   const outputPath = join(outputRoot, `command-${Date.now()}-${randomUUID().slice(0, 8)}.log`);
   await writeTextAtomic(outputPath, `$ ${command}\n\nSTDOUT\n${stdout}\n\nSTDERR\n${stderr}\n`);
+  const optionalRequirement = requirementId ? { requirementId } : {};
   const record = await recordEvidence(repoRoot, change, {
+    ...optionalRequirement,
     type,
     status,
     command,
@@ -87,4 +88,13 @@ export function evidenceSummary(records: EvidenceRecord[]): Record<string, numbe
     summary[key] = (summary[key] ?? 0) + 1;
   }
   return summary;
+}
+
+export function findEvidenceGaps(matrix: EvidenceRequirement[], records: EvidenceRecord[]): EvidenceRequirement[] {
+  const passed = new Set(
+    records
+      .filter((record) => record.status === 'PASS' && record.requirementId)
+      .map((record) => record.requirementId as string),
+  );
+  return matrix.filter((item) => item.required && !passed.has(item.id));
 }

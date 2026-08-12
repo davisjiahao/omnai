@@ -3,12 +3,21 @@ import type { Capability, ChangeMetadata, ReadinessStatus, ScenarioProfile } fro
 const STAGE_READINESS: Partial<Record<Capability, keyof ChangeMetadata['readiness']>> = {
   frame: 'frame',
   research: 'research',
+  triage: 'triage',
+  reproduce: 'reproduction',
+  debug: 'diagnosis',
+  diagnose: 'diagnosis',
   model: 'domain',
   spec: 'spec',
   design: 'design',
+  experiment: 'experiment',
+  fix: 'fix',
   plan: 'plan',
   work: 'implementation',
+  review: 'review',
   verify: 'verification',
+  qa: 'qa',
+  ship: 'release',
   release: 'release',
   learn: 'learning',
 };
@@ -20,9 +29,7 @@ export interface NextAction {
 }
 
 export function resolveNextAction(metadata: ChangeMetadata, scenario: ScenarioProfile): NextAction {
-  if (metadata.status === 'ARCHIVED') {
-    return { capability: null, reason: 'Change is archived.', blocked: false };
-  }
+  if (metadata.status === 'ARCHIVED') return { capability: null, reason: 'Change is archived.', blocked: false };
 
   if (metadata.status === 'NEEDS_RECONCILE') {
     return {

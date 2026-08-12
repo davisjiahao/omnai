@@ -1,0 +1,11 @@
+schemaVersion: 1
+id: REV-0002
+changeId: CHG-0001
+previousRevision: REV-0001
+previousBaseline: BL-0001
+baseline: BL-0002
+reason: Historical AuthorizationRecord does not have a one-to-one relationship with quote usage.
+level: L3
+affectedArtifacts: [domain, spec, contract, design, plan, implementation, review, verification, release]
+affectedTasks: [TASK-002]
+createdAt: 2026-08-12T13:15:00.000Z

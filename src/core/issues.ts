@@ -1,3 +1,6 @@
+import { z } from 'zod';
+import { readYaml, writeYaml } from './files.js';
+
 export const ISSUE_TRIAGE_STATES = [
   'needs-info',
   'ready-for-debug',
@@ -7,14 +10,15 @@ export const ISSUE_TRIAGE_STATES = [
   'wontfix',
 ] as const;
 
-export type IssueTriageState = (typeof ISSUE_TRIAGE_STATES)[number];
+export const issueStateSchema = z.object({
+  triageState: z.enum(ISSUE_TRIAGE_STATES),
+  reproduction: z.enum(['unknown', 'confirmed', 'not-reproducible', 'instrumentation-required']),
+  rootCause: z.enum(['unknown', 'suspected', 'confirmed']),
+  fixStrategy: z.enum(['unknown', 'ready', 'needs-experiment']),
+});
 
-export interface IssueState {
-  triageState: IssueTriageState;
-  reproduction: 'unknown' | 'confirmed' | 'not-reproducible' | 'instrumentation-required';
-  rootCause: 'unknown' | 'suspected' | 'confirmed';
-  fixStrategy: 'unknown' | 'ready' | 'needs-experiment';
-}
+export type IssueTriageState = (typeof ISSUE_TRIAGE_STATES)[number];
+export type IssueState = z.infer<typeof issueStateSchema>;
 
 export function createInitialIssueState(): IssueState {
   return {
@@ -41,4 +45,12 @@ export function transitionIssue(issue: IssueState, next: IssueTriageState): Issu
   }
   issue.triageState = next;
   return issue;
+}
+
+export async function loadIssueState(path: string): Promise<IssueState> {
+  return readYaml(path, issueStateSchema);
+}
+
+export async function saveIssueState(path: string, state: IssueState): Promise<void> {
+  await writeYaml(path, issueStateSchema.parse(state));
 }

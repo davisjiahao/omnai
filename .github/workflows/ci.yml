@@ -13,6 +13,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         node-version: [20, 22]
     runs-on: ubuntu-latest
@@ -37,3 +38,5 @@ jobs:
           fi
           exit $status
       - run: npm run build
+      - run: npm pack --dry-run
+      - run: git diff --check

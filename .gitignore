@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# OmnAI runtime scratch state
+.omnai/runs/
+.omnai/cache/
+.omnai/tmp/
+
+# Local environment
+.env
+.env.*
+!.env.example

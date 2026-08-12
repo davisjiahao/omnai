@@ -1,0 +1,46 @@
+{
+  "name": "omnai",
+  "version": "0.1.0",
+  "description": "A lightweight, repository-local, native AI engineering workflow",
+  "type": "module",
+  "bin": {
+    "omnai": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "templates",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/test/**/*.test.js",
+    "check": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2"
+  },
+  "keywords": [
+    "ai",
+    "workflow",
+    "coding-agent",
+    "spec-driven-development",
+    "context-engineering"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/davisjiahao/omnai.git"
+  }
+}

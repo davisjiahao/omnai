@@ -11,6 +11,7 @@ import { loadTasks } from './tasks.js';
 import { getScenario } from './scenarios.js';
 import { buildEvidenceMatrix, selectReviewLenses } from './policy.js';
 import { deliveryTemplate, designTemplate, domainTemplate, emptyTaskFile, fixTemplate, intentTemplate, issueTemplate, researchTemplate, specTemplate } from './templates.js';
+import { validateReviewRecord } from './review.js';
 
 interface StageDefinition {
   outputs: string[];
@@ -105,6 +106,14 @@ export async function completeStage(repoRoot: string, change: ChangeRef, capabil
     const scaffold = initialScaffold(output, change, scenario);
     if (scaffold !== null && content.trim() === scaffold.trim()) {
       throw new Error(`Required output '${output}' is still the unchanged scaffold and is incomplete`);
+    }
+    if (capability === 'review' && output === 'evidence/review.json') {
+      validateReviewRecord(
+        content,
+        change.metadata.id,
+        change.metadata.activeRevision,
+        selectReviewLenses(scenario, change.metadata.risk, change.metadata.impact),
+      );
     }
   }
   if (capability === 'plan') {

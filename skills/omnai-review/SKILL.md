@@ -7,9 +7,32 @@ description: Independently review an implementation against intent using only th
 
 Review is distinct from verification: verification asks whether the change works; review asks whether the working change is the right change.
 
-1. Run `omnai review "<scope>"` to generate a fresh-context review packet. The packet includes selected review lenses derived from scenario risk and impact.
+1. Run `omnai review "<scope>"` to generate a fresh-context review packet. The packet lists review lenses derived from scenario, risk, and impact.
 2. Check specification compliance separately from implementation quality.
-3. Use only relevant lenses: business, domain, architecture, contract, engineering, data, security, performance, operations, or UX.
-4. Treat reviewer findings as evidence to reconcile, not as automatic truth. Classify each finding as contract misread, valid/actionable, accepted trade-off, or noise.
-5. High-risk or irreversible findings that invalidate intent/design must emit a reconcile signal rather than being patched locally.
-6. Write structured review evidence and only then run `omnai review --complete` to mark review readiness.
+3. Use every required lens and only add extra lenses when evidence justifies them.
+4. Classify findings; do not silently patch high-risk findings that invalidate intent/design—reconcile them.
+5. Write `evidence/review.json` using this machine contract:
+
+```json
+{
+  "schemaVersion": 1,
+  "changeId": "CHG-0001",
+  "revision": "REV-0001",
+  "lenses": ["business", "architecture", "engineering"],
+  "specCompliance": "PASS",
+  "implementationQuality": "PASS",
+  "conclusion": "PASS",
+  "findings": [
+    {
+      "lens": "architecture",
+      "severity": "MINOR",
+      "status": "ACCEPTED",
+      "summary": "Documented trade-off"
+    }
+  ]
+}
+```
+
+Allowed review states are `PASS | CONCERNS | FAIL`; finding severity is `CRITICAL | IMPORTANT | MINOR`; finding status is `OPEN | RESOLVED | ACCEPTED`.
+
+6. `omnai review --complete` only becomes READY when the record targets the active Change/Revision, covers all required lenses, both compliance and quality are PASS, conclusion is PASS, and no open CRITICAL/IMPORTANT finding remains.

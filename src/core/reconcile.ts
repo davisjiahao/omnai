@@ -1,12 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import {
-  reconcileSignalSchema,
-  revisionSchema,
-  type ChangeMetadata,
-  type ReconcileLevel,
-  type ReconcileSignal,
-  type Revision,
+  reconcileSignalSchema, revisionSchema,
+  type ChangeMetadata, type ReconcileLevel, type ReconcileSignal, type Revision,
 } from '../domain/types.js';
 import { appendJsonLine, writeYaml } from './files.js';
 import { changeArtifactPath, changeRevisionsRoot } from './paths.js';
@@ -15,12 +11,12 @@ import { saveChange } from './store.js';
 import { invalidateTasks, loadTasks, saveTasks } from './tasks.js';
 
 const IMPACTS: Record<ReconcileLevel, Array<keyof ChangeMetadata['readiness']>> = {
-  L0: ['implementation', 'verification'],
-  L1: ['plan', 'implementation', 'verification'],
-  L2: ['design', 'plan', 'implementation', 'verification'],
-  L3: ['domain', 'spec', 'design', 'plan', 'implementation', 'verification'],
-  L4: ['frame', 'research', 'domain', 'spec', 'design', 'plan', 'implementation', 'verification', 'release', 'learning'],
-  L5: ['release', 'verification'],
+  L0: ['implementation', 'review', 'verification', 'qa'],
+  L1: ['plan', 'implementation', 'review', 'verification', 'qa'],
+  L2: ['design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release'],
+  L3: ['diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release'],
+  L4: ['frame', 'research', 'triage', 'reproduction', 'diagnosis', 'domain', 'spec', 'design', 'experiment', 'fix', 'plan', 'implementation', 'review', 'verification', 'qa', 'release', 'learning'],
+  L5: ['review', 'verification', 'qa', 'release'],
 };
 
 export interface ReconcileInput {
@@ -38,11 +34,7 @@ export interface ReconcileResult {
   affectedTasks: string[];
 }
 
-export async function reconcileChange(
-  repoRoot: string,
-  change: ChangeRef,
-  input: ReconcileInput,
-): Promise<ReconcileResult> {
+export async function reconcileChange(repoRoot: string, change: ChangeRef, input: ReconcileInput): Promise<ReconcileResult> {
   const now = new Date().toISOString();
   const affectedReadiness = IMPACTS[input.level];
   const tasksPath = changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml');
@@ -52,12 +44,12 @@ export async function reconcileChange(
     invalidateTasks(taskFile, requestedTasks, ['L2', 'L3', 'L4'].includes(input.level));
     await saveTasks(tasksPath, taskFile);
   }
-  const affectedTasks = taskFile.tasks
-    .filter((task) => ['STALE', 'NEEDS_REVALIDATION', 'INVALIDATED'].includes(task.status))
-    .map((task) => task.id);
+  const affectedTasks = taskFile.tasks.filter((task) => ['STALE', 'NEEDS_REVALIDATION', 'INVALIDATED'].includes(task.status)).map((task) => task.id);
 
   const previousRevision = change.metadata.activeRevision;
+  const previousBaseline = change.metadata.baseline;
   const nextRevision = incrementRevision(previousRevision);
+  const nextBaseline = incrementBaseline(previousBaseline);
   const signal = reconcileSignalSchema.parse({
     schemaVersion: 1,
     id: `SIG-${Date.now()}-${randomUUID().slice(0, 8)}`,
@@ -79,6 +71,8 @@ export async function reconcileChange(
     level: input.level,
     affectedArtifacts: affectedReadiness,
     affectedTasks,
+    previousBaseline,
+    baseline: nextBaseline,
     createdAt: now,
   });
 
@@ -88,15 +82,12 @@ export async function reconcileChange(
   for (const key of affectedReadiness) {
     const current = change.metadata.readiness[key];
     if (current === 'NOT_APPLICABLE') continue;
-    if (key === 'implementation' && ['READY', 'CONCERNS'].includes(current)) {
-      change.metadata.readiness[key] = 'NEEDS_REVALIDATION';
-    } else if (['L2', 'L3', 'L4'].includes(input.level) && ['plan', 'design'].includes(key)) {
-      change.metadata.readiness[key] = 'INVALIDATED';
-    } else {
-      change.metadata.readiness[key] = current === 'MISSING' ? 'MISSING' : 'STALE';
-    }
+    if (key === 'implementation' && ['READY', 'CONCERNS'].includes(current)) change.metadata.readiness[key] = 'NEEDS_REVALIDATION';
+    else if (['L2', 'L3', 'L4'].includes(input.level) && ['plan', 'design'].includes(key)) change.metadata.readiness[key] = 'INVALIDATED';
+    else change.metadata.readiness[key] = current === 'MISSING' ? 'MISSING' : 'STALE';
   }
   change.metadata.activeRevision = nextRevision;
+  change.metadata.baseline = nextBaseline;
   change.metadata.status = 'NEEDS_RECONCILE';
   await saveChange(repoRoot, change);
   await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
@@ -105,14 +96,19 @@ export async function reconcileChange(
     changeId: change.metadata.id,
     revision: nextRevision,
     detail: `${input.level} ${input.type}: ${input.reason}`,
-    data: { previousRevision, affectedReadiness, affectedTasks },
+    data: { previousRevision, previousBaseline, baseline: nextBaseline, affectedReadiness, affectedTasks },
   });
-
   return { signal, revision, affectedReadiness, affectedTasks };
 }
 
 export function incrementRevision(revision: string): string {
   const match = /^REV-(\d{4})$/.exec(revision);
-  if (!match) throw new Error(`Invalid revision '${revision}'`);
+  if (!match?.[1]) throw new Error(`Invalid revision '${revision}'`);
   return `REV-${String(Number(match[1]) + 1).padStart(4, '0')}`;
+}
+
+export function incrementBaseline(baseline: string): string {
+  const match = /^BL-(\d{4})$/.exec(baseline);
+  if (!match?.[1]) throw new Error(`Invalid baseline '${baseline}'`);
+  return `BL-${String(Number(match[1]) + 1).padStart(4, '0')}`;
 }

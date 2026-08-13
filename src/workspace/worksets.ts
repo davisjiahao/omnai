@@ -73,49 +73,28 @@ export async function saveWorkset(home: string, workset: Workset): Promise<void>
   await writeYaml(worksetManifestPath(home, workset.id), worksetSchema.parse(workset));
 }
 
-export async function addWorksetCandidate(
-  home: string,
-  worksetRef: string,
-  projectAlias: string,
-): Promise<Workset> {
+export async function addWorksetCandidate(home: string, worksetRef: string, projectAlias: string): Promise<Workset> {
   await requireRegisteredProject(home, projectAlias);
   const workset = await resolveWorkset(home, worksetRef);
   const existing = workset.members.find((member) => member.project === projectAlias);
   if (existing) return workset;
 
   const now = new Date().toISOString();
-  workset.members.push({
-    project: projectAlias,
-    status: 'CANDIDATE',
-    addedAt: now,
-    updatedAt: now,
-  });
+  workset.members.push({ project: projectAlias, status: 'CANDIDATE', addedAt: now, updatedAt: now });
   workset.updatedAt = now;
   await saveWorkset(home, workset);
   return workset;
 }
 
-export async function beginProjectResearch(
-  home: string,
-  worksetRef: string,
-  projectAlias: string,
-): Promise<Workset> {
+export async function beginProjectResearch(home: string, worksetRef: string, projectAlias: string): Promise<Workset> {
   return transitionMember(home, worksetRef, projectAlias, 'CANDIDATE', 'RESEARCH_ONLY');
 }
 
-export async function markProjectObservedOnly(
-  home: string,
-  worksetRef: string,
-  projectAlias: string,
-): Promise<Workset> {
+export async function markProjectObservedOnly(home: string, worksetRef: string, projectAlias: string): Promise<Workset> {
   return transitionMember(home, worksetRef, projectAlias, 'RESEARCH_ONLY', 'OBSERVED_ONLY');
 }
 
-export async function activateWorksetProject(
-  home: string,
-  worksetRef: string,
-  projectAlias: string,
-): Promise<Workset> {
+export async function activateWorksetProject(home: string, worksetRef: string, projectAlias: string): Promise<Workset> {
   const workset = await resolveWorkset(home, worksetRef);
   const member = requireMember(workset, projectAlias);
   if (member.status !== 'RESEARCH_ONLY') {
@@ -135,47 +114,42 @@ export async function activateWorksetProject(
   return workset;
 }
 
+export async function markWorksetProjectInactive(home: string, worksetRef: string, projectAlias: string): Promise<Workset> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const member = requireMember(workset, projectAlias);
+  if (member.status !== 'ACTIVE') {
+    throw new Error(`Project '${projectAlias}' must be ACTIVE before it can become INACTIVE.`);
+  }
+
+  const now = new Date().toISOString();
+  member.status = 'INACTIVE';
+  member.updatedAt = now;
+  workset.updatedAt = now;
+  await saveWorkset(home, workset);
+  await syncVsCodeWorkspace(home, workset);
+  return workset;
+}
+
 export function worksetNext(workset: Workset): WorksetNextAction {
   const candidate = workset.members.find((member) => member.status === 'CANDIDATE');
   if (candidate) {
-    return {
-      action: 'inspect-project',
-      project: candidate.project,
-      reason: 'Candidate project requires read-only research before activation.',
-    };
+    return { action: 'inspect-project', project: candidate.project, reason: 'Candidate project requires read-only research before activation.' };
   }
 
   const researching = workset.members.find((member) => member.status === 'RESEARCH_ONLY');
   if (researching) {
-    return {
-      action: 'decide-project-impact',
-      project: researching.project,
-      reason: 'Read-only research must decide whether this project needs modification.',
-    };
+    return { action: 'decide-project-impact', project: researching.project, reason: 'Read-only research must decide whether this project needs modification.' };
   }
 
   const active = workset.members.find((member) => member.status === 'ACTIVE');
   if (active) {
-    return {
-      action: 'project-workflow',
-      project: active.project,
-      reason: 'Active project is ready for its repository-local OmnAI workflow.',
-    };
+    return { action: 'project-workflow', project: active.project, reason: 'Active project is ready for its repository-local OmnAI workflow.' };
   }
 
-  return {
-    action: 'none',
-    reason: 'No Workset membership action is currently required.',
-  };
+  return { action: 'none', reason: 'No Workset membership action is currently required.' };
 }
 
-async function transitionMember(
-  home: string,
-  worksetRef: string,
-  projectAlias: string,
-  requiredStatus: WorksetMember['status'],
-  targetStatus: WorksetMember['status'],
-): Promise<Workset> {
+async function transitionMember(home: string, worksetRef: string, projectAlias: string, requiredStatus: WorksetMember['status'], targetStatus: WorksetMember['status']): Promise<Workset> {
   const workset = await resolveWorkset(home, worksetRef);
   const member = requireMember(workset, projectAlias);
   if (member.status !== requiredStatus) {
@@ -197,9 +171,7 @@ function requireMember(workset: Workset, projectAlias: string): WorksetMember {
 
 async function loadPersonalConfig(home: string): Promise<PersonalConfig> {
   const path = personalConfigPath(home);
-  if (!(await pathExists(path))) {
-    return personalConfigSchema.parse({ schemaVersion: 1, activeWorkset: null });
-  }
+  if (!(await pathExists(path))) return personalConfigSchema.parse({ schemaVersion: 1, activeWorkset: null });
   return readYaml(path, personalConfigSchema);
 }
 
@@ -209,10 +181,7 @@ async function savePersonalConfig(home: string, config: PersonalConfig): Promise
 
 async function nextWorksetId(home: string): Promise<string> {
   const worksets = await listWorksets(home);
-  const next = worksets.reduce((maximum, workset) => {
-    const value = Number(workset.id.slice(4));
-    return Math.max(maximum, value);
-  }, 0) + 1;
+  const next = worksets.reduce((maximum, workset) => Math.max(maximum, Number(workset.id.slice(4))), 0) + 1;
   return `WKS-${String(next).padStart(4, '0')}`;
 }
 

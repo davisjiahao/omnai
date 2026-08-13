@@ -10,7 +10,7 @@ afterEach(async () => {
 });
 
 function runCli(home: string, args: string[]) {
-  return spawnSync(process.execPath, [resolve('dist/src/cli.js'), ...args], {
+  return spawnSync(process.execPath, [resolve('dist/src/main.js'), ...args], {
     encoding: 'utf8',
     env: { ...process.env, OMNAI_HOME: home },
   });

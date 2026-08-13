@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
 import {
   personalConfigPath,
@@ -13,6 +14,7 @@ import {
   type Workset,
   type WorksetMember,
 } from './types.js';
+import { syncVsCodeWorkspace } from './vscode-workspace.js';
 
 export interface WorksetNextAction {
   action: string;
@@ -107,6 +109,30 @@ export async function markProjectObservedOnly(
   projectAlias: string,
 ): Promise<Workset> {
   return transitionMember(home, worksetRef, projectAlias, 'RESEARCH_ONLY', 'OBSERVED_ONLY');
+}
+
+export async function activateWorksetProject(
+  home: string,
+  worksetRef: string,
+  projectAlias: string,
+): Promise<Workset> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const member = requireMember(workset, projectAlias);
+  if (member.status !== 'RESEARCH_ONLY') {
+    throw new Error(`Project '${projectAlias}' must be RESEARCH_ONLY before activation.`);
+  }
+
+  const project = await requireRegisteredProject(home, projectAlias);
+  const created = await createWorksetWorktree(home, workset, project);
+  const now = new Date().toISOString();
+  member.status = 'ACTIVE';
+  member.worktree = created.path;
+  member.branch = created.branch;
+  member.updatedAt = now;
+  workset.updatedAt = now;
+  await saveWorkset(home, workset);
+  await syncVsCodeWorkspace(home, workset);
+  return workset;
 }
 
 export function worksetNext(workset: Workset): WorksetNextAction {

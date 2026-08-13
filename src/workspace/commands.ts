@@ -11,6 +11,7 @@ import {
   beginProjectResearch,
   createWorkset,
   markProjectObservedOnly,
+  markWorksetProjectInactive,
   resolveWorkset,
   worksetNext,
 } from './worksets.js';
@@ -141,6 +142,19 @@ export function createPersonalWorkspaceProgram(): Command {
       const updated = await activateWorksetProject(home, target.id, projectAlias);
       const member = updated.members.find((item) => item.project === projectAlias);
       printResult(member, options.json, `Activated ${projectAlias} in ${member?.worktree}`);
+    });
+
+  workset
+    .command('mark-inactive')
+    .argument('<project>', 'Active project alias')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (projectAlias: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const updated = await markWorksetProjectInactive(home, target.id, projectAlias);
+      const member = updated.members.find((item) => item.project === projectAlias);
+      printResult(member, options.json, `Marked ${projectAlias} INACTIVE; its Worktree is retained.`);
     });
 
   workset

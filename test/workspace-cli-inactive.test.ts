@@ -18,7 +18,7 @@ function runCli(home: string, args: string[]) {
   });
 }
 
-test('deactivate-project retains the Worktree while removing it from the VS Code workspace', async () => {
+test('mark-inactive retains the Worktree while removing it from the VS Code workspace', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, repo.cleanup);
@@ -33,7 +33,7 @@ test('deactivate-project retains the Worktree while removing it from the VS Code
   assert.equal(activated.status, 0, activated.stderr);
   const activeMember = JSON.parse(activated.stdout);
 
-  const inactive = runCli(home.root, ['workset', 'deactivate-project', 'user', '--json']);
+  const inactive = runCli(home.root, ['workset', 'mark-inactive', 'user', '--json']);
   assert.equal(inactive.status, 0, inactive.stderr);
   const inactiveMember = JSON.parse(inactive.stdout);
   assert.equal(inactiveMember.status, 'INACTIVE');

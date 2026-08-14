@@ -32,7 +32,3 @@ export function worksetWorkspaceRoot(home: string, id: string): string {
 export function worksetMarkerPath(home: string, id: string): string {
   return join(worksetWorkspaceRoot(home, id), '.omnai-workset.yaml');
 }
-
-export function worksetVsCodePath(home: string, id: string, slug: string): string {
-  return join(worksetRoot(home, id), `${slug}.code-workspace`);
-}

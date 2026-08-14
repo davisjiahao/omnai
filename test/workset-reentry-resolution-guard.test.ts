@@ -10,6 +10,7 @@ import {
   markProjectObservedOnly,
 } from '../src/workspace/worksets.js';
 import {
+  pendingWorksetReentry,
   recordWorksetReentry,
   resolveWorksetReentry,
 } from '../src/workspace/reentry.js';
@@ -25,7 +26,7 @@ async function activate(home: string, worksetId: string, project: string): Promi
   await createAndActivateWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
 }
 
-test('cannot resolve a Re-entry while one of its newly introduced candidates still needs an impact decision', async () => {
+test('B2a Re-entry cannot resolve directly even after candidate impact is decided', async () => {
   const home = await createTestDirectory('omnai-home-');
   const userRepo = await createTestRepository('user-center');
   const pricingRepo = await createTestRepository('pricing-center');
@@ -45,21 +46,19 @@ test('cannot resolve a Re-entry while one of its newly introduced candidates sti
 
   await assert.rejects(
     () => resolveWorksetReentry(home.root, workset.id, reentry.id),
-    /pricing.*impact decision|impact decision.*pricing/i,
+    /B2a lifecycle|cannot be resolved directly/i,
   );
 
   await beginProjectResearch(home.root, workset.id, 'pricing');
+  await markProjectObservedOnly(home.root, workset.id, 'pricing');
   await assert.rejects(
     () => resolveWorksetReentry(home.root, workset.id, reentry.id),
-    /pricing.*impact decision|impact decision.*pricing/i,
+    /B2a lifecycle|cannot be resolved directly/i,
   );
-
-  await markProjectObservedOnly(home.root, workset.id, 'pricing');
-  const resolved = await resolveWorksetReentry(home.root, workset.id, reentry.id);
-  assert.equal(resolved.status, 'RESOLVED');
+  assert.equal((await pendingWorksetReentry(home.root, workset.id))?.id, reentry.id);
 });
 
-test('cannot resolve a newer pending Re-entry before the oldest pending record', async () => {
+test('oldest B2a PENDING Re-entry remains the deterministic pending record', async () => {
   const home = await createTestDirectory('omnai-home-');
   const userRepo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, userRepo.cleanup);
@@ -81,9 +80,7 @@ test('cannot resolve a newer pending Re-entry before the oldest pending record',
 
   await assert.rejects(
     () => resolveWorksetReentry(home.root, workset.id, second.id),
-    new RegExp(`${first.id}.*before|before.*${first.id}`, 'i'),
+    /B2a lifecycle|cannot be resolved directly/i,
   );
-
-  assert.equal((await resolveWorksetReentry(home.root, workset.id, first.id)).status, 'RESOLVED');
-  assert.equal((await resolveWorksetReentry(home.root, workset.id, second.id)).status, 'RESOLVED');
+  assert.equal((await pendingWorksetReentry(home.root, workset.id))?.id, first.id);
 });

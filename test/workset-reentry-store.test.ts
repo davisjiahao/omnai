@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
-import { pathExists } from '../src/core/files.js';
+import { pathExists, writeYaml } from '../src/core/files.js';
 import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
@@ -15,6 +15,7 @@ import {
 import { worksetReentryPath, worksetWorkspaceRoot } from '../src/workspace/paths.js';
 import {
   listWorksetReentries,
+  loadWorksetReentry,
   pendingWorksetReentry,
   recordWorksetReentry,
   resolveWorksetReentry,
@@ -59,6 +60,53 @@ test('persists monotonic Workset Re-entry records and reloads them in order', as
     'Database dual-write is no longer allowed.',
   ]);
   assert.equal((await pendingWorksetReentry(home.root, workset.id))?.id, 'WRE-0001');
+});
+
+test('schema v2 applications default failure classification and attempt history when older records omit them', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  cleanups.push(home.cleanup);
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  const createdAt = new Date().toISOString();
+  await writeYaml(worksetReentryPath(home.root, workset.id, 'WRE-0001'), {
+    schemaVersion: 2,
+    id: 'WRE-0001',
+    worksetId: workset.id,
+    kind: 'PLAN_CHANGED',
+    reason: 'Historical schema-v2 fixture without new recovery fields.',
+    route: {
+      capability: 'plan',
+      interaction: 'none',
+      reason: 'Only task structure, dependency order, or delivery sequencing changed.',
+    },
+    affectedProjects: ['user'],
+    candidateProjects: [],
+    status: 'DECIDED',
+    proposal: [],
+    applications: [{
+      project: 'user',
+      changeId: 'CHG-0001',
+      status: 'FAILED',
+      level: 'L1',
+      reopenFrom: 'plan',
+      readinessClosure: ['plan'],
+      taskRoots: [],
+      taskClosure: [],
+      fromRevision: 'REV-0001',
+      fromBaseline: 'BL-0001',
+      toRevision: null,
+      toBaseline: null,
+      error: 'legacy failure',
+      appliedAt: null,
+    }],
+    rulesVersion: 1,
+    createdAt,
+    decidedAt: createdAt,
+    resolvedAt: null,
+  });
+
+  const loaded = await loadWorksetReentry(home.root, workset.id, 'WRE-0001');
+  assert.equal(loaded.applications[0]?.failureKind, null);
+  assert.deepEqual(loaded.applications[0]?.attemptHistory, []);
 });
 
 test('new schema v2 Re-entry cannot bypass DECIDED applications through direct resolve', async () => {

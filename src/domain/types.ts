@@ -148,14 +148,16 @@ export type EvidenceRecord = z.infer<typeof evidenceRecordSchema>;
 
 export const reconcileSignalSchema = z.object({
   schemaVersion: z.literal(1), id: z.string(), changeId: z.string(), revision: z.string(), level: z.enum(RECONCILE_LEVELS),
-  type: z.string().min(1), reason: z.string().min(1), affectedTasks: z.array(z.string()).default([]), evidence: z.array(z.string()).default([]), createdAt: z.string().datetime(),
+  type: z.string().min(1), reason: z.string().min(1), affectedTasks: z.array(z.string()).default([]), evidence: z.array(z.string()).default([]),
+  correlationId: z.string().min(1).optional(), createdAt: z.string().datetime(),
 });
 export type ReconcileSignal = z.infer<typeof reconcileSignalSchema>;
 
 export const revisionSchema = z.object({
   schemaVersion: z.literal(1), id: z.string().regex(/^REV-\d{4}$/), changeId: z.string(), previousRevision: z.string().nullable(),
   previousBaseline: z.string().regex(/^BL-\d{4}$/).optional(), baseline: z.string().regex(/^BL-\d{4}$/).optional(),
-  reason: z.string(), level: z.enum(RECONCILE_LEVELS), affectedArtifacts: z.array(z.string()), affectedTasks: z.array(z.string()), createdAt: z.string().datetime(),
+  reason: z.string(), level: z.enum(RECONCILE_LEVELS), affectedArtifacts: z.array(z.string()), affectedTasks: z.array(z.string()),
+  correlationId: z.string().min(1).optional(), createdAt: z.string().datetime(),
 });
 export type Revision = z.infer<typeof revisionSchema>;
 

@@ -21,6 +21,10 @@ import {
 } from './reentry.js';
 import { applyWorksetReentry, reentryApplicationStatus } from './reconcile-apply.js';
 import { decideWorksetReentry, planWorksetReentry } from './reconcile-plan.js';
+import {
+  confirmFailedWorksetReentryApplicationReplan,
+  previewFailedWorksetReentryApplicationReplan,
+} from './reconcile-replan.js';
 import { resolveOmnaiHome, worksetWorkspaceRoot } from './paths.js';
 import { resolveWorksetNext, type WorksetRouteAction } from './workset-router.js';
 import {
@@ -328,6 +332,27 @@ export function createPersonalWorkspaceProgram(): Command {
     });
 
   reentry
+    .command('replan')
+    .argument('<reentry>', 'DECIDED WRE identifier with a stale failed project application')
+    .requiredOption('--project <alias>', 'FAILED project application to preview or confirm')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--confirm', 'Persist the recalculated frozen application and archive the failed attempt')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { project: string; workset?: string; confirm?: boolean; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      if (options.confirm) {
+        const record = await confirmFailedWorksetReentryApplicationReplan(home, target.id, reentryId, options.project);
+        const result = { mode: 'confirmed', record };
+        printResult(result, options.json, `Replanned ${reentryId}/${options.project}; failed attempt archived and application reset to PENDING.`);
+        return;
+      }
+      const preview = await previewFailedWorksetReentryApplicationReplan(home, target.id, reentryId, options.project);
+      const result = { mode: 'preview', preview };
+      printResult(result, options.json, `Preview ${reentryId}/${options.project}: ${preview.fromRevision}/${preview.fromBaseline}. No state was changed.`);
+    });
+
+  reentry
     .command('status')
     .argument('<reentry>', 'WRE identifier')
     .option('--workset <workset>', 'Workset ID or slug')
@@ -382,6 +407,9 @@ function formatNext(next: WorksetRouteAction): string {
   if (next.action === 'apply-reentry') {
     return `apply-reentry ${next.project} (${next.reentryId}, ${next.applicationStatus}) — ${next.reason}`;
   }
+  if (next.action === 'replan-reentry') {
+    return `replan-reentry ${next.project} (${next.reentryId}) — ${next.reason}`;
+  }
   if ('project' in next) {
     return `${next.action} ${next.project} — ${next.reason}`;
   }
@@ -391,7 +419,7 @@ function formatNext(next: WorksetRouteAction): string {
 function formatReentryStatus(record: Awaited<ReturnType<typeof reentryApplicationStatus>>): string {
   const lines = [`${record.id}: ${record.status} ${record.kind}`];
   for (const application of record.applications) {
-    lines.push(`  ${application.project.padEnd(20)} ${application.status}${application.changeId ? ` ${application.changeId}` : ''}`);
+    lines.push(`  ${application.project.padEnd(20)} ${application.status}${application.failureKind ? ` ${application.failureKind}` : ''}${application.changeId ? ` ${application.changeId}` : ''}`);
   }
   return lines.join('\n');
 }

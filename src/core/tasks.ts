@@ -113,7 +113,22 @@ export function dependentTaskIds(taskFile: TaskFile, roots: string[]): string[] 
 }
 
 export function invalidateTasks(taskFile: TaskFile, taskIds: string[], severe: boolean): void {
-  const affected = new Set(dependentTaskIds(taskFile, taskIds));
+  applyTaskInvalidation(taskFile, new Set(dependentTaskIds(taskFile, taskIds)), severe);
+}
+
+export function invalidateExactTasks(taskFile: TaskFile, taskIds: string[], severe: boolean): void {
+  const uniqueIds = [...new Set(taskIds)];
+  for (const taskId of uniqueIds) requireTask(taskFile, taskId);
+  applyTaskInvalidation(taskFile, new Set(uniqueIds), severe);
+}
+
+export function summarizeTasks(taskFile: TaskFile): Record<string, number> {
+  const summary: Record<string, number> = {};
+  for (const task of taskFile.tasks) summary[task.status] = (summary[task.status] ?? 0) + 1;
+  return summary;
+}
+
+function applyTaskInvalidation(taskFile: TaskFile, affected: Set<string>, severe: boolean): void {
   for (const task of taskFile.tasks) {
     if (!affected.has(task.id)) continue;
     if (['DONE', 'VERIFIED', 'IMPLEMENTED'].includes(task.status)) {
@@ -124,10 +139,4 @@ export function invalidateTasks(taskFile: TaskFile, taskIds: string[], severe: b
       task.status = 'STALE';
     }
   }
-}
-
-export function summarizeTasks(taskFile: TaskFile): Record<string, number> {
-  const summary: Record<string, number> = {};
-  for (const task of taskFile.tasks) summary[task.status] = (summary[task.status] ?? 0) + 1;
-  return summary;
 }

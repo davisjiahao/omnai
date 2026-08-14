@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { spawnSync } from 'node:child_process';
+import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { pathExists, readText } from '../src/core/files.js';
-import { worksetVsCodePath } from '../src/workspace/paths.js';
+import { pathExists } from '../src/core/files.js';
+import { worksetRoot, worksetWorkspaceRoot } from '../src/workspace/paths.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -18,20 +19,28 @@ function runCli(home: string, args: string[]) {
   });
 }
 
-test('creates and inspects a Workset through the JSON CLI', async () => {
+test('creates, inspects, and resolves an aggregate Workset path through the JSON CLI', async () => {
   const home = await createTestDirectory('omnai-home-');
   cleanups.push(home.cleanup);
 
   const created = runCli(home.root, ['workset', 'new', 'Authorization Migration', '--json']);
   assert.equal(created.status, 0, created.stderr);
-  assert.equal(JSON.parse(created.stdout).id, 'WKS-0001');
+  const workset = JSON.parse(created.stdout);
+  assert.equal(workset.id, 'WKS-0001');
 
   const status = runCli(home.root, ['workset', 'status', 'WKS-0001', '--json']);
   assert.equal(status.status, 0, status.stderr);
   assert.equal(JSON.parse(status.stdout).title, 'Authorization Migration');
+
+  const pathResult = runCli(home.root, ['workset', 'path', 'WKS-0001', '--json']);
+  assert.equal(pathResult.status, 0, pathResult.stderr);
+  assert.deepEqual(JSON.parse(pathResult.stdout), {
+    workset: 'WKS-0001',
+    path: worksetWorkspaceRoot(home.root, 'WKS-0001'),
+  });
 });
 
-test('runs the candidate research activation lifecycle through the CLI', async () => {
+test('runs candidate research activation into the aggregate directory without a code-workspace file', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, repo.cleanup);
@@ -61,10 +70,10 @@ test('runs the candidate research activation lifecycle through the CLI', async (
   assert.equal(activated.status, 0, activated.stderr);
   const member = JSON.parse(activated.stdout);
   assert.equal(member.status, 'ACTIVE');
+  assert.equal(member.worktree, `${worksetWorkspaceRoot(home.root, workset.id)}/user`);
   assert.equal(await pathExists(member.worktree), true);
   assert.notEqual(member.worktree, repo.root);
 
-  const workspacePath = worksetVsCodePath(home.root, workset.id, workset.slug);
-  const workspace = JSON.parse(await readText(workspacePath));
-  assert.deepEqual(workspace.folders, [{ name: 'user', path: member.worktree }]);
+  const entries = await readdir(worksetRoot(home.root, workset.id));
+  assert.equal(entries.some((entry) => entry.endsWith('.code-workspace')), false);
 });

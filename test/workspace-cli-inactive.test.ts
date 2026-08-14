@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { pathExists, readText } from '../src/core/files.js';
-import { worksetVsCodePath } from '../src/workspace/paths.js';
+import { pathExists } from '../src/core/files.js';
+import { worksetWorkspaceRoot } from '../src/workspace/paths.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -18,7 +18,7 @@ function runCli(home: string, args: string[]) {
   });
 }
 
-test('mark-inactive retains the Worktree while removing it from the VS Code workspace', async () => {
+test('mark-inactive retains the Worktree in the aggregate directory', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, repo.cleanup);
@@ -37,8 +37,14 @@ test('mark-inactive retains the Worktree while removing it from the VS Code work
   assert.equal(inactive.status, 0, inactive.stderr);
   const inactiveMember = JSON.parse(inactive.stdout);
   assert.equal(inactiveMember.status, 'INACTIVE');
+  assert.equal(inactiveMember.worktree, activeMember.worktree);
+  assert.equal(inactiveMember.branch, activeMember.branch);
   assert.equal(await pathExists(activeMember.worktree), true);
 
-  const workspace = JSON.parse(await readText(worksetVsCodePath(home.root, workset.id, workset.slug)));
-  assert.deepEqual(workspace.folders, []);
+  const pathResult = runCli(home.root, ['workset', 'path', workset.id, '--json']);
+  assert.equal(pathResult.status, 0, pathResult.stderr);
+  assert.deepEqual(JSON.parse(pathResult.stdout), {
+    workset: workset.id,
+    path: worksetWorkspaceRoot(home.root, workset.id),
+  });
 });

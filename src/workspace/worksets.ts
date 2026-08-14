@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { listChanges } from '../core/store.js';
 import { ensureExecutionWorkspace } from './execution-workspace.js';
 import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
@@ -107,6 +108,17 @@ export async function activateWorksetProject(home: string, worksetRef: string, p
 
   const project = await requireRegisteredProject(home, projectAlias);
   const created = await createWorksetWorktree(home, workset, project);
+  const worktreeChanges = await listChanges(created.path);
+  const boundChange = worktreeChanges.find((change) => change.metadata.id === member.changeId);
+  if (!boundChange) {
+    throw new Error(
+      `Bound Project Change '${member.changeId}' is not present in the created Worktree for '${projectAlias}'. The original repository remains untouched; fix the committed Change state before retrying.`,
+    );
+  }
+  if (boundChange.metadata.status === 'ARCHIVED') {
+    throw new Error(`Bound Project Change '${member.changeId}' is archived in the created Worktree.`);
+  }
+
   const now = new Date().toISOString();
   member.status = 'ACTIVE';
   member.worktree = created.path;

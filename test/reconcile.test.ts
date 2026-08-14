@@ -125,3 +125,39 @@ test('persists an external correlation id in reconcile lineage for idempotent re
   assert.match(revisionText, /correlationId:\s*WRE-0001\/user/);
   assert.match(progressText, /WRE-0001\/user/);
 });
+
+test('reconcile lineage attributes only tasks affected by the current operation', async () => {
+  const fixture = await createTestRepository();
+  cleanups.push(fixture.cleanup);
+  const created = await createChange(fixture.root, 'Authorization migration', 'complex-domain-feature');
+  const tasksPath = changeArtifactPath(fixture.root, created.directoryName, 'tasks.yaml');
+  const taskFile = await loadTasks(tasksPath);
+  taskFile.tasks = [
+    {
+      id: 'TASK-001', title: 'Previously stale', objective: 'Unrelated earlier work', status: 'STALE', dependsOn: [], slice: 'VERTICAL', risk: 'LOW',
+      files: { create: [], modify: [], tests: [] }, consumes: [], produces: [], steps: [], evidenceRequired: [], notes: [],
+    },
+    {
+      id: 'TASK-002', title: 'Current scope', objective: 'Current affected task', status: 'DONE', dependsOn: [], slice: 'VERTICAL', risk: 'MEDIUM',
+      files: { create: [], modify: [], tests: [] }, consumes: [], produces: [], steps: [], evidenceRequired: [], notes: [],
+    },
+  ];
+  await saveTasks(tasksPath, taskFile);
+  const change = await resolveChange(fixture.root, created.metadata.id);
+
+  const result = await reconcileChange(fixture.root, change, {
+    level: 'L3',
+    type: 'WORKSET_REENTRY',
+    reason: 'Only TASK-002 belongs to this frozen application',
+    affectedReadiness: ['spec'],
+    affectedTasks: ['TASK-002'],
+    affectedTaskClosure: ['TASK-002'],
+    correlationId: 'WRE-0001/user',
+  });
+
+  assert.deepEqual(result.affectedTasks, ['TASK-002']);
+  assert.deepEqual(result.revision.affectedTasks, ['TASK-002']);
+  const after = await loadTasks(tasksPath);
+  assert.equal(after.tasks.find((task) => task.id === 'TASK-001')?.status, 'STALE');
+  assert.equal(after.tasks.find((task) => task.id === 'TASK-002')?.status, 'NEEDS_REVALIDATION');
+});

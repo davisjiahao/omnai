@@ -1,4 +1,6 @@
+import { execFileSync } from 'node:child_process';
 import { createChange, listChanges, type ChangeRef } from '../core/store.js';
+import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
 import { resolveWorkset, saveWorkset } from './worksets.js';
 import type { Workset, WorksetMember } from './types.js';
@@ -10,6 +12,7 @@ export interface ProjectChangeCandidate {
   status: string;
   activeRevision: string;
   baseline: string;
+  committedAtHead: boolean;
 }
 
 export async function listProjectChangeCandidates(
@@ -22,7 +25,7 @@ export async function listProjectChangeCandidates(
   const registered = await requireRegisteredProject(home, projectAlias);
   const repoRoot = member.worktree ?? registered.path;
   const changes = await listChanges(repoRoot);
-  return changes.map(toCandidate);
+  return changes.map((change) => toCandidate(repoRoot, change));
 }
 
 export async function bindWorksetProjectChange(
@@ -44,6 +47,12 @@ export async function bindWorksetProjectChange(
   const registered = await requireRegisteredProject(home, projectAlias);
   const repoRoot = member.worktree ?? registered.path;
   const change = await requireBindableChange(repoRoot, changeId);
+  if (!member.worktree && !changeExistsAtHead(repoRoot, change)) {
+    throw new Error(
+      `Project Change '${changeId}' is not present in committed HEAD. Commit the Project Change before binding it to a HEAD-based Worktree, or create a new Workset Project Change explicitly.`,
+    );
+  }
+
   member.changeId = change.metadata.id;
   member.updatedAt = new Date().toISOString();
   workset.updatedAt = member.updatedAt;
@@ -51,7 +60,7 @@ export async function bindWorksetProjectChange(
   return workset;
 }
 
-export async function createAndBindWorksetProjectChange(
+export async function createAndActivateWorksetProjectChange(
   home: string,
   worksetRef: string,
   projectAlias: string,
@@ -68,10 +77,15 @@ export async function createAndBindWorksetProjectChange(
   }
 
   const registered = await requireRegisteredProject(home, projectAlias);
-  const change = await createChange(registered.path, title, scenario);
+  const createdWorktree = await createWorksetWorktree(home, workset, registered);
+  const change = await createChange(createdWorktree.path, title, scenario);
+  const now = new Date().toISOString();
   member.changeId = change.metadata.id;
-  member.updatedAt = new Date().toISOString();
-  workset.updatedAt = member.updatedAt;
+  member.status = 'ACTIVE';
+  member.worktree = createdWorktree.path;
+  member.branch = createdWorktree.branch;
+  member.updatedAt = now;
+  workset.updatedAt = now;
   await saveWorkset(home, workset);
   return { workset, change };
 }
@@ -92,7 +106,7 @@ async function requireBindableChange(repoRoot: string, changeId: string): Promis
   return change;
 }
 
-function toCandidate(change: ChangeRef): ProjectChangeCandidate {
+function toCandidate(repoRoot: string, change: ChangeRef): ProjectChangeCandidate {
   return {
     id: change.metadata.id,
     title: change.metadata.title,
@@ -100,5 +114,19 @@ function toCandidate(change: ChangeRef): ProjectChangeCandidate {
     status: change.metadata.status,
     activeRevision: change.metadata.activeRevision,
     baseline: change.metadata.baseline,
+    committedAtHead: changeExistsAtHead(repoRoot, change),
   };
+}
+
+function changeExistsAtHead(repoRoot: string, change: ChangeRef): boolean {
+  const gitPath = `.omnai/changes/${change.directoryName}/change.yaml`;
+  try {
+    execFileSync('git', ['cat-file', '-e', `HEAD:${gitPath}`], {
+      cwd: repoRoot,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }

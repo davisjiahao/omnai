@@ -7,7 +7,9 @@ import {
 
 const command = process.argv[2];
 
-if (isPersonalWorkspaceCommand(command)) {
+if (command === '--version' || command === '-V') {
+  console.log('0.2.0');
+} else if (isPersonalWorkspaceCommand(command)) {
   createPersonalWorkspaceProgram().parseAsync(process.argv).catch((error: unknown) => {
     console.error(`OmnAI error: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

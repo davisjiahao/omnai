@@ -84,14 +84,15 @@ test('routes a mid-flight domain change through new-project research before Gril
   assert.equal(records[0].id, 'WRE-0001');
   assert.equal(records[0].status, 'PENDING');
 
-  const resolved = runJson(home.root, [
-    'workset', 'reentry', 'resolve', 'WRE-0001', '--workset', workset.id,
+  const directResolve = runCli(home.root, [
+    'workset', 'reentry', 'resolve', 'WRE-0001', '--workset', workset.id, '--json',
   ]);
-  assert.equal(resolved.status, 'RESOLVED');
+  assert.notEqual(directResolve.status, 0);
+  assert.match(directResolve.stderr, /B2a lifecycle|cannot be resolved directly/i);
 
   const next = runJson(home.root, ['workset', 'next', workset.id]);
-  assert.equal(next.action, 'project-workflow');
-  assert.equal(next.project, 'user');
+  assert.equal(next.action, 'reenter');
+  assert.equal(next.reentryId, 'WRE-0001');
 });
 
 test('rejects an unsupported structured Re-entry kind', async () => {

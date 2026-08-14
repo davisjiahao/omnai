@@ -8,7 +8,7 @@ import { appendJsonLine, writeYaml } from './files.js';
 import { changeArtifactPath, changeRevisionsRoot } from './paths.js';
 import type { ChangeRef } from './store.js';
 import { saveChange } from './store.js';
-import { invalidateTasks, loadTasks, saveTasks } from './tasks.js';
+import { invalidateExactTasks, invalidateTasks, loadTasks, saveTasks } from './tasks.js';
 
 const IMPACTS: Record<ReconcileLevel, Array<keyof ChangeMetadata['readiness']>> = {
   L0: ['implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
@@ -24,6 +24,7 @@ export interface ReconcileInput {
   type: string;
   reason: string;
   affectedTasks?: string[];
+  affectedTaskClosure?: string[];
   affectedReadiness?: Array<keyof ChangeMetadata['readiness']>;
   evidence?: string[];
   correlationId?: string;
@@ -42,8 +43,12 @@ export async function reconcileChange(repoRoot: string, change: ChangeRef, input
   const tasksPath = changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml');
   const taskFile = await loadTasks(tasksPath);
   const requestedTasks = input.affectedTasks ?? [];
-  if (requestedTasks.length > 0) {
-    invalidateTasks(taskFile, requestedTasks, ['L2', 'L3', 'L4'].includes(input.level));
+  const severeTaskInvalidation = ['L2', 'L3', 'L4'].includes(input.level);
+  if (input.affectedTaskClosure !== undefined) {
+    invalidateExactTasks(taskFile, input.affectedTaskClosure, severeTaskInvalidation);
+    if (input.affectedTaskClosure.length > 0) await saveTasks(tasksPath, taskFile);
+  } else if (requestedTasks.length > 0) {
+    invalidateTasks(taskFile, requestedTasks, severeTaskInvalidation);
     await saveTasks(tasksPath, taskFile);
   }
   const affectedTasks = taskFile.tasks.filter((task) => ['STALE', 'NEEDS_REVALIDATION', 'INVALIDATED'].includes(task.status)).map((task) => task.id);

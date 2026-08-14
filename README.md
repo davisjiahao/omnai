@@ -23,6 +23,7 @@ The core rule is: **conversation history and agent confidence are context, not p
 - personal Project Registry and Worksets for multi-repository work;
 - mandatory Git worktree isolation for writable Workset projects;
 - one aggregate execution directory that VS Code and the main coding agent open directly;
+- selective Workset Re-entry for mid-flight requirement/fact changes;
 - thin host skills for Claude Code, Codex, and OpenCode;
 - no backend service, database, daemon, Web UI, or built-in LLM API.
 
@@ -74,6 +75,7 @@ The resulting local layout is an ordinary directory, not a VS Code multi-root `.
 └── worksets/
     └── WKS-0001/
         ├── workset.yaml
+        ├── reentries/
         └── workspace/                    # open this folder in VS Code
             ├── .omnai-workset.yaml       # pointer to the Workset
             ├── user-center/              # real Git worktree
@@ -114,9 +116,58 @@ omnai workset inspect-project <project> [--workset <id>] [--result observed-only
 omnai workset activate-project <project> [--workset <id>] [--json]
 omnai workset mark-inactive <project> [--workset <id>] [--json]
 omnai workset path [workset] [--json]
+
+omnai workset change --kind <kind> --reason <text> \
+  [--project <alias>]... [--candidate <alias>]... [--workset <id>] [--json]
+omnai workset reentry list [workset] [--json]
+omnai workset reentry resolve <WRE-id> [--workset <id>] [--json]
 ```
 
 `omnai workset path` returns the aggregate execution directory. OmnAI does not generate a `.code-workspace` file.
+
+### Mid-flight requirement changes
+
+The Agent host interprets the conversation and submits one structured change kind. OmnAI Core does not classify free-form language with an embedded model.
+
+```text
+REALITY_CHANGED                -> research
+PRODUCT_CHANGED                -> frame / grill
+DOMAIN_CHANGED                 -> model / grill
+SCOPE_CHANGED                  -> spec / grill
+TECHNICAL_CONSTRAINT_CHANGED   -> design / brainstorm
+NEEDS_EXPERIMENT               -> experiment
+PLAN_CHANGED                   -> plan
+IMPLEMENTATION_DETAIL_CHANGED  -> work
+```
+
+Example: while `user` and `quote` are already active, the user says that historical quotes must preserve authorization state and `pricing` may now be affected. The host records:
+
+```bash
+omnai workset change \
+  --kind DOMAIN_CHANGED \
+  --reason "Historical quote authorization semantics changed and pricing may be affected" \
+  --project user \
+  --project quote \
+  --candidate pricing
+```
+
+Then:
+
+```bash
+omnai workset next --json
+```
+
+returns `inspect-project pricing` first. `pricing` is researched read-only in its original repository. Only after its impact decision is complete can the same pending Re-entry route to:
+
+```text
+model / grill
+```
+
+A later technical constraint can create another Re-entry that routes to `design / brainstorm`; if discussion cannot decide safely, `NEEDS_EXPERIMENT` routes to the existing experiment capability.
+
+Re-entry records are durable YAML history under `worksets/<WKS>/reentries/`. They must resolve oldest-first, and a Re-entry cannot be resolved while one of its newly introduced candidate projects still needs an impact decision.
+
+Milestone B1 stops at Workset coordination. Project-local Revision/Baseline advancement and selective task/evidence invalidation are deliberately deferred to B2, which will bind these Workset events to the existing repository-local Reconcile engine.
 
 ## Repository-local implementation Change
 
@@ -269,12 +320,14 @@ omnai verify --record contract --requirement contract-test --status PASS --summa
 
 ## Design references
 
-Current v0.2 workspace contract:
+Current v0.2 contract:
 
 - [`docs/design/README.md`](docs/design/README.md) — authoritative reading order
 - [`docs/design/omnai-v0.2-personal-workspace.md`](docs/design/omnai-v0.2-personal-workspace.md)
 - [`docs/design/omnai-v0.2-aggregate-execution-workspace.md`](docs/design/omnai-v0.2-aggregate-execution-workspace.md) — supersedes the earlier `.code-workspace` / multi-root portions
+- [`docs/design/omnai-v0.2-selective-reentry.md`](docs/design/omnai-v0.2-selective-reentry.md) — Milestone B1 contract
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md)
+- [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md)
 
 Repository-local v0.1 reference:
 

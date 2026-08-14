@@ -8,10 +8,11 @@ import {
   loadWorksetReentry,
   saveWorksetReentry,
   type ProjectReconcileApplication,
+  type ProjectReconcileFailureKind,
   type WorksetReentry,
 } from './reentry.js';
 import { resolveWorkset } from './worksets.js';
-import type { Workset, WorksetMember } from './types.js';
+import type { Workset } from './types.js';
 
 export async function reentryApplicationStatus(
   home: string,
@@ -63,6 +64,7 @@ async function applyOne(
       home,
       record,
       application,
+      'MEMBER_NOT_WRITABLE',
       `Project '${application.project}' must remain ACTIVE with its bound Project Change before Reconcile apply.`,
     );
     return;
@@ -72,26 +74,40 @@ async function applyOne(
       home,
       record,
       application,
+      'BOUND_CHANGE_MISMATCH',
       `Project '${application.project}' is bound to '${member.changeId}', not frozen Change '${application.changeId}'.`,
     );
     return;
   }
 
   if (!application.changeId || !application.level || !application.fromRevision || !application.fromBaseline) {
-    await failApplication(home, record, application, `Reconcile application '${application.project}' is missing frozen required fields.`);
+    await failApplication(
+      home,
+      record,
+      application,
+      'MISSING_FROZEN_FIELDS',
+      `Reconcile application '${application.project}' is missing frozen required fields.`,
+    );
     return;
   }
 
   const change = await resolveChange(member.worktree, application.changeId);
   const correlationId = `${record.id}/${application.project}`;
-  const correlated = await findCorrelatedRevision(member.worktree, change.directoryName, correlationId);
+  let correlated: Revision | null;
+  try {
+    correlated = await findCorrelatedRevision(member.worktree, change.directoryName, correlationId);
+  } catch (error) {
+    await failApplication(home, record, application, 'CORRELATION_CONFLICT', errorMessage(error));
+    return;
+  }
   if (correlated) {
     const recoveryError = validateCorrelatedRecovery(change.metadata.activeRevision, change.metadata.baseline, application, correlated);
     if (recoveryError) {
-      await failApplication(home, record, application, recoveryError);
+      await failApplication(home, record, application, 'CORRELATION_CONFLICT', recoveryError);
       return;
     }
     application.status = 'APPLIED';
+    application.failureKind = null;
     application.toRevision = correlated.id;
     application.toBaseline = correlated.baseline ?? null;
     application.error = null;
@@ -108,12 +124,14 @@ async function applyOne(
       home,
       record,
       application,
+      'STALE_PRECONDITION',
       `Frozen precondition for '${application.project}' expected ${application.fromRevision}/${application.fromBaseline}, but Project Change is ${change.metadata.activeRevision}/${change.metadata.baseline}.`,
     );
     return;
   }
 
   application.status = 'APPLYING';
+  application.failureKind = null;
   application.error = null;
   await saveWorksetReentry(home, record);
 
@@ -128,13 +146,14 @@ async function applyOne(
       correlationId,
     });
     application.status = 'APPLIED';
+    application.failureKind = null;
     application.toRevision = result.revision.id;
     application.toBaseline = result.revision.baseline ?? change.metadata.baseline;
     application.error = null;
     application.appliedAt = new Date().toISOString();
     await saveWorksetReentry(home, record);
   } catch (error) {
-    await failApplication(home, record, application, errorMessage(error));
+    await failApplication(home, record, application, 'APPLY_ERROR', errorMessage(error));
   }
 }
 
@@ -155,9 +174,11 @@ async function failApplication(
   home: string,
   record: WorksetReentry,
   application: ProjectReconcileApplication,
+  failureKind: ProjectReconcileFailureKind,
   message: string,
 ): Promise<void> {
   application.status = 'FAILED';
+  application.failureKind = failureKind;
   application.error = message;
   application.appliedAt = null;
   await saveWorksetReentry(home, record);

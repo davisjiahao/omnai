@@ -41,6 +41,21 @@ test('creates an isolated Workset worktree from committed HEAD', async () => {
   assert.match(result.sourceCommit, /^[0-9a-f]{40}$/);
 });
 
+test('reuses the expected existing Workset worktree for activation recovery', async () => {
+  const repo = await createTestRepository('user-center');
+  const home = await createTestDirectory('omnai-home-');
+  cleanups.push(repo.cleanup, home.cleanup);
+
+  const project = await registerProject(home.root, repo.root, 'user');
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  const first = await createWorksetWorktree(home.root, workset, project);
+  const second = await createWorksetWorktree(home.root, workset, project);
+
+  assert.equal(second.path, first.path);
+  assert.equal(second.branch, first.branch);
+  assert.equal(await pathExists(second.path), true);
+});
+
 test('refuses to replace an unrelated existing target directory', async () => {
   const repo = await createTestRepository('user-center');
   const home = await createTestDirectory('omnai-home-');

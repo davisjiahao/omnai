@@ -11,4 +11,4 @@ export * from './workspace/paths.js';
 export * from './workspace/project-registry.js';
 export * from './workspace/worksets.js';
 export * from './workspace/git-worktrees.js';
-export * from './workspace/vscode-workspace.js';
+export * from './workspace/execution-workspace.js';

@@ -110,6 +110,8 @@ test('stale frozen Revision/Baseline fails safely without advancing a second rev
   const result = await applyWorksetReentry(home.root, workset.id, decided.id, 'user');
   assert.equal(result.status, 'DECIDED');
   assert.equal(result.applications[0]?.status, 'FAILED');
+  assert.equal(result.applications[0]?.failureKind, 'STALE_PRECONDITION');
+  assert.deepEqual(result.applications[0]?.attemptHistory, []);
   assert.match(result.applications[0]?.error ?? '', /frozen|REV-0001|BL-0001/i);
   assert.equal((await resolveChange(active.worktree, active.changeId)).metadata.activeRevision, 'REV-0002');
 });

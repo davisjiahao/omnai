@@ -1,5 +1,10 @@
 import { Command } from 'commander';
 import {
+  bindWorksetProjectChange,
+  createAndBindWorksetProjectChange,
+  listProjectChangeCandidates,
+} from './change-bindings.js';
+import {
   listRegisteredProjects,
   registerProject,
   requireRegisteredProject,
@@ -136,8 +141,60 @@ export function createPersonalWorkspaceProgram(): Command {
     });
 
   workset
+    .command('change-bindings')
+    .argument('<project>', 'Researched Workset project alias')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (projectAlias: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const candidates = await listProjectChangeCandidates(home, target.id, projectAlias);
+      if (options.json) {
+        printJson(candidates);
+        return;
+      }
+      if (candidates.length === 0) {
+        console.log(`No existing Project Changes found for ${projectAlias}.`);
+        return;
+      }
+      for (const candidate of candidates) {
+        console.log(`${candidate.id} ${candidate.status.padEnd(12)} ${candidate.title}`);
+      }
+    });
+
+  workset
+    .command('bind-change')
+    .argument('<project>', 'Researched Workset project alias')
+    .argument('<change>', 'Project Change ID')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (projectAlias: string, changeId: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const updated = await bindWorksetProjectChange(home, target.id, projectAlias, changeId);
+      const member = updated.members.find((item) => item.project === projectAlias);
+      printResult(member, options.json, `Bound ${projectAlias} to Project Change ${changeId}.`);
+    });
+
+  workset
+    .command('create-change')
+    .argument('<project>', 'Researched Workset project alias')
+    .argument('<title>', 'Project Change title')
+    .requiredOption('--scenario <scenario>', 'Project Change scenario')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (projectAlias: string, title: string, options: { scenario: string; workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const created = await createAndBindWorksetProjectChange(home, target.id, projectAlias, title, options.scenario);
+      const member = created.workset.members.find((item) => item.project === projectAlias);
+      const result = { member, change: created.change.metadata };
+      printResult(result, options.json, `Created ${created.change.metadata.id} and bound it to ${projectAlias}.`);
+    });
+
+  workset
     .command('activate-project')
-    .argument('<project>', 'Researched project alias')
+    .argument('<project>', 'Researched project alias with a bound Project Change')
     .option('--workset <workset>', 'Workset ID or slug')
     .option('--json', 'Print machine-readable JSON')
     .action(async (projectAlias: string, options: { workset?: string; json?: boolean }) => {

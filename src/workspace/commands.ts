@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import {
   bindWorksetProjectChange,
-  createAndBindWorksetProjectChange,
+  createAndActivateWorksetProjectChange,
   listProjectChangeCandidates,
 } from './change-bindings.js';
 import {
@@ -158,7 +158,8 @@ export function createPersonalWorkspaceProgram(): Command {
         return;
       }
       for (const candidate of candidates) {
-        console.log(`${candidate.id} ${candidate.status.padEnd(12)} ${candidate.title}`);
+        const head = candidate.committedAtHead ? 'HEAD' : 'UNCOMMITTED';
+        console.log(`${candidate.id} ${candidate.status.padEnd(12)} ${head.padEnd(11)} ${candidate.title}`);
       }
     });
 
@@ -186,15 +187,15 @@ export function createPersonalWorkspaceProgram(): Command {
     .action(async (projectAlias: string, title: string, options: { scenario: string; workset?: string; json?: boolean }) => {
       const home = resolveOmnaiHome();
       const target = await resolveWorkset(home, options.workset);
-      const created = await createAndBindWorksetProjectChange(home, target.id, projectAlias, title, options.scenario);
+      const created = await createAndActivateWorksetProjectChange(home, target.id, projectAlias, title, options.scenario);
       const member = created.workset.members.find((item) => item.project === projectAlias);
       const result = { member, change: created.change.metadata };
-      printResult(result, options.json, `Created ${created.change.metadata.id} and bound it to ${projectAlias}.`);
+      printResult(result, options.json, `Created ${created.change.metadata.id} in ${projectAlias}'s Worktree and activated the project.`);
     });
 
   workset
     .command('activate-project')
-    .argument('<project>', 'Researched project alias with a bound Project Change')
+    .argument('<project>', 'Researched project alias with a bound committed Project Change')
     .option('--workset <workset>', 'Workset ID or slug')
     .option('--json', 'Print machine-readable JSON')
     .action(async (projectAlias: string, options: { workset?: string; json?: boolean }) => {
@@ -309,7 +310,7 @@ function printJson(value: unknown): void {
 function formatWorkset(workset: Awaited<ReturnType<typeof resolveWorkset>>): string {
   const lines = [`${workset.id}: ${workset.title}`];
   for (const member of workset.members) {
-    lines.push(`  ${member.project.padEnd(20)} ${member.status}${member.worktree ? ` ${member.worktree}` : ''}`);
+    lines.push(`  ${member.project.padEnd(20)} ${member.status}${member.changeId ? ` ${member.changeId}` : ''}${member.worktree ? ` ${member.worktree}` : ''}`);
   }
   return lines.join('\n');
 }

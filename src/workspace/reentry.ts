@@ -19,8 +19,17 @@ export const REENTRY_KINDS = [
 
 export const REENTRY_STATUSES = ['PENDING', 'DECIDED', 'RESOLVED'] as const;
 export const REENTRY_APPLICATION_STATUSES = ['PENDING', 'APPLYING', 'APPLIED', 'FAILED', 'NOT_REQUIRED'] as const;
+export const REENTRY_APPLICATION_FAILURE_KINDS = [
+  'STALE_PRECONDITION',
+  'MEMBER_NOT_WRITABLE',
+  'BOUND_CHANGE_MISMATCH',
+  'MISSING_FROZEN_FIELDS',
+  'CORRELATION_CONFLICT',
+  'APPLY_ERROR',
+] as const;
 
 export type ReentryKind = (typeof REENTRY_KINDS)[number];
+export type ProjectReconcileFailureKind = (typeof REENTRY_APPLICATION_FAILURE_KINDS)[number];
 export type InteractionMode = 'none' | 'grill' | 'brainstorm';
 export type ReentryCapability =
   | 'research'
@@ -45,6 +54,7 @@ const routeSchema = z.object({
   reason: z.string().min(1),
 });
 const readinessKeySchema = readinessSchema.keyof();
+const failureKindSchema = z.enum(REENTRY_APPLICATION_FAILURE_KINDS);
 
 export const projectReconcileProposalSchema = z.discriminatedUnion('outcome', [
   z.object({
@@ -60,10 +70,28 @@ export const projectReconcileProposalSchema = z.discriminatedUnion('outcome', [
   }),
 ]);
 
+export const projectReconcileAttemptSchema = z.object({
+  status: z.literal('FAILED'),
+  failureKind: failureKindSchema,
+  level: z.enum(RECONCILE_LEVELS),
+  reopenFrom: readinessKeySchema,
+  readinessClosure: z.array(readinessKeySchema),
+  taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)),
+  taskClosure: z.array(z.string().regex(/^TASK-\d{3}$/)),
+  fromRevision: z.string().regex(/^REV-\d{4}$/),
+  fromBaseline: z.string().regex(/^BL-\d{4}$/),
+  toRevision: z.string().regex(/^REV-\d{4}$/).nullable(),
+  toBaseline: z.string().regex(/^BL-\d{4}$/).nullable(),
+  error: z.string().nullable(),
+  appliedAt: z.string().datetime().nullable(),
+  replannedAt: z.string().datetime(),
+});
+
 export const projectReconcileApplicationSchema = z.object({
   project: z.string().min(1),
   changeId: z.string().regex(/^CHG-\d{4}$/).optional(),
   status: z.enum(REENTRY_APPLICATION_STATUSES),
+  failureKind: failureKindSchema.nullable().default(null),
   level: z.enum(RECONCILE_LEVELS).optional(),
   reopenFrom: readinessKeySchema.optional(),
   readinessClosure: z.array(readinessKeySchema).default([]),
@@ -75,6 +103,7 @@ export const projectReconcileApplicationSchema = z.object({
   toBaseline: z.string().regex(/^BL-\d{4}$/).nullable().default(null),
   error: z.string().nullable().default(null),
   appliedAt: z.string().datetime().nullable().default(null),
+  attemptHistory: z.array(projectReconcileAttemptSchema).default([]),
 });
 
 export const worksetReentrySchema = z.object({
@@ -98,6 +127,7 @@ export const worksetReentrySchema = z.object({
 export type WorksetReentry = z.infer<typeof worksetReentrySchema>;
 export type ProjectReconcileProposal = z.infer<typeof projectReconcileProposalSchema>;
 export type ProjectReconcileApplication = z.infer<typeof projectReconcileApplicationSchema>;
+export type ProjectReconcileAttempt = z.infer<typeof projectReconcileAttemptSchema>;
 
 export interface WorksetReentryInput {
   kind: ReentryKind;

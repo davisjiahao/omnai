@@ -25,6 +25,7 @@ export type WorksetRouteAction =
       applicationStatus: 'PENDING' | 'APPLYING' | 'FAILED';
       reason: string;
     }
+  | { action: 'replan-reentry'; reentryId: string; project: string; reason: string }
   | { action: 'finalize-reentry'; reentryId: string; reason: string }
   | { action: 'project-workflow'; project: string; reason: string }
   | { action: 'none'; reason: string };
@@ -94,6 +95,14 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
 
 function routeDecided(record: WorksetReentry): WorksetRouteAction {
   const application = record.applications.find((item) => ['PENDING', 'APPLYING', 'FAILED'].includes(item.status));
+  if (application?.status === 'FAILED' && application.failureKind === 'STALE_PRECONDITION') {
+    return {
+      action: 'replan-reentry',
+      reentryId: record.id,
+      project: application.project,
+      reason: `Approved Re-entry ${record.id} has a stale frozen precondition for ${application.project} and requires explicit replan.`,
+    };
+  }
   if (application && ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)) {
     return {
       action: 'apply-reentry',

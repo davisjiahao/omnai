@@ -4,7 +4,14 @@ import {
   registerProject,
   requireRegisteredProject,
 } from './project-registry.js';
+import {
+  listWorksetReentries,
+  parseReentryKind,
+  recordWorksetReentry,
+  resolveWorksetReentry,
+} from './reentry.js';
 import { resolveOmnaiHome, worksetWorkspaceRoot } from './paths.js';
+import { resolveWorksetNext, type WorksetRouteAction } from './workset-router.js';
 import {
   activateWorksetProject,
   addWorksetCandidate,
@@ -13,7 +20,6 @@ import {
   markProjectObservedOnly,
   markWorksetProjectInactive,
   resolveWorkset,
-  worksetNext,
 } from './worksets.js';
 
 export function isPersonalWorkspaceCommand(value: string | undefined): boolean {
@@ -84,9 +90,8 @@ export function createPersonalWorkspaceProgram(): Command {
     .argument('[workset]', 'Workset ID or slug')
     .option('--json', 'Print machine-readable JSON')
     .action(async (reference: string | undefined, options: { json?: boolean }) => {
-      const current = await resolveWorkset(resolveOmnaiHome(), reference);
-      const next = worksetNext(current);
-      printResult(next, options.json, `${next.action}${next.project ? ` ${next.project}` : ''} — ${next.reason}`);
+      const next = await resolveWorksetNext(resolveOmnaiHome(), reference);
+      printResult(next, options.json, formatNext(next));
     });
 
   workset
@@ -167,7 +172,72 @@ export function createPersonalWorkspaceProgram(): Command {
       printResult({ workset: current.id, path }, options.json, path);
     });
 
+  workset
+    .command('change')
+    .requiredOption('--kind <kind>', 'Structured mid-flight change kind')
+    .requiredOption('--reason <reason>', 'Why the active assumptions changed')
+    .option('--project <alias>', 'Existing affected Workset project', collect, [])
+    .option('--candidate <alias>', 'Newly suspected registered project', collect, [])
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (options: {
+      kind: string;
+      reason: string;
+      project: string[];
+      candidate: string[];
+      workset?: string;
+      json?: boolean;
+    }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const record = await recordWorksetReentry(home, target.id, {
+        kind: parseReentryKind(options.kind),
+        reason: options.reason,
+        affectedProjects: options.project,
+        candidateProjects: options.candidate,
+      });
+      printResult(record, options.json, `${record.id}: ${record.kind} -> ${record.route.capability}/${record.route.interaction}`);
+    });
+
+  const reentry = workset.command('reentry').description('Inspect and resolve Workset selective Re-entry records');
+  reentry
+    .command('list')
+    .argument('[workset]', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reference: string | undefined, options: { json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, reference);
+      const records = await listWorksetReentries(home, target.id);
+      if (options.json) {
+        printJson(records);
+        return;
+      }
+      if (records.length === 0) {
+        console.log('No Workset Re-entry records.');
+        return;
+      }
+      for (const record of records) {
+        console.log(`${record.id} ${record.status.padEnd(8)} ${record.kind} -> ${record.route.capability}/${record.route.interaction}`);
+      }
+    });
+
+  reentry
+    .command('resolve')
+    .argument('<reentry>', 'WRE identifier')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const record = await resolveWorksetReentry(home, target.id, reentryId);
+      printResult(record, options.json, `Resolved ${record.id}.`);
+    });
+
   return program;
+}
+
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
 }
 
 function printResult(value: unknown, json: boolean | undefined, human: string): void {
@@ -185,4 +255,14 @@ function formatWorkset(workset: Awaited<ReturnType<typeof resolveWorkset>>): str
     lines.push(`  ${member.project.padEnd(20)} ${member.status}${member.worktree ? ` ${member.worktree}` : ''}`);
   }
   return lines.join('\n');
+}
+
+function formatNext(next: WorksetRouteAction): string {
+  if (next.action === 'reenter') {
+    return `reenter ${next.capability}/${next.interaction} (${next.reentryId}) — ${next.reason}`;
+  }
+  if ('project' in next) {
+    return `${next.action} ${next.project} — ${next.reason}`;
+  }
+  return `${next.action} — ${next.reason}`;
 }

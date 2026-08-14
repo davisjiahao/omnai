@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
 import { pathExists } from '../src/core/files.js';
+import { createAndBindWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
@@ -24,6 +25,13 @@ const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()?.();
 });
+
+async function activateBound(home: string, worksetId: string, project: string): Promise<void> {
+  await addWorksetCandidate(home, worksetId, project);
+  await beginProjectResearch(home, worksetId, project);
+  await createAndBindWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
+  await activateWorksetProject(home, worksetId, project);
+}
 
 test('persists monotonic Workset Re-entry records and reloads them in order', async () => {
   const home = await createTestDirectory('omnai-home-');
@@ -91,11 +99,8 @@ test('injects newly affected registered repositories as read-only candidates bef
   await registerProject(home.root, pricingRepo.root, 'pricing');
   const workset = await createWorkset(home.root, 'Authorization Migration');
 
-  for (const project of ['user', 'quote']) {
-    await addWorksetCandidate(home.root, workset.id, project);
-    await beginProjectResearch(home.root, workset.id, project);
-    await activateWorksetProject(home.root, workset.id, project);
-  }
+  await activateBound(home.root, workset.id, 'user');
+  await activateBound(home.root, workset.id, 'quote');
 
   const record = await recordWorksetReentry(home.root, workset.id, {
     kind: 'SCOPE_CHANGED',
@@ -122,9 +127,7 @@ test('candidate injection never resets an existing member lifecycle', async () =
   await registerProject(home.root, userRepo.root, 'user');
   await registerProject(home.root, pricingRepo.root, 'pricing');
   const workset = await createWorkset(home.root, 'Authorization Migration');
-  await addWorksetCandidate(home.root, workset.id, 'user');
-  await beginProjectResearch(home.root, workset.id, 'user');
-  await activateWorksetProject(home.root, workset.id, 'user');
+  await activateBound(home.root, workset.id, 'user');
   await addWorksetCandidate(home.root, workset.id, 'pricing');
   await beginProjectResearch(home.root, workset.id, 'pricing');
   await markProjectObservedOnly(home.root, workset.id, 'pricing');
@@ -147,9 +150,7 @@ test('validates every affected and candidate project before mutating Workset or 
   cleanups.push(home.cleanup, userRepo.cleanup);
   await registerProject(home.root, userRepo.root, 'user');
   const workset = await createWorkset(home.root, 'Authorization Migration');
-  await addWorksetCandidate(home.root, workset.id, 'user');
-  await beginProjectResearch(home.root, workset.id, 'user');
-  await activateWorksetProject(home.root, workset.id, 'user');
+  await activateBound(home.root, workset.id, 'user');
 
   await assert.rejects(
     () => recordWorksetReentry(home.root, workset.id, {

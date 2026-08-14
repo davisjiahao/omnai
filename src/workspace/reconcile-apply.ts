@@ -1,9 +1,7 @@
-import { readdir } from 'node:fs/promises';
 import { reconcileChange } from '../core/reconcile.js';
-import { changeRevisionsRoot } from '../core/paths.js';
-import { readYaml } from '../core/files.js';
 import { resolveChange } from '../core/store.js';
-import { revisionSchema, type Revision } from '../domain/types.js';
+import type { Revision } from '../domain/types.js';
+import { findCorrelatedRevision } from './reconcile-lineage.js';
 import {
   loadWorksetReentry,
   saveWorksetReentry,
@@ -188,25 +186,6 @@ function requireApplication(record: WorksetReentry, projectAlias: string): Proje
   const application = record.applications.find((item) => item.project === projectAlias);
   if (!application) throw new Error(`Project '${projectAlias}' has no application in Re-entry '${record.id}'.`);
   return application;
-}
-
-async function findCorrelatedRevision(
-  repoRoot: string,
-  directoryName: string,
-  correlationId: string,
-): Promise<Revision | null> {
-  const root = changeRevisionsRoot(repoRoot, directoryName);
-  const entries = await readdir(root, { withFileTypes: true });
-  const matches: Revision[] = [];
-  for (const entry of entries) {
-    if (!entry.isFile() || !/^REV-\d{4}\.yaml$/.test(entry.name)) continue;
-    const revision = await readYaml(`${root}/${entry.name}`, revisionSchema);
-    if (revision.correlationId === correlationId) matches.push(revision);
-  }
-  if (matches.length > 1) {
-    throw new Error(`Correlation '${correlationId}' appears in multiple Project Change revisions.`);
-  }
-  return matches[0] ?? null;
 }
 
 function validateCorrelatedRecovery(

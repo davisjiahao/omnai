@@ -7,6 +7,7 @@ import {
   createAndActivateWorksetProjectChange,
   listProjectChangeCandidates,
 } from '../src/workspace/change-bindings.js';
+import { createWorksetWorktree } from '../src/workspace/git-worktrees.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
   activateWorksetProject,
@@ -121,6 +122,72 @@ test('creating a new Project Change creates it inside the dedicated Worktree and
     assert.equal((await listChanges(repo.root)).length, 0);
     assert.equal((await listChanges(member.worktree)).length, 1);
     assert.equal((await listChanges(member.worktree))[0]?.metadata.id, result.change.metadata.id);
+  } finally {
+    await repo.cleanup();
+    await home.cleanup();
+  }
+});
+
+test('retry reuses the unique matching uncommitted Project Change after binding persistence interruption', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('pricing-center');
+  try {
+    const registered = await registerProject(home.root, repo.root, 'pricing');
+    const workset = await createWorkset(home.root, 'Authorization Migration');
+    await addWorksetCandidate(home.root, workset.id, 'pricing');
+    await beginProjectResearch(home.root, workset.id, 'pricing');
+
+    const createdWorktree = await createWorksetWorktree(home.root, workset, registered);
+    const interrupted = await createChange(
+      createdWorktree.path,
+      'Use AuthorizationScope in pricing routing',
+      'cross-service-change',
+    );
+    assert.equal((await resolveWorkset(home.root, workset.id)).members[0]?.changeId, undefined);
+
+    const recovered = await createAndActivateWorksetProjectChange(
+      home.root,
+      workset.id,
+      'pricing',
+      'Use AuthorizationScope in pricing routing',
+      'cross-service-change',
+    );
+
+    const member = recovered.workset.members.find((item) => item.project === 'pricing');
+    assert.equal(recovered.change.metadata.id, interrupted.metadata.id);
+    assert.equal(member?.changeId, interrupted.metadata.id);
+    assert.equal(member?.status, 'ACTIVE');
+    assert.equal((await listChanges(createdWorktree.path)).length, 1);
+  } finally {
+    await repo.cleanup();
+    await home.cleanup();
+  }
+});
+
+test('retry refuses ambiguous matching uncommitted Project Changes in a retained Worktree', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('pricing-center');
+  try {
+    const registered = await registerProject(home.root, repo.root, 'pricing');
+    const workset = await createWorkset(home.root, 'Authorization Migration');
+    await addWorksetCandidate(home.root, workset.id, 'pricing');
+    await beginProjectResearch(home.root, workset.id, 'pricing');
+
+    const createdWorktree = await createWorksetWorktree(home.root, workset, registered);
+    await createChange(createdWorktree.path, 'Use AuthorizationScope in pricing routing', 'cross-service-change');
+    await createChange(createdWorktree.path, 'Use AuthorizationScope in pricing routing', 'cross-service-change');
+
+    await assert.rejects(
+      () => createAndActivateWorksetProjectChange(
+        home.root,
+        workset.id,
+        'pricing',
+        'Use AuthorizationScope in pricing routing',
+        'cross-service-change',
+      ),
+      /multiple|ambiguous/i,
+    );
+    assert.equal((await resolveWorkset(home.root, workset.id)).members[0]?.changeId, undefined);
   } finally {
     await repo.cleanup();
     await home.cleanup();

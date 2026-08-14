@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { z } from 'zod';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { readinessSchema, RECONCILE_LEVELS } from '../domain/types.js';
 import { requireRegisteredProject } from './project-registry.js';
 import { worksetReentryPath, worksetReentriesRoot } from './paths.js';
 import { addWorksetCandidate, resolveWorkset } from './worksets.js';
@@ -15,6 +16,9 @@ export const REENTRY_KINDS = [
   'PLAN_CHANGED',
   'IMPLEMENTATION_DETAIL_CHANGED',
 ] as const;
+
+export const REENTRY_STATUSES = ['PENDING', 'DECIDED', 'RESOLVED'] as const;
+export const REENTRY_APPLICATION_STATUSES = ['PENDING', 'APPLYING', 'APPLIED', 'FAILED', 'NOT_REQUIRED'] as const;
 
 export type ReentryKind = (typeof REENTRY_KINDS)[number];
 export type InteractionMode = 'none' | 'grill' | 'brainstorm';
@@ -40,9 +44,41 @@ const routeSchema = z.object({
   interaction: z.enum(['none', 'grill', 'brainstorm']),
   reason: z.string().min(1),
 });
+const readinessKeySchema = readinessSchema.keyof();
+
+export const projectReconcileProposalSchema = z.discriminatedUnion('outcome', [
+  z.object({
+    project: z.string().min(1),
+    outcome: z.literal('REQUIRED'),
+    level: z.enum(RECONCILE_LEVELS),
+    reopenFrom: readinessKeySchema,
+    taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  }),
+  z.object({
+    project: z.string().min(1),
+    outcome: z.literal('NOT_REQUIRED'),
+  }),
+]);
+
+export const projectReconcileApplicationSchema = z.object({
+  project: z.string().min(1),
+  changeId: z.string().regex(/^CHG-\d{4}$/).optional(),
+  status: z.enum(REENTRY_APPLICATION_STATUSES),
+  level: z.enum(RECONCILE_LEVELS).optional(),
+  reopenFrom: readinessKeySchema.optional(),
+  readinessClosure: z.array(readinessKeySchema).default([]),
+  taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  taskClosure: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  fromRevision: z.string().regex(/^REV-\d{4}$/).optional(),
+  fromBaseline: z.string().regex(/^BL-\d{4}$/).optional(),
+  toRevision: z.string().regex(/^REV-\d{4}$/).nullable().default(null),
+  toBaseline: z.string().regex(/^BL-\d{4}$/).nullable().default(null),
+  error: z.string().nullable().default(null),
+  appliedAt: z.string().datetime().nullable().default(null),
+});
 
 export const worksetReentrySchema = z.object({
-  schemaVersion: z.literal(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   id: z.string().regex(/^WRE-\d{4}$/),
   worksetId: z.string().regex(/^WKS-\d{4}$/),
   kind: reentryKindSchema,
@@ -50,12 +86,18 @@ export const worksetReentrySchema = z.object({
   route: routeSchema,
   affectedProjects: z.array(z.string().min(1)).default([]),
   candidateProjects: z.array(z.string().min(1)).default([]),
-  status: z.enum(['PENDING', 'RESOLVED']),
+  status: z.enum(REENTRY_STATUSES),
+  proposal: z.array(projectReconcileProposalSchema).default([]),
+  applications: z.array(projectReconcileApplicationSchema).default([]),
+  rulesVersion: z.number().int().positive().nullable().default(null),
   createdAt: z.string().datetime(),
+  decidedAt: z.string().datetime().nullable().default(null),
   resolvedAt: z.string().datetime().nullable(),
 });
 
 export type WorksetReentry = z.infer<typeof worksetReentrySchema>;
+export type ProjectReconcileProposal = z.infer<typeof projectReconcileProposalSchema>;
+export type ProjectReconcileApplication = z.infer<typeof projectReconcileApplicationSchema>;
 
 export interface WorksetReentryInput {
   kind: ReentryKind;
@@ -141,7 +183,7 @@ export async function recordWorksetReentry(
 
   const id = await nextReentryId(home, workset.id);
   const record = worksetReentrySchema.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     worksetId: workset.id,
     kind: input.kind,
@@ -150,11 +192,34 @@ export async function recordWorksetReentry(
     affectedProjects,
     candidateProjects,
     status: 'PENDING',
+    proposal: [],
+    applications: [],
+    rulesVersion: null,
     createdAt: new Date().toISOString(),
+    decidedAt: null,
     resolvedAt: null,
   });
-  await writeYaml(worksetReentryPath(home, workset.id, id), record);
+  await saveWorksetReentry(home, record);
   return record;
+}
+
+export async function loadWorksetReentry(
+  home: string,
+  worksetRef: string,
+  reentryId: string,
+): Promise<WorksetReentry> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const path = worksetReentryPath(home, workset.id, reentryId);
+  if (!(await pathExists(path))) throw new Error(`Re-entry '${reentryId}' was not found in ${workset.id}.`);
+  const record = await readYaml(path, worksetReentrySchema);
+  if (record.worksetId !== workset.id) {
+    throw new Error(`Re-entry '${record.id}' belongs to ${record.worksetId}, not ${workset.id}.`);
+  }
+  return record;
+}
+
+export async function saveWorksetReentry(home: string, record: WorksetReentry): Promise<void> {
+  await writeYaml(worksetReentryPath(home, record.worksetId, record.id), worksetReentrySchema.parse(record));
 }
 
 export async function listWorksetReentries(home: string, worksetRef: string): Promise<WorksetReentry[]> {
@@ -167,11 +232,7 @@ export async function listWorksetReentries(home: string, worksetRef: string): Pr
   for (const entry of entries) {
     if (!entry.isFile() || !/^WRE-\d{4}\.yaml$/.test(entry.name)) continue;
     const id = entry.name.slice(0, -5);
-    const record = await readYaml(worksetReentryPath(home, workset.id, id), worksetReentrySchema);
-    if (record.worksetId !== workset.id) {
-      throw new Error(`Re-entry '${record.id}' belongs to ${record.worksetId}, not ${workset.id}.`);
-    }
-    records.push(record);
+    records.push(await loadWorksetReentry(home, workset.id, id));
   }
   return records.sort((left, right) => left.id.localeCompare(right.id));
 }
@@ -192,6 +253,12 @@ export async function resolveWorksetReentry(
   if (!record) throw new Error(`Re-entry '${reentryId}' was not found in ${workset.id}.`);
   if (record.status === 'RESOLVED') return record;
 
+  if (record.schemaVersion === 2) {
+    throw new Error(
+      `Re-entry '${reentryId}' uses B2a lifecycle and cannot be resolved directly. Freeze a DECIDED plan and apply all required project reconciliations.`,
+    );
+  }
+
   const oldestPending = records.find((item) => item.status === 'PENDING');
   if (oldestPending && oldestPending.id !== reentryId) {
     throw new Error(
@@ -199,10 +266,7 @@ export async function resolveWorksetReentry(
     );
   }
 
-  const unresolvedCandidates = record.candidateProjects.filter((projectAlias) => {
-    const member = workset.members.find((item) => item.project === projectAlias);
-    return !member || member.status === 'CANDIDATE' || member.status === 'RESEARCH_ONLY';
-  });
+  const unresolvedCandidates = unresolvedCandidateProjects(workset.members, record.candidateProjects);
   if (unresolvedCandidates.length > 0) {
     throw new Error(
       `Re-entry '${reentryId}' cannot resolve while candidate project '${unresolvedCandidates.join(', ')}' still requires an impact decision.`,
@@ -214,8 +278,18 @@ export async function resolveWorksetReentry(
     status: 'RESOLVED',
     resolvedAt: new Date().toISOString(),
   });
-  await writeYaml(worksetReentryPath(home, workset.id, reentryId), resolved);
+  await saveWorksetReentry(home, resolved);
   return resolved;
+}
+
+export function unresolvedCandidateProjects(
+  members: Array<{ project: string; status: string }>,
+  candidateProjects: string[],
+): string[] {
+  return candidateProjects.filter((projectAlias) => {
+    const member = members.find((item) => item.project === projectAlias);
+    return !member || member.status === 'CANDIDATE' || member.status === 'RESEARCH_ONLY';
+  });
 }
 
 async function nextReentryId(home: string, worksetId: string): Promise<string> {

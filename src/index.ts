@@ -12,3 +12,5 @@ export * from './workspace/project-registry.js';
 export * from './workspace/worksets.js';
 export * from './workspace/git-worktrees.js';
 export * from './workspace/execution-workspace.js';
+export * from './workspace/reentry.js';
+export * from './workspace/workset-router.js';

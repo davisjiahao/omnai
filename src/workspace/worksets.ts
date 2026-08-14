@@ -1,5 +1,6 @@
 import { readdir } from 'node:fs/promises';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { ensureExecutionWorkspace } from './execution-workspace.js';
 import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
 import {
@@ -14,7 +15,6 @@ import {
   type Workset,
   type WorksetMember,
 } from './types.js';
-import { syncVsCodeWorkspace } from './vscode-workspace.js';
 
 export interface WorksetNextAction {
   action: string;
@@ -36,6 +36,7 @@ export async function createWorkset(home: string, title: string): Promise<Workse
     updatedAt: now,
   });
   await saveWorkset(home, workset);
+  await ensureExecutionWorkspace(home, workset);
   await savePersonalConfig(home, { schemaVersion: 1, activeWorkset: id });
   return workset;
 }
@@ -110,7 +111,6 @@ export async function activateWorksetProject(home: string, worksetRef: string, p
   member.updatedAt = now;
   workset.updatedAt = now;
   await saveWorkset(home, workset);
-  await syncVsCodeWorkspace(home, workset);
   return workset;
 }
 
@@ -126,7 +126,6 @@ export async function markWorksetProjectInactive(home: string, worksetRef: strin
   member.updatedAt = now;
   workset.updatedAt = now;
   await saveWorkset(home, workset);
-  await syncVsCodeWorkspace(home, workset);
   return workset;
 }
 

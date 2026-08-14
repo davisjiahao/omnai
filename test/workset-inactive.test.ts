@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { pathExists } from '../src/core/files.js';
+import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
-  activateWorksetProject,
   addWorksetCandidate,
   beginProjectResearch,
   createWorkset,
@@ -25,7 +25,13 @@ test('marking an active member inactive retains its worktree in place and remove
   const workset = await createWorkset(home.root, 'Authorization Migration');
   await addWorksetCandidate(home.root, workset.id, 'user');
   await beginProjectResearch(home.root, workset.id, 'user');
-  const active = await activateWorksetProject(home.root, workset.id, 'user');
+  const active = (await createAndActivateWorksetProjectChange(
+    home.root,
+    workset.id,
+    'user',
+    'User Workset Change',
+    'small-feature',
+  )).workset;
   const activeMember = active.members.find((item) => item.project === 'user');
   assert.ok(activeMember?.worktree);
   assert.ok(activeMember.branch);

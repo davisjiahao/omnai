@@ -8,13 +8,21 @@ import { createAndActivateWorksetProjectChange } from '../src/workspace/change-b
 import { registerProject } from '../src/workspace/project-registry.js';
 import { applyWorksetReentry } from '../src/workspace/reconcile-apply.js';
 import { decideWorksetReentry, planWorksetReentry } from '../src/workspace/reconcile-plan.js';
-import { previewFailedWorksetReentryApplicationReplan } from '../src/workspace/reconcile-replan.js';
+import {
+  confirmFailedWorksetReentryApplicationReplan,
+  previewFailedWorksetReentryApplicationReplan,
+} from '../src/workspace/reconcile-replan.js';
 import {
   loadWorksetReentry,
   recordWorksetReentry,
   saveWorksetReentry,
 } from '../src/workspace/reentry.js';
-import { addWorksetCandidate, beginProjectResearch, createWorkset } from '../src/workspace/worksets.js';
+import {
+  addWorksetCandidate,
+  beginProjectResearch,
+  createWorkset,
+  markProjectObservedOnly,
+} from '../src/workspace/worksets.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -22,14 +30,18 @@ afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()?.();
 });
 
-async function createActiveProject(home: string, repoRoot: string, alias = 'user') {
+async function activateInWorkset(
+  home: string,
+  worksetId: string,
+  repoRoot: string,
+  alias: string,
+) {
   await registerProject(home, repoRoot, alias);
-  const workset = await createWorkset(home, 'Authorization Migration');
-  await addWorksetCandidate(home, workset.id, alias);
-  await beginProjectResearch(home, workset.id, alias);
+  await addWorksetCandidate(home, worksetId, alias);
+  await beginProjectResearch(home, worksetId, alias);
   const active = await createAndActivateWorksetProjectChange(
     home,
-    workset.id,
+    worksetId,
     alias,
     `${alias} Workset Change`,
     'complex-domain-feature',
@@ -37,7 +49,13 @@ async function createActiveProject(home: string, repoRoot: string, alias = 'user
   const member = active.workset.members.find((item) => item.project === alias);
   assert.ok(member?.worktree);
   assert.ok(member.changeId);
-  return { workset, worktree: member.worktree, changeId: member.changeId };
+  return { worktree: member.worktree, changeId: member.changeId };
+}
+
+async function createActiveProject(home: string, repoRoot: string, alias = 'user') {
+  const workset = await createWorkset(home, 'Authorization Migration');
+  const active = await activateInWorkset(home, workset.id, repoRoot, alias);
+  return { workset, ...active };
 }
 
 async function decideScopeReentry(
@@ -188,4 +206,124 @@ test('replan preview rejects when correlated repository Revision lineage already
     () => previewFailedWorksetReentryApplicationReplan(home.root, active.workset.id, decided.id, 'user'),
     /correlation|already.*reconcile|lineage/i,
   );
+});
+
+test('confirm archives the failed frozen attempt and resets only the selected application to PENDING', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, repo.cleanup);
+  const active = await createActiveProject(home.root, repo.root);
+  const decided = await decideScopeReentry(home.root, active.workset.id, 'user');
+  const oldFromRevision = decided.applications[0]?.fromRevision;
+  const oldFromBaseline = decided.applications[0]?.fromBaseline;
+
+  await advanceIndependently(active.worktree, active.changeId);
+  await applyWorksetReentry(home.root, active.workset.id, decided.id, 'user');
+  const confirmed = await confirmFailedWorksetReentryApplicationReplan(
+    home.root,
+    active.workset.id,
+    decided.id,
+    'user',
+  );
+
+  const application = confirmed.applications[0]!;
+  assert.equal(confirmed.status, 'DECIDED');
+  assert.equal(application.status, 'PENDING');
+  assert.equal(application.failureKind, null);
+  assert.equal(application.error, null);
+  assert.equal(application.fromRevision, 'REV-0002');
+  assert.equal(application.fromBaseline, 'BL-0002');
+  assert.equal(application.toRevision, null);
+  assert.equal(application.toBaseline, null);
+  assert.equal(application.appliedAt, null);
+  assert.equal(application.attemptHistory.length, 1);
+  assert.equal(application.attemptHistory[0]?.status, 'FAILED');
+  assert.equal(application.attemptHistory[0]?.failureKind, 'STALE_PRECONDITION');
+  assert.equal(application.attemptHistory[0]?.fromRevision, oldFromRevision);
+  assert.equal(application.attemptHistory[0]?.fromBaseline, oldFromBaseline);
+  assert.ok(application.attemptHistory[0]?.replannedAt);
+});
+
+test('confirm preserves APPLIED and NOT_REQUIRED sibling applications exactly', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const userRepo = await createTestRepository('user-center');
+  const quoteRepo = await createTestRepository('quote-center');
+  const orderRepo = await createTestRepository('order-center');
+  cleanups.push(home.cleanup, userRepo.cleanup, quoteRepo.cleanup, orderRepo.cleanup);
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  const user = await activateInWorkset(home.root, workset.id, userRepo.root, 'user');
+  const quote = await activateInWorkset(home.root, workset.id, quoteRepo.root, 'quote');
+  await registerProject(home.root, orderRepo.root, 'order');
+  await addWorksetCandidate(home.root, workset.id, 'order');
+  await beginProjectResearch(home.root, workset.id, 'order');
+  await markProjectObservedOnly(home.root, workset.id, 'order');
+
+  const reentry = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'SCOPE_CHANGED',
+    reason: 'Authorization scope changed across projects',
+    affectedProjects: ['user', 'quote'],
+    candidateProjects: ['order'],
+  });
+  await planWorksetReentry(home.root, workset.id, reentry.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L3', reopenFrom: 'spec', taskRoots: [] },
+    { project: 'quote', outcome: 'REQUIRED', level: 'L3', reopenFrom: 'spec', taskRoots: [] },
+    { project: 'order', outcome: 'NOT_REQUIRED' },
+  ]);
+  const decided = await decideWorksetReentry(home.root, workset.id, reentry.id);
+  await advanceIndependently(quote.worktree, quote.changeId);
+  const failed = await applyWorksetReentry(home.root, workset.id, decided.id);
+  assert.equal(failed.applications.find((item) => item.project === 'user')?.status, 'APPLIED');
+  assert.equal(failed.applications.find((item) => item.project === 'quote')?.failureKind, 'STALE_PRECONDITION');
+  assert.equal(failed.applications.find((item) => item.project === 'order')?.status, 'NOT_REQUIRED');
+
+  const userBefore = structuredClone(failed.applications.find((item) => item.project === 'user'));
+  const orderBefore = structuredClone(failed.applications.find((item) => item.project === 'order'));
+  const confirmed = await confirmFailedWorksetReentryApplicationReplan(home.root, workset.id, decided.id, 'quote');
+
+  assert.deepEqual(confirmed.applications.find((item) => item.project === 'user'), userBefore);
+  assert.deepEqual(confirmed.applications.find((item) => item.project === 'order'), orderBefore);
+  assert.equal(confirmed.applications.find((item) => item.project === 'quote')?.status, 'PENDING');
+  assert.equal((await resolveChange(user.worktree, user.changeId)).metadata.activeRevision, 'REV-0002');
+});
+
+test('repeated stale-precondition replans append immutable attempt history in order', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, repo.cleanup);
+  const active = await createActiveProject(home.root, repo.root);
+  const decided = await decideScopeReentry(home.root, active.workset.id, 'user');
+
+  await advanceIndependently(active.worktree, active.changeId);
+  await applyWorksetReentry(home.root, active.workset.id, decided.id, 'user');
+  const firstConfirmed = await confirmFailedWorksetReentryApplicationReplan(home.root, active.workset.id, decided.id, 'user');
+  assert.equal(firstConfirmed.applications[0]?.fromRevision, 'REV-0002');
+
+  await advanceIndependently(active.worktree, active.changeId);
+  const secondFailed = await applyWorksetReentry(home.root, active.workset.id, decided.id, 'user');
+  assert.equal(secondFailed.applications[0]?.failureKind, 'STALE_PRECONDITION');
+  const secondConfirmed = await confirmFailedWorksetReentryApplicationReplan(home.root, active.workset.id, decided.id, 'user');
+
+  const history = secondConfirmed.applications[0]?.attemptHistory ?? [];
+  assert.equal(history.length, 2);
+  assert.equal(history[0]?.fromRevision, 'REV-0001');
+  assert.equal(history[1]?.fromRevision, 'REV-0002');
+  assert.equal(secondConfirmed.applications[0]?.fromRevision, 'REV-0003');
+});
+
+test('confirm recalculates from current repository truth instead of trusting an earlier preview', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, repo.cleanup);
+  const active = await createActiveProject(home.root, repo.root);
+  const decided = await decideScopeReentry(home.root, active.workset.id, 'user');
+
+  await advanceIndependently(active.worktree, active.changeId);
+  await applyWorksetReentry(home.root, active.workset.id, decided.id, 'user');
+  const preview = await previewFailedWorksetReentryApplicationReplan(home.root, active.workset.id, decided.id, 'user');
+  assert.equal(preview.fromRevision, 'REV-0002');
+
+  await advanceIndependently(active.worktree, active.changeId);
+  const confirmed = await confirmFailedWorksetReentryApplicationReplan(home.root, active.workset.id, decided.id, 'user');
+  assert.equal(confirmed.applications[0]?.fromRevision, 'REV-0003');
+  assert.equal(confirmed.applications[0]?.fromBaseline, 'BL-0003');
 });

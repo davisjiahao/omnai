@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { createTestRepository } from './helpers.js';
 import { createChange, resolveChange, saveChange } from '../src/core/store.js';
 import { loadTasks, saveTasks } from '../src/core/tasks.js';
-import { changeArtifactPath } from '../src/core/paths.js';
+import { changeArtifactPath, changeRevisionsRoot } from '../src/core/paths.js';
 import { reconcileChange } from '../src/core/reconcile.js';
 import { pathExists } from '../src/core/files.js';
 
@@ -59,8 +60,68 @@ test('creates a new revision and baseline while invalidating only the affected t
   assert.equal(updated.tasks[0]!.status, 'DONE');
   assert.equal(updated.tasks[1]!.status, 'NEEDS_REVALIDATION');
   assert.equal(updated.tasks[2]!.status, 'INVALIDATED');
+  assert.equal(change.metadata.readiness.domain, 'STALE');
   assert.equal(change.metadata.readiness.spec, 'STALE');
   assert.equal(change.metadata.readiness.design, 'INVALIDATED');
+  assert.equal(change.metadata.readiness.plan, 'INVALIDATED');
   assert.equal(change.metadata.readiness.review, 'MISSING');
   assert.equal(await pathExists(join(fixture.root, '.omnai/changes', created.directoryName, 'revisions/REV-0002.yaml')), true);
+});
+
+test('explicit readiness scope invalidates only the frozen readiness closure', async () => {
+  const fixture = await createTestRepository();
+  cleanups.push(fixture.cleanup);
+  const created = await createChange(fixture.root, 'Authorization migration', 'complex-domain-feature');
+  const change = await resolveChange(fixture.root, created.metadata.id);
+  for (const key of ['domain', 'spec', 'design', 'plan', 'implementation', 'review', 'verification'] as const) {
+    change.metadata.readiness[key] = 'READY';
+  }
+  await saveChange(fixture.root, change);
+
+  const result = await reconcileChange(fixture.root, change, {
+    level: 'L3',
+    type: 'DOMAIN_ASSUMPTION_INVALIDATED',
+    reason: 'Only consumer specification and design are affected in this repository',
+    affectedReadiness: ['spec', 'design'],
+  });
+
+  assert.deepEqual(result.affectedReadiness, ['spec', 'design']);
+  assert.equal(change.metadata.readiness.domain, 'READY');
+  assert.equal(change.metadata.readiness.spec, 'STALE');
+  assert.equal(change.metadata.readiness.design, 'INVALIDATED');
+  assert.equal(change.metadata.readiness.plan, 'READY');
+  assert.equal(change.metadata.readiness.implementation, 'READY');
+  assert.equal(change.metadata.readiness.review, 'READY');
+  assert.equal(change.metadata.readiness.verification, 'READY');
+});
+
+test('persists an external correlation id in reconcile lineage for idempotent recovery', async () => {
+  const fixture = await createTestRepository();
+  cleanups.push(fixture.cleanup);
+  const created = await createChange(fixture.root, 'Authorization migration', 'complex-domain-feature');
+  const change = await resolveChange(fixture.root, created.metadata.id);
+
+  const result = await reconcileChange(fixture.root, change, {
+    level: 'L3',
+    type: 'WORKSET_REENTRY',
+    reason: 'WRE-0001 project reconciliation',
+    affectedReadiness: ['spec'],
+    correlationId: 'WRE-0001/user',
+  });
+
+  assert.equal(result.signal.correlationId, 'WRE-0001/user');
+  assert.equal(result.revision.correlationId, 'WRE-0001/user');
+
+  const signalText = await readFile(
+    join(changeRevisionsRoot(fixture.root, created.directoryName), `${result.signal.id}.signal.yaml`),
+    'utf8',
+  );
+  const revisionText = await readFile(
+    join(changeRevisionsRoot(fixture.root, created.directoryName), `${result.revision.id}.yaml`),
+    'utf8',
+  );
+  const progressText = await readFile(changeArtifactPath(fixture.root, created.directoryName, 'progress.jsonl'), 'utf8');
+  assert.match(signalText, /correlationId:\s*WRE-0001\/user/);
+  assert.match(revisionText, /correlationId:\s*WRE-0001\/user/);
+  assert.match(progressText, /WRE-0001\/user/);
 });

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -28,7 +29,7 @@ function activateProject(home: string, project: string): void {
   runJson(home, ['workset', 'create-change', project, `${project} Workset Change`, '--scenario', 'small-feature']);
 }
 
-test('routes a mid-flight domain change through new-project research before Grill', async () => {
+test('runs mid-flight change through research, frozen decision, project reconcile apply, and RESOLVED', async () => {
   const home = await createTestDirectory('omnai-home-');
   const userRepo = await createTestRepository('user-center');
   const quoteRepo = await createTestRepository('quote-center');
@@ -52,47 +53,72 @@ test('routes a mid-flight domain change through new-project research before Gril
   ]);
   assert.equal(change.id, 'WRE-0001');
   assert.equal(change.status, 'PENDING');
-  assert.deepEqual(change.affectedProjects, ['user', 'quote']);
-  assert.deepEqual(change.candidateProjects, ['pricing']);
 
-  assert.deepEqual(runJson(home.root, ['workset', 'next', workset.id]), {
-    action: 'inspect-project',
-    project: 'pricing',
-    reason: 'Candidate project requires read-only research before activation.',
-  });
+  assert.equal(runJson(home.root, ['workset', 'next', workset.id]).action, 'inspect-project');
+  runJson(home.root, ['workset', 'inspect-project', 'pricing']);
+  runJson(home.root, ['workset', 'inspect-project', 'pricing', '--result', 'observed-only']);
 
-  const research = runJson(home.root, ['workset', 'inspect-project', 'pricing']);
-  assert.equal(research.status, 'RESEARCH_ONLY');
-  assert.equal(research.readOnly, true);
+  const reenter = runJson(home.root, ['workset', 'next', workset.id]);
+  assert.equal(reenter.action, 'reenter');
+  assert.equal(reenter.reentryId, 'WRE-0001');
+  assert.equal(reenter.capability, 'model');
+  assert.equal(reenter.interaction, 'grill');
 
-  const observed = runJson(home.root, [
-    'workset', 'inspect-project', 'pricing', '--result', 'observed-only',
+  const proposalPath = join(home.root, 'WRE-0001-proposal.yaml');
+  await writeFile(proposalPath, [
+    '- project: user',
+    '  outcome: REQUIRED',
+    '  level: L3',
+    '  reopenFrom: spec',
+    '  taskRoots: []',
+    '- project: quote',
+    '  outcome: REQUIRED',
+    '  level: L3',
+    '  reopenFrom: spec',
+    '  taskRoots: []',
+    '- project: pricing',
+    '  outcome: NOT_REQUIRED',
+    '',
+  ].join('\n'), 'utf8');
+
+  const planned = runJson(home.root, [
+    'workset', 'reentry', 'plan', 'WRE-0001', '--file', proposalPath, '--workset', workset.id,
   ]);
-  assert.equal(observed.status, 'OBSERVED_ONLY');
-
-  assert.deepEqual(runJson(home.root, ['workset', 'next', workset.id]), {
-    action: 'reenter',
-    reentryId: 'WRE-0001',
-    capability: 'model',
-    interaction: 'grill',
-    affectedProjects: ['user', 'quote'],
-    reason: 'Domain meaning, ownership, lifecycle, or invariant changed.',
-  });
-
-  const records = runJson(home.root, ['workset', 'reentry', 'list', workset.id]);
-  assert.equal(records.length, 1);
-  assert.equal(records[0].id, 'WRE-0001');
-  assert.equal(records[0].status, 'PENDING');
-
-  const directResolve = runCli(home.root, [
-    'workset', 'reentry', 'resolve', 'WRE-0001', '--workset', workset.id, '--json',
+  assert.equal(planned.record.status, 'PENDING');
+  assert.equal(planned.preview.length, 3);
+  assert.deepEqual(planned.preview.find((item: { project: string }) => item.project === 'user').readinessClosure, [
+    'spec', 'design', 'plan', 'implementation', 'verification',
   ]);
-  assert.notEqual(directResolve.status, 0);
-  assert.match(directResolve.stderr, /B2a lifecycle|cannot be resolved directly/i);
+
+  const decided = runJson(home.root, [
+    'workset', 'reentry', 'decide', 'WRE-0001', '--workset', workset.id,
+  ]);
+  assert.equal(decided.status, 'DECIDED');
+  assert.equal(decided.rulesVersion, 1);
+  assert.equal(decided.applications.find((item: { project: string }) => item.project === 'pricing').status, 'NOT_REQUIRED');
+
+  const status = runJson(home.root, [
+    'workset', 'reentry', 'status', 'WRE-0001', '--workset', workset.id,
+  ]);
+  assert.equal(status.status, 'DECIDED');
 
   const next = runJson(home.root, ['workset', 'next', workset.id]);
-  assert.equal(next.action, 'reenter');
+  assert.equal(next.action, 'apply-reentry');
   assert.equal(next.reentryId, 'WRE-0001');
+  assert.equal(next.project, 'user');
+  assert.equal(next.applicationStatus, 'PENDING');
+
+  const applied = runJson(home.root, [
+    'workset', 'reentry', 'apply', 'WRE-0001', '--workset', workset.id,
+  ]);
+  assert.equal(applied.status, 'RESOLVED');
+  assert.equal(applied.applications.find((item: { project: string }) => item.project === 'user').status, 'APPLIED');
+  assert.equal(applied.applications.find((item: { project: string }) => item.project === 'quote').status, 'APPLIED');
+  assert.equal(applied.applications.find((item: { project: string }) => item.project === 'pricing').status, 'NOT_REQUIRED');
+
+  const after = runJson(home.root, ['workset', 'next', workset.id]);
+  assert.equal(after.action, 'project-workflow');
+  assert.equal(after.project, 'user');
 });
 
 test('rejects an unsupported structured Re-entry kind', async () => {

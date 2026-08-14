@@ -101,6 +101,9 @@ export async function activateWorksetProject(home: string, worksetRef: string, p
   if (member.status !== 'RESEARCH_ONLY') {
     throw new Error(`Project '${projectAlias}' must be RESEARCH_ONLY before activation.`);
   }
+  if (!member.changeId) {
+    throw new Error(`Project '${projectAlias}' must bind a Project Change before activation.`);
+  }
 
   const project = await requireRegisteredProject(home, projectAlias);
   const created = await createWorksetWorktree(home, workset, project);

@@ -192,6 +192,23 @@ export async function resolveWorksetReentry(
   if (!record) throw new Error(`Re-entry '${reentryId}' was not found in ${workset.id}.`);
   if (record.status === 'RESOLVED') return record;
 
+  const oldestPending = records.find((item) => item.status === 'PENDING');
+  if (oldestPending && oldestPending.id !== reentryId) {
+    throw new Error(
+      `Re-entry '${reentryId}' cannot resolve before older pending Re-entry '${oldestPending.id}'.`,
+    );
+  }
+
+  const unresolvedCandidates = record.candidateProjects.filter((projectAlias) => {
+    const member = workset.members.find((item) => item.project === projectAlias);
+    return !member || member.status === 'CANDIDATE' || member.status === 'RESEARCH_ONLY';
+  });
+  if (unresolvedCandidates.length > 0) {
+    throw new Error(
+      `Re-entry '${reentryId}' cannot resolve while candidate project '${unresolvedCandidates.join(', ')}' still requires an impact decision.`,
+    );
+  }
+
   const resolved = worksetReentrySchema.parse({
     ...record,
     status: 'RESOLVED',

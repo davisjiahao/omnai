@@ -8,7 +8,13 @@ import { appendJsonLine, writeYaml } from './files.js';
 import { changeArtifactPath, changeRevisionsRoot } from './paths.js';
 import type { ChangeRef } from './store.js';
 import { saveChange } from './store.js';
-import { invalidateExactTasks, invalidateTasks, loadTasks, saveTasks } from './tasks.js';
+import {
+  dependentTaskIds,
+  invalidateExactTasks,
+  invalidateTasks,
+  loadTasks,
+  saveTasks,
+} from './tasks.js';
 
 const IMPACTS: Record<ReconcileLevel, Array<keyof ChangeMetadata['readiness']>> = {
   L0: ['implementation', 'review', 'verification', 'qa', 'release', 'canary', 'learning'],
@@ -44,14 +50,18 @@ export async function reconcileChange(repoRoot: string, change: ChangeRef, input
   const taskFile = await loadTasks(tasksPath);
   const requestedTasks = input.affectedTasks ?? [];
   const severeTaskInvalidation = ['L2', 'L3', 'L4'].includes(input.level);
+  let affectedTasks: string[] = [];
+
   if (input.affectedTaskClosure !== undefined) {
-    invalidateExactTasks(taskFile, input.affectedTaskClosure, severeTaskInvalidation);
-    if (input.affectedTaskClosure.length > 0) await saveTasks(tasksPath, taskFile);
+    affectedTasks = unique(input.affectedTaskClosure);
+    invalidateExactTasks(taskFile, affectedTasks, severeTaskInvalidation);
+    if (affectedTasks.length > 0) await saveTasks(tasksPath, taskFile);
   } else if (requestedTasks.length > 0) {
+    const knownTaskIds = new Set(taskFile.tasks.map((task) => task.id));
+    affectedTasks = dependentTaskIds(taskFile, requestedTasks).filter((taskId) => knownTaskIds.has(taskId));
     invalidateTasks(taskFile, requestedTasks, severeTaskInvalidation);
     await saveTasks(tasksPath, taskFile);
   }
-  const affectedTasks = taskFile.tasks.filter((task) => ['STALE', 'NEEDS_REVALIDATION', 'INVALIDATED'].includes(task.status)).map((task) => task.id);
 
   const previousRevision = change.metadata.activeRevision;
   const previousBaseline = change.metadata.baseline;
@@ -140,4 +150,8 @@ function normalizeAffectedReadiness(
     if (!normalized.includes(parsed)) normalized.push(parsed);
   }
   return normalized;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }

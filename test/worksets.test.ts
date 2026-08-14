@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
 import { pathExists } from '../src/core/files.js';
+import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import { worksetMarkerPath, worksetWorkspaceRoot } from '../src/workspace/paths.js';
 import {
-  activateWorksetProject,
   addWorksetCandidate,
   beginProjectResearch,
   createWorkset,
@@ -62,7 +62,7 @@ test('moves a candidate through read-only research without creating a project wo
   assert.equal(await pathExists(projectPath), false);
 });
 
-test('activating repositories creates sibling Git worktrees under one aggregate root', async () => {
+test('activating repositories creates Project Changes and sibling Git worktrees under one aggregate root', async () => {
   const userRepo = await createTestRepository('user-center');
   const quoteRepo = await createTestRepository('quote-center');
   const home = await createTestDirectory('omnai-home-');
@@ -74,16 +74,18 @@ test('activating repositories creates sibling Git worktrees under one aggregate 
 
   await addWorksetCandidate(home.root, workset.id, 'user');
   await beginProjectResearch(home.root, workset.id, 'user');
-  const userActive = await activateWorksetProject(home.root, workset.id, 'user');
-  const userWorktree = userActive.members.find((item) => item.project === 'user')?.worktree;
-  assert.equal(userWorktree, join(root, 'user'));
+  const userActive = (await createAndActivateWorksetProjectChange(home.root, workset.id, 'user', 'User Change', 'small-feature')).workset;
+  const userMember = userActive.members.find((item) => item.project === 'user');
+  assert.equal(userMember?.worktree, join(root, 'user'));
+  assert.ok(userMember?.changeId);
   assert.equal(await pathExists(join(root, 'user', 'README.md')), true);
 
   await addWorksetCandidate(home.root, workset.id, 'quote');
   await beginProjectResearch(home.root, workset.id, 'quote');
-  const quoteActive = await activateWorksetProject(home.root, workset.id, 'quote');
-  const quoteWorktree = quoteActive.members.find((item) => item.project === 'quote')?.worktree;
-  assert.equal(quoteWorktree, join(root, 'quote'));
+  const quoteActive = (await createAndActivateWorksetProjectChange(home.root, workset.id, 'quote', 'Quote Change', 'small-feature')).workset;
+  const quoteMember = quoteActive.members.find((item) => item.project === 'quote');
+  assert.equal(quoteMember?.worktree, join(root, 'quote'));
+  assert.ok(quoteMember?.changeId);
   assert.equal(await pathExists(join(root, 'quote', 'README.md')), true);
   assert.equal(await pathExists(join(root, 'user', 'README.md')), true);
 });

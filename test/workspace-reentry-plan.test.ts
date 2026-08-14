@@ -205,3 +205,42 @@ test('an observed-only candidate can freeze as NOT_REQUIRED without a Project Ch
     await home.cleanup();
   }
 });
+
+test('a newer WRE may be planned but cannot freeze while an older DECIDED WRE is outstanding', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('user-center');
+  try {
+    await registerProject(home.root, repo.root, 'user');
+    const workset = await createWorkset(home.root, 'Authorization Migration');
+    await activateWithChange(home.root, workset.id, 'user');
+
+    const first = await recordWorksetReentry(home.root, workset.id, {
+      kind: 'PLAN_CHANGED',
+      reason: 'First sequencing change.',
+      affectedProjects: ['user'],
+    });
+    await planWorksetReentry(home.root, workset.id, first.id, [
+      { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+    ]);
+    assert.equal((await decideWorksetReentry(home.root, workset.id, first.id)).status, 'DECIDED');
+
+    const second = await recordWorksetReentry(home.root, workset.id, {
+      kind: 'PLAN_CHANGED',
+      reason: 'Second sequencing change.',
+      affectedProjects: ['user'],
+    });
+    const preview = await planWorksetReentry(home.root, workset.id, second.id, [
+      { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+    ]);
+    assert.equal(preview.record.status, 'PENDING');
+
+    await assert.rejects(
+      () => decideWorksetReentry(home.root, workset.id, second.id),
+      new RegExp(`${first.id}.*DECIDED|DECIDED.*${first.id}`, 'i'),
+    );
+    assert.equal((await loadWorksetReentry(home.root, workset.id, second.id)).status, 'PENDING');
+  } finally {
+    await repo.cleanup();
+    await home.cleanup();
+  }
+});

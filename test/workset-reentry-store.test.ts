@@ -61,7 +61,7 @@ test('persists monotonic Workset Re-entry records and reloads them in order', as
   assert.equal((await pendingWorksetReentry(home.root, workset.id))?.id, 'WRE-0001');
 });
 
-test('resolves a pending Re-entry without rewriting its original route or reason', async () => {
+test('new schema v2 Re-entry cannot bypass DECIDED applications through direct resolve', async () => {
   const home = await createTestDirectory('omnai-home-');
   cleanups.push(home.cleanup);
   const workset = await createWorkset(home.root, 'Authorization Migration');
@@ -72,17 +72,15 @@ test('resolves a pending Re-entry without rewriting its original route or reason
     candidateProjects: [],
   });
 
-  const resolved = await resolveWorksetReentry(home.root, workset.id, created.id);
-  assert.equal(resolved.status, 'RESOLVED');
-  assert.ok(resolved.resolvedAt);
-  assert.equal(resolved.reason, created.reason);
-  assert.deepEqual(resolved.route, created.route);
-  assert.deepEqual(resolved.affectedProjects, []);
-  assert.deepEqual(resolved.candidateProjects, []);
-  assert.equal(await pendingWorksetReentry(home.root, workset.id), null);
-
-  const again = await resolveWorksetReentry(home.root, workset.id, created.id);
-  assert.deepEqual(again, resolved);
+  await assert.rejects(
+    () => resolveWorksetReentry(home.root, workset.id, created.id),
+    /B2a lifecycle|cannot be resolved directly/i,
+  );
+  const stored = (await listWorksetReentries(home.root, workset.id))[0];
+  assert.equal(stored?.status, 'PENDING');
+  assert.equal(stored?.reason, created.reason);
+  assert.deepEqual(stored?.route, created.route);
+  assert.equal((await pendingWorksetReentry(home.root, workset.id))?.id, created.id);
 });
 
 test('injects newly affected registered repositories as read-only candidates before persisting Re-entry', async () => {

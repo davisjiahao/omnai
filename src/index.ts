@@ -17,4 +17,5 @@ export * from './workspace/reentry.js';
 export * from './workspace/reconcile-closure.js';
 export * from './workspace/reconcile-plan.js';
 export * from './workspace/reconcile-apply.js';
+export * from './workspace/reconcile-replan.js';
 export * from './workspace/workset-router.js';

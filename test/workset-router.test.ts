@@ -70,15 +70,14 @@ test('new candidate research and impact decisions outrank pending Grill re-entry
     reason: 'Domain meaning, ownership, lifecycle, or invariant changed.',
   });
 
-  await resolveWorksetReentry(home.root, workset.id, reentry.id);
-  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
-    action: 'project-workflow',
-    project: 'user',
-    reason: 'Active project is ready for its repository-local OmnAI workflow.',
-  });
+  await assert.rejects(
+    () => resolveWorksetReentry(home.root, workset.id, reentry.id),
+    /B2a lifecycle|cannot be resolved directly/i,
+  );
+  assert.equal((await resolveWorksetNext(home.root, workset.id)).action, 'reenter');
 });
 
-test('pending Re-entry outranks ordinary active-project work and resolves oldest first', async () => {
+test('oldest pending Re-entry outranks ordinary active-project work', async () => {
   const home = await createTestDirectory('omnai-home-');
   const userRepo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, userRepo.cleanup);
@@ -91,7 +90,7 @@ test('pending Re-entry outranks ordinary active-project work and resolves oldest
     reason: 'Dual-write is prohibited.',
     affectedProjects: ['user'],
   });
-  const second = await recordWorksetReentry(home.root, workset.id, {
+  await recordWorksetReentry(home.root, workset.id, {
     kind: 'PLAN_CHANGED',
     reason: 'Delivery order changed.',
     affectedProjects: ['user'],
@@ -106,13 +105,9 @@ test('pending Re-entry outranks ordinary active-project work and resolves oldest
     reason: 'A technical constraint invalidated the selected implementation approach.',
   });
 
-  await resolveWorksetReentry(home.root, workset.id, first.id);
-  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
-    action: 'reenter',
-    reentryId: second.id,
-    capability: 'plan',
-    interaction: 'none',
-    affectedProjects: ['user'],
-    reason: 'Only task structure, dependency order, or delivery sequencing changed.',
-  });
+  await assert.rejects(
+    () => resolveWorksetReentry(home.root, workset.id, first.id),
+    /B2a lifecycle|cannot be resolved directly/i,
+  );
+  assert.equal((await resolveWorksetNext(home.root, workset.id) as { reentryId?: string }).reentryId, first.id);
 });

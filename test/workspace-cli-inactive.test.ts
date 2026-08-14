@@ -29,9 +29,11 @@ test('mark-inactive retains the Worktree in the aggregate directory', async () =
   const workset = JSON.parse(created.stdout);
   assert.equal(runCli(home.root, ['workset', 'add-candidate', 'user', '--json']).status, 0);
   assert.equal(runCli(home.root, ['workset', 'inspect-project', 'user', '--json']).status, 0);
-  const activated = runCli(home.root, ['workset', 'activate-project', 'user', '--json']);
-  assert.equal(activated.status, 0, activated.stderr);
-  const activeMember = JSON.parse(activated.stdout);
+  const createdChange = runCli(home.root, [
+    'workset', 'create-change', 'user', 'Authorization ownership', '--scenario', 'small-feature', '--json',
+  ]);
+  assert.equal(createdChange.status, 0, createdChange.stderr);
+  const activeMember = JSON.parse(createdChange.stdout).member;
 
   const inactive = runCli(home.root, ['workset', 'mark-inactive', 'user', '--json']);
   assert.equal(inactive.status, 0, inactive.stderr);

@@ -1,8 +1,9 @@
 import { readdir } from 'node:fs/promises';
 import { z } from 'zod';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { requireRegisteredProject } from './project-registry.js';
 import { worksetReentryPath, worksetReentriesRoot } from './paths.js';
-import { resolveWorkset } from './worksets.js';
+import { addWorksetCandidate, resolveWorkset } from './worksets.js';
 
 export const REENTRY_KINDS = [
   'REALITY_CHANGED',
@@ -115,6 +116,24 @@ export async function recordWorksetReentry(
   input: WorksetReentryInput,
 ): Promise<WorksetReentry> {
   const workset = await resolveWorkset(home, worksetRef);
+  const affectedProjects = unique(input.affectedProjects ?? []);
+  const candidateProjects = unique(input.candidateProjects ?? []);
+
+  for (const projectAlias of affectedProjects) {
+    if (!workset.members.some((member) => member.project === projectAlias)) {
+      throw new Error(`Project '${projectAlias}' is not a member of ${workset.id}.`);
+    }
+  }
+  for (const projectAlias of candidateProjects) {
+    await requireRegisteredProject(home, projectAlias);
+  }
+
+  for (const projectAlias of candidateProjects) {
+    if (!workset.members.some((member) => member.project === projectAlias)) {
+      await addWorksetCandidate(home, workset.id, projectAlias);
+    }
+  }
+
   const id = await nextReentryId(home, workset.id);
   const record = worksetReentrySchema.parse({
     schemaVersion: 1,
@@ -123,8 +142,8 @@ export async function recordWorksetReentry(
     kind: input.kind,
     reason: input.reason,
     route: routeWorksetReentry(input.kind),
-    affectedProjects: input.affectedProjects ?? [],
-    candidateProjects: input.candidateProjects ?? [],
+    affectedProjects,
+    candidateProjects,
     status: 'PENDING',
     createdAt: new Date().toISOString(),
     resolvedAt: null,
@@ -181,4 +200,8 @@ async function nextReentryId(home: string, worksetId: string): Promise<string> {
   const records = await listWorksetReentries(home, worksetId);
   const next = records.reduce((maximum, record) => Math.max(maximum, Number(record.id.slice(4))), 0) + 1;
   return `WRE-${String(next).padStart(4, '0')}`;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
 }

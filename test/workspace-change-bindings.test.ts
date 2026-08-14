@@ -194,6 +194,50 @@ test('retry refuses ambiguous matching uncommitted Project Changes in a retained
   }
 });
 
+test('retry after a completed create-change returns the same bound Project Change without creating another', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const repo = await createTestRepository('pricing-center');
+  try {
+    await registerProject(home.root, repo.root, 'pricing');
+    const workset = await createWorkset(home.root, 'Authorization Migration');
+    await addWorksetCandidate(home.root, workset.id, 'pricing');
+    await beginProjectResearch(home.root, workset.id, 'pricing');
+
+    const first = await createAndActivateWorksetProjectChange(
+      home.root,
+      workset.id,
+      'pricing',
+      'Use AuthorizationScope in pricing routing',
+      'cross-service-change',
+    );
+    const second = await createAndActivateWorksetProjectChange(
+      home.root,
+      workset.id,
+      'pricing',
+      'Use AuthorizationScope in pricing routing',
+      'cross-service-change',
+    );
+
+    assert.equal(second.change.metadata.id, first.change.metadata.id);
+    assert.equal(second.workset.members[0]?.changeId, first.change.metadata.id);
+    assert.equal((await listChanges(second.workset.members[0]!.worktree!)).length, 1);
+
+    await assert.rejects(
+      () => createAndActivateWorksetProjectChange(
+        home.root,
+        workset.id,
+        'pricing',
+        'Different Change',
+        'small-feature',
+      ),
+      /already bound|ACTIVE/i,
+    );
+  } finally {
+    await repo.cleanup();
+    await home.cleanup();
+  }
+});
+
 test('activation requires an explicitly bound Project Change', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('order-center');

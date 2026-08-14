@@ -1,4 +1,5 @@
 import {
+  listWorksetReentries,
   pendingWorksetReentry,
   type InteractionMode,
   type ReentryCapability,
@@ -14,6 +15,13 @@ export type WorksetRouteAction =
       capability: ReentryCapability;
       interaction: InteractionMode;
       affectedProjects: string[];
+      reason: string;
+    }
+  | {
+      action: 'apply-reentry';
+      reentryId: string;
+      project: string;
+      applicationStatus: 'PENDING' | 'APPLYING' | 'FAILED';
       reason: string;
     }
   | { action: 'project-workflow'; project: string; reason: string }
@@ -49,6 +57,24 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
       affectedProjects: pending.affectedProjects,
       reason: pending.route.reason,
     };
+  }
+
+  const records = await listWorksetReentries(home, workset.id);
+  const decided = records.find((record) =>
+    record.status === 'DECIDED'
+    && record.applications.some((application) => ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)),
+  );
+  if (decided) {
+    const application = decided.applications.find((item) => ['PENDING', 'APPLYING', 'FAILED'].includes(item.status));
+    if (application && ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)) {
+      return {
+        action: 'apply-reentry',
+        reentryId: decided.id,
+        project: application.project,
+        applicationStatus: application.status as 'PENDING' | 'APPLYING' | 'FAILED',
+        reason: `Approved Re-entry ${decided.id} has a ${application.status} project reconciliation for ${application.project}.`,
+      };
+    }
   }
 
   if (membership.action === 'project-workflow' && membership.project) {

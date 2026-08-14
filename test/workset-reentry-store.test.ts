@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
 import { pathExists } from '../src/core/files.js';
-import { createAndBindWorksetProjectChange } from '../src/workspace/change-bindings.js';
+import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
-  activateWorksetProject,
   addWorksetCandidate,
   beginProjectResearch,
   createWorkset,
@@ -29,8 +28,7 @@ afterEach(async () => {
 async function activateBound(home: string, worksetId: string, project: string): Promise<void> {
   await addWorksetCandidate(home, worksetId, project);
   await beginProjectResearch(home, worksetId, project);
-  await createAndBindWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
-  await activateWorksetProject(home, worksetId, project);
+  await createAndActivateWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
 }
 
 test('persists monotonic Workset Re-entry records and reloads them in order', async () => {

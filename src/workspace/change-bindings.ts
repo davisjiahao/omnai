@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { getScenario } from '../core/scenarios.js';
 import { createChange, listChanges, type ChangeRef } from '../core/store.js';
 import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
@@ -78,7 +79,20 @@ export async function createAndActivateWorksetProjectChange(
 
   const registered = await requireRegisteredProject(home, projectAlias);
   const createdWorktree = await createWorksetWorktree(home, workset, registered);
-  const change = await createChange(createdWorktree.path, title, scenario);
+  const canonicalScenario = getScenario(scenario).id;
+  const recoveryCandidates = (await listChanges(createdWorktree.path)).filter((change) =>
+    !changeExistsAtHead(createdWorktree.path, change)
+    && change.metadata.status !== 'ARCHIVED'
+    && change.metadata.title === title
+    && change.metadata.scenario === canonicalScenario,
+  );
+  if (recoveryCandidates.length > 1) {
+    throw new Error(
+      `Multiple matching uncommitted Project Changes exist in the retained Worktree for '${projectAlias}'. Recovery is ambiguous; inspect the Worktree before retrying.`,
+    );
+  }
+  const change = recoveryCandidates[0] ?? await createChange(createdWorktree.path, title, canonicalScenario);
+
   const now = new Date().toISOString();
   member.changeId = change.metadata.id;
   member.status = 'ACTIVE';

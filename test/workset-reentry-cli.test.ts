@@ -25,7 +25,7 @@ function runJson(home: string, args: string[]) {
 function activateProject(home: string, project: string): void {
   runJson(home, ['workset', 'add-candidate', project]);
   runJson(home, ['workset', 'inspect-project', project]);
-  runJson(home, ['workset', 'activate-project', project]);
+  runJson(home, ['workset', 'create-change', project, `${project} Workset Change`, '--scenario', 'small-feature']);
 }
 
 test('routes a mid-flight domain change through new-project research before Grill', async () => {

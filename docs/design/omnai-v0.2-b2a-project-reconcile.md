@@ -26,6 +26,7 @@ B2a does not own user-level Codex/Claude/OpenCode skill installation. That is B2
 6. LLM/Agent hosts may propose semantic impact roots, but OmnAI Core calculates downstream closure deterministically.
 7. Evidence is never deleted; active-revision freshness determines whether evidence still proves completion.
 8. Existing repository-local `reconcileChange()` remains the single engine that advances Revision/Baseline and writes reconcile lineage.
+9. Original registered repositories remain read-only during Workset preparation. OmnAI never creates an uncommitted Project Change in an original repository and then assumes a HEAD-based Worktree contains it.
 
 ## 3. Project Change binding
 
@@ -44,32 +45,60 @@ The user-facing term is **Project Change**. `CHG-xxxx` remains the machine ident
 
 ### 3.1 Binding flow
 
-After read-only project research concludes that a repository must be modified:
+After read-only project research concludes that a repository must be modified, OmnAI presents two explicit paths.
+
+**Bind an existing Project Change**
 
 ```text
 RESEARCH_ONLY
     ↓
-OmnAI lists repository-local existing Changes
+list existing repository-local Changes
     ↓
-Agent may recommend:
-  A. bind an existing relevant Change
-  B. create a new Project Change
+Agent recommends one
     ↓
-user confirms
+user confirms binding
+    ↓
+verify the Change is present in committed HEAD
     ↓
 WorksetMember.changeId is persisted
     ↓
-project may become ACTIVE / receive its Worktree
+activate -> create HEAD-based Worktree
+    ↓
+verify the same Change resolves inside the Worktree
+    ↓
+ACTIVE
 ```
 
 `activeChange` may be shown as a suggestion but cannot be used as an automatic binding rule.
+
+**Create a new Project Change**
+
+A new Change cannot first be written into the original repository because Worktrees are intentionally created from committed HEAD. Doing so would bind the Workset to metadata absent from the execution Worktree.
+
+Therefore explicit user confirmation executes one worktree-atomic operation:
+
+```text
+RESEARCH_ONLY
+    ↓
+user confirms "create new Project Change"
+    ↓
+create dedicated Workset Git Worktree from committed HEAD
+    ↓
+create CHG-xxxx inside that Worktree
+    ↓
+persist changeId + worktree + branch + ACTIVE together
+```
+
+If Change creation fails, the member is not marked ACTIVE or bound. The safely created Worktree may remain for explicit recovery, following the existing Worktree recovery policy.
 
 ### 3.2 Binding guards
 
 - binding an unknown Change: reject;
 - binding an archived Change: reject;
+- binding an existing Change that is not represented in committed HEAD: reject before activation;
 - rebinding a member that already has `changeId`: reject unless a future explicit rebind workflow is introduced;
-- creating a Change before user confirmation: reject;
+- creating a Change before explicit user confirmation: reject;
+- new Change creation writes only inside the dedicated Worktree, never the original registered repository;
 - applying a WRE to an ACTIVE project with no bound Project Change: reject.
 
 ## 4. WRE lifecycle
@@ -311,7 +340,7 @@ CANDIDATE -> RESEARCH_ONLY -> impact decision
 
 If no modification is required, mark it OBSERVED_ONLY and its WRE application is `NOT_REQUIRED`.
 
-If modification is required, the user confirms an existing or newly created Project Change binding before activation. Only then may the project receive a Worktree and participate in a DECIDED Project Reconcile Plan.
+If modification is required, the user confirms an existing committed Project Change binding or explicitly creates a new Project Change in a newly created dedicated Worktree. Only then may the project become ACTIVE and participate in a DECIDED Project Reconcile Plan.
 
 A brand-new Project Change starts at its own initial `REV-0001 / BL-0001`; it is not immediately reconciled just to imitate older project revisions. The WRE plan records whether the newly created Change already represents the decided requirement (`NOT_REQUIRED`) or needs an explicit application because it existed before the decision.
 
@@ -328,7 +357,7 @@ B2a adds explicit commands; Agent hosts may wrap them, but Core remains determin
 Suggested surface:
 
 ```text
-omnai workset change-bindings <WRE> --json
+omnai workset change-bindings <project> [--workset <id>] --json
 omnai workset bind-change <project> <CHG-xxxx> [--workset <id>] --json
 omnai workset create-change <project> <title> --scenario <scenario> [--workset <id>] --json
 
@@ -338,7 +367,7 @@ omnai workset reentry apply <WRE> [--project <alias>] --json
 omnai workset reentry status <WRE> --json
 ```
 
-The implementation may refine names if Commander ergonomics require it, but there must be explicit separate operations for binding/creating a Project Change, freezing DECIDED state, and applying the frozen plan.
+`create-change` is an explicit create+bind+activate operation because the new Change must be created inside the dedicated Worktree. Existing committed Changes keep the separate bind-then-activate flow.
 
 ## 16. Persistence and versioning
 
@@ -352,7 +381,8 @@ B2a must have tests proving:
 
 - 1:1 Change binding and no silent rebind;
 - existing Change suggestions do not automatically bind;
-- new Change creation occurs only through an explicit command;
+- existing binding requires Change state represented by committed HEAD;
+- new Change creation occurs only through an explicit command and writes the Change inside the Worktree, not the original repository;
 - WRE minimum level guard;
 - scenario-derived capability closure;
 - task downstream closure;

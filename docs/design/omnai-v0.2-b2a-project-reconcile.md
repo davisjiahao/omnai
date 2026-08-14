@@ -27,6 +27,7 @@ B2a does not own user-level Codex/Claude/OpenCode skill installation. That is B2
 7. Evidence is never deleted; active-revision freshness determines whether evidence still proves completion.
 8. Existing repository-local `reconcileChange()` remains the single engine that advances Revision/Baseline and writes reconcile lineage.
 9. Original registered repositories remain read-only during Workset preparation. OmnAI never creates an uncommitted Project Change in an original repository and then assumes a HEAD-based Worktree contains it.
+10. A newer WRE may be analyzed and planned while an older WRE is DECIDED, but it cannot itself become DECIDED until the older outstanding Reconcile Applications are completed. This prevents freezing stale Revision/Baseline preconditions.
 
 ## 3. Project Change binding
 
@@ -43,11 +44,7 @@ WKS-0001 Authorization Migration
 
 The user-facing term is **Project Change**. `CHG-xxxx` remains the machine identifier.
 
-### 3.1 Binding flow
-
-After read-only project research concludes that a repository must be modified, OmnAI presents two explicit paths.
-
-**Bind an existing Project Change**
+### 3.1 Bind an existing Project Change
 
 ```text
 RESEARCH_ONLY
@@ -58,24 +55,22 @@ Agent recommends one
     ↓
 user confirms binding
     ↓
-verify the Change is present in committed HEAD
+verify the Change is represented by committed HEAD
     ↓
 WorksetMember.changeId is persisted
     ↓
 activate -> create HEAD-based Worktree
     ↓
-verify the same Change resolves inside the Worktree
-    ↓
 ACTIVE
 ```
 
-`activeChange` may be shown as a suggestion but cannot be used as an automatic binding rule.
+`activeChange` may be shown as a suggestion but cannot be used as an automatic binding rule. An existing but uncommitted Change may be shown to explain repository state, but it cannot be bound for a Worktree that is created from committed HEAD.
 
-**Create a new Project Change**
+### 3.2 Create a new Project Change
 
 A new Change cannot first be written into the original repository because Worktrees are intentionally created from committed HEAD. Doing so would bind the Workset to metadata absent from the execution Worktree.
 
-Therefore explicit user confirmation executes one worktree-atomic operation:
+Therefore explicit user confirmation executes one Worktree-scoped operation:
 
 ```text
 RESEARCH_ONLY
@@ -86,12 +81,12 @@ create dedicated Workset Git Worktree from committed HEAD
     ↓
 create CHG-xxxx inside that Worktree
     ↓
-persist changeId + worktree + branch + ACTIVE together
+persist changeId + worktree + branch + ACTIVE
 ```
 
 If Change creation fails, the member is not marked ACTIVE or bound. The safely created Worktree may remain for explicit recovery, following the existing Worktree recovery policy.
 
-### 3.2 Binding guards
+### 3.3 Binding guards
 
 - binding an unknown Change: reject;
 - binding an archived Change: reject;
@@ -103,14 +98,16 @@ If Change creation fails, the member is not marked ACTIVE or bound. The safely c
 
 ## 4. WRE lifecycle
 
-B1 `RESOLVED` coordination semantics are replaced by the B2a end-to-end lifecycle:
+B1's coordination-only resolution semantics are superseded for new schema-v2 WRE records by the B2a end-to-end lifecycle:
 
 ```text
 PENDING
   ↓
 research / grill / brainstorm / experiment finishes
   ↓
-Project Reconcile Plan is generated and approved
+Project Reconcile proposal + deterministic preview
+  ↓
+explicit human approval
   ↓
 DECIDED
   ↓
@@ -126,9 +123,9 @@ all required applications APPLIED / NOT_REQUIRED
 RESOLVED
 ```
 
-A WRE cannot move to DECIDED while newly introduced Candidate/Research-only projects still need an impact decision.
+A schema-v2 WRE cannot bypass this lifecycle through direct `reentry resolve`. The legacy command is retained only for historical schema-v1 coordination records.
 
-A WRE cannot move to RESOLVED while any required application is PENDING, APPLYING, or FAILED.
+A WRE cannot move to DECIDED while newly introduced Candidate/Research-only projects still need an impact decision. A WRE cannot move to RESOLVED while any required application is PENDING, APPLYING, or FAILED.
 
 ## 5. Reconcile kind and minimum level
 
@@ -145,9 +142,7 @@ The Re-entry kind constrains the minimum project reconcile level:
 | `PLAN_CHANGED` | `L1` |
 | `IMPLEMENTATION_DETAIL_CHANGED` | `L0` |
 
-`L5` remains a special validation/external-drift level and is not automatically proposed by ordinary Workset WRE kinds.
-
-Per-project impact may be `NOT_REQUIRED`, but a required application may not choose a level weaker than the WRE minimum.
+`L5` remains a special validation/external-drift level and is not automatically proposed by ordinary Workset WRE kinds. Per-project impact may be `NOT_REQUIRED`, but a required application may not choose a level weaker than the WRE minimum.
 
 ## 6. Semantic proposal versus deterministic closure
 
@@ -157,28 +152,31 @@ Agent proposal example:
 
 ```yaml
 project: user-center
-changeId: CHG-0027
+outcome: REQUIRED
 level: L3
 reopenFrom: domain
 taskRoots:
   - TASK-003
 ```
 
-The Agent does **not** author the final invalidate closure.
-
-OmnAI Core calculates:
+The Agent does **not** author the final invalidate closure. OmnAI calculates both Readiness closure and Task closure before the decision is frozen.
 
 ```text
 Scenario stages
   + capability normalization
   + reopenFrom
         ↓
-effective capability graph
+effective readiness path
         ↓
-transitive downstream closure
+downstream readiness closure
+
+Task DAG
+  + taskRoots
+        ↓
+downstream task closure
 ```
 
-It separately calculates task closure using the repository-local Task DAG.
+Neither closure uses an LLM.
 
 ## 7. Capability graph
 
@@ -209,13 +207,11 @@ Scenario capabilities map to readiness nodes:
 | `canary` | `canary` |
 | `learn` | `learning` |
 
-`archive`, `reconcile`, and `simplify` are not invalidation roots.
-
-`contract.md` remains an artifact owned by `spec`; B2a does not introduce a separate contract-readiness node.
+`archive`, `reconcile`, and `simplify` are not invalidation roots. `contract.md` remains an artifact owned by `spec`; B2a does not introduce a separate contract-readiness node.
 
 ### 7.2 Effective graph
 
-The effective graph is derived from the current Scenario's ordered stages after normalization and duplicate collapse. Optional stages do not become mandatory invalidation nodes merely because they exist in `optionalStages`.
+The effective path is derived from the current Scenario's ordered stages after normalization and duplicate collapse. Optional stages do not become mandatory invalidation nodes merely because they exist in `optionalStages`.
 
 Example `complex-domain-feature`:
 
@@ -223,21 +219,19 @@ Example `complex-domain-feature`:
 research -> domain -> spec -> design -> plan -> implementation -> review -> verification -> learning
 ```
 
-If the Agent proposes `reopenFrom: spec`, OmnAI calculates all downstream nodes in that effective graph.
+If the Agent proposes `reopenFrom: spec`, OmnAI calculates the suffix from `spec` through the active Scenario path.
 
 ### 7.3 State transitions
 
 Closure answers **which readiness nodes are affected**. The repository-local reconcile engine answers **how affected nodes transition** (`STALE`, `INVALIDATED`, `NEEDS_REVALIDATION`, etc.).
 
-B2a extends `reconcileChange()` with an optional explicit readiness scope. Existing v0.1 callers that omit the scope keep the current level-default behavior.
+B2a extends `reconcileChange()` with an optional explicit Readiness scope. Existing v0.1 callers that omit the scope keep the current level-default behavior.
 
 ## 8. Task closure
 
-Task impact is independent from capability closure.
+Task impact is independent from capability closure. The Agent supplies only semantic task roots. OmnAI Core calculates the downstream closure using the repository-local Task DAG.
 
-The Agent may provide a small set of semantic task roots. OmnAI Core uses the existing Task DAG dependency traversal to calculate downstream affected tasks. The frozen DECIDED plan stores both roots and calculated closure.
-
-No LLM is used to enumerate downstream task dependencies.
+The DECIDED plan freezes both `taskRoots` and the calculated `taskClosure`. At apply time OmnAI invalidates the **frozen exact taskClosure** rather than recalculating against a possibly changed Task DAG. This prevents execution from silently expanding the approved scope.
 
 ## 9. Frozen Project Reconcile Plan
 
@@ -246,7 +240,7 @@ When the user approves the plan and the WRE becomes DECIDED, OmnAI freezes the e
 Example:
 
 ```yaml
-schemaVersion: 1
+schemaVersion: 2
 id: WRE-0001
 status: DECIDED
 rulesVersion: 1
@@ -286,53 +280,53 @@ The plan is not recalculated at apply time. A future OmnAI upgrade therefore can
 
 ## 10. Application semantics
 
-Applying one project application:
+Applying one required project application:
 
 1. resolve the Workset member and bound Change;
-2. verify the bound Change still has the frozen `fromRevision` / `fromBaseline`;
-3. mark application APPLYING;
-4. call repository-local `reconcileChange()` with the frozen level, readiness closure, task roots, and WRE reason;
-5. persist `toRevision` / `toBaseline` from the result;
-6. mark application APPLIED.
+2. check for a prior repository Reconcile with correlation ID `<WRE>/<project>`;
+3. if correlated lineage exists and matches the frozen plan, recover it idempotently instead of advancing again;
+4. otherwise verify the Change still has the frozen `fromRevision` / `fromBaseline`;
+5. mark the application APPLYING;
+6. call repository-local `reconcileChange()` with the frozen level, Readiness closure, exact Task closure, WRE reason, and correlation ID;
+7. persist `toRevision` / `toBaseline` and mark APPLIED.
 
-If step 2 fails, the application becomes FAILED and must not be silently replanned. A human/Agent must inspect why repository state diverged.
+If the frozen precondition has drifted and no matching correlation exists, the application becomes FAILED. OmnAI does not silently replan.
 
-If the process dies after project reconciliation succeeds but before the WRE application is persisted, retry must detect the reconcile lineage associated with the WRE and recover idempotently rather than advance another Revision.
+If project reconciliation succeeds but the process stops before the WRE application is persisted, retry finds the correlated repository Revision and recovers without creating a second Revision.
 
 ## 11. Partial failure and retry
 
 Projects apply independently.
 
-Example:
-
 ```text
-user-center  APPLIED
-quote-center FAILED
-order-center NOT_REQUIRED
+user-center   APPLIED
+quote-center  FAILED
+order-center  NOT_REQUIRED
 ```
 
-The WRE remains DECIDED. `workset next` routes to the failed/pending project reconcile before normal project workflow resumes.
+The WRE remains DECIDED. Successful project applications are never rolled back merely because another repository failed.
 
-Successful project applications are never rolled back merely because another repository failed.
+If the final application becomes APPLIED but the process stops before the WRE itself is persisted as RESOLVED, `workset next` returns a `finalize-reentry` recovery action. Calling `reentry apply` again performs no additional repository Reconcile and finalizes the WRE.
 
 ## 12. Router precedence in B2a
-
-After B2a:
 
 ```text
 1. Candidate project read-only research
 2. Research-only impact decision
 3. Oldest PENDING WRE interaction
-4. Oldest DECIDED WRE with FAILED/PENDING application
-5. ACTIVE project repository-local workflow
-6. none
+4. Oldest DECIDED WRE with PENDING / APPLYING / FAILED application
+5. Interrupted-finalization recovery for a DECIDED WRE whose applications are all final
+6. ACTIVE project repository-local workflow
+7. none
 ```
 
-Normal implementation does not resume while an approved project reconcile application is outstanding.
+Normal implementation does not resume while a DECIDED WRE remains unresolved.
+
+A newer PENDING WRE may be analyzed while an older WRE is DECIDED, but the newer WRE cannot itself become DECIDED until the older outstanding decision is resolved.
 
 ## 13. New project in a WRE
 
-A newly mentioned repository still follows the B1 safety lifecycle:
+A newly mentioned repository still follows the safe lifecycle:
 
 ```text
 CANDIDATE -> RESEARCH_ONLY -> impact decision
@@ -342,56 +336,54 @@ If no modification is required, mark it OBSERVED_ONLY and its WRE application is
 
 If modification is required, the user confirms an existing committed Project Change binding or explicitly creates a new Project Change in a newly created dedicated Worktree. Only then may the project become ACTIVE and participate in a DECIDED Project Reconcile Plan.
 
-A brand-new Project Change starts at its own initial `REV-0001 / BL-0001`; it is not immediately reconciled just to imitate older project revisions. The WRE plan records whether the newly created Change already represents the decided requirement (`NOT_REQUIRED`) or needs an explicit application because it existed before the decision.
+A brand-new Project Change starts at its own initial `REV-0001 / BL-0001`; it is not reconciled merely to imitate older project revisions. The proposal can mark it `NOT_REQUIRED` when the new Change already embodies the approved decision.
 
 ## 14. Evidence semantics
 
-Evidence files are not deleted or rewritten.
-
-A Project Change reconciliation advances `activeRevision`; current evidence gates already accept only PASS evidence for the active revision. Old evidence therefore remains historical proof for its original revision but cannot satisfy the new revision.
+Evidence files are not deleted or rewritten. A Project Change reconciliation advances `activeRevision`; evidence gates accept only PASS evidence for the active revision. Old evidence remains historical proof for its original revision but cannot satisfy the new revision.
 
 ## 15. CLI contract
 
-B2a adds explicit commands; Agent hosts may wrap them, but Core remains deterministic.
-
-Suggested surface:
-
 ```text
-omnai workset change-bindings <project> [--workset <id>] --json
-omnai workset bind-change <project> <CHG-xxxx> [--workset <id>] --json
-omnai workset create-change <project> <title> --scenario <scenario> [--workset <id>] --json
+omnai workset change-bindings <project> [--workset <id>] [--json]
+omnai workset bind-change <project> <CHG-xxxx> [--workset <id>] [--json]
+omnai workset create-change <project> <title> --scenario <scenario> [--workset <id>] [--json]
 
-omnai workset reentry plan <WRE> --file <proposal.yaml> --json
-omnai workset reentry decide <WRE> --json
-omnai workset reentry apply <WRE> [--project <alias>] --json
-omnai workset reentry status <WRE> --json
+omnai workset reentry plan <WRE> --file <proposal.yaml> [--workset <id>] [--json]
+omnai workset reentry decide <WRE> [--workset <id>] [--json]
+omnai workset reentry apply <WRE> [--project <alias>] [--workset <id>] [--json]
+omnai workset reentry status <WRE> [--workset <id>] [--json]
 ```
 
 `create-change` is an explicit create+bind+activate operation because the new Change must be created inside the dedicated Worktree. Existing committed Changes keep the separate bind-then-activate flow.
 
+`omnai workset reentry resolve` remains only for historical schema-v1 coordination records. Schema-v2 records reject direct resolution.
+
 ## 16. Persistence and versioning
 
-B2a upgrades WRE schema version while preserving the ability to read B1 records. B1 `PENDING` records migrate naturally to the richer shape. Existing B1 `RESOLVED` records remain historical coordination records and are not retroactively treated as proof that project revisions were reconciled.
+New B2a WRE records use schema version 2. Readers accept both schema v1 and v2. Existing schema-v1 RESOLVED records remain historical coordination records and are not retroactively treated as proof that project revisions were reconciled.
 
-Frozen plans persist `rulesVersion` so future dependency-graph changes cannot alter already approved applications.
+Frozen plans persist `rulesVersion` so future dependency-graph changes cannot alter already approved applications. Repository Reconcile lineage persists `<WRE>/<project>` correlation IDs for idempotent recovery.
 
 ## 17. Testing requirements
 
-B2a must have tests proving:
+B2a tests prove:
 
 - 1:1 Change binding and no silent rebind;
 - existing Change suggestions do not automatically bind;
 - existing binding requires Change state represented by committed HEAD;
-- new Change creation occurs only through an explicit command and writes the Change inside the Worktree, not the original repository;
-- WRE minimum level guard;
-- scenario-derived capability closure;
-- task downstream closure;
-- closure is frozen at DECIDED;
+- new Change creation writes inside the Worktree, not the original repository;
+- WRE minimum-level guard;
+- Scenario-derived Readiness closure;
+- Task downstream closure and exact frozen application scope;
 - PENDING performs no repository-local mutation;
+- DECIDED freezes closures and Revision/Baseline preconditions;
+- newer WRE decisions cannot freeze behind an older outstanding DECIDED WRE;
 - per-project apply advances exactly one Revision/Baseline;
-- stale frozen `fromRevision` fails safely;
-- retry is idempotent after partial persistence failure;
+- stale frozen preconditions fail safely;
+- correlation recovery is idempotent after partial persistence failure;
 - one project failure does not roll back APPLIED siblings;
 - WRE cannot RESOLVE before all required applications are APPLIED/NOT_REQUIRED;
+- interrupted finalization is routed instead of silently resuming project work;
 - old Revision evidence does not satisfy the new active Revision;
-- Workset router prioritizes pending project reconciliation before normal workflow.
+- Workset router prioritizes Re-entry coordination before normal project workflow.

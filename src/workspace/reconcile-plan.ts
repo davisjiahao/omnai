@@ -60,6 +60,7 @@ export async function decideWorksetReentry(
   const workset = await resolveWorkset(home, worksetRef);
   const record = await loadWorksetReentry(home, workset.id, reentryId);
   await assertPlannable(home, workset, record);
+  await assertNoOlderOutstandingDecision(home, workset, record);
   validateProposalCoverage(record, record.proposal);
 
   const applications = await buildFrozenApplications(workset, record, record.proposal);
@@ -91,6 +92,24 @@ async function assertPlannable(home: string, workset: Workset, record: WorksetRe
   if (unresolved.length > 0) {
     throw new Error(
       `Re-entry '${record.id}' cannot be planned while candidate project '${unresolved.join(', ')}' still requires an impact decision.`,
+    );
+  }
+}
+
+async function assertNoOlderOutstandingDecision(
+  home: string,
+  workset: Workset,
+  record: WorksetReentry,
+): Promise<void> {
+  const records = await listWorksetReentries(home, workset.id);
+  const older = records.find((item) =>
+    item.id.localeCompare(record.id) < 0
+    && item.status === 'DECIDED'
+    && item.applications.some((application) => !['APPLIED', 'NOT_REQUIRED'].includes(application.status)),
+  );
+  if (older) {
+    throw new Error(
+      `Re-entry '${record.id}' cannot become DECIDED while older Re-entry '${older.id}' is DECIDED with outstanding project reconciliation.`,
     );
   }
 }

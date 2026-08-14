@@ -40,7 +40,7 @@ test('creates, inspects, and resolves an aggregate Workset path through the JSON
   });
 });
 
-test('runs candidate research activation into the aggregate directory without a code-workspace file', async () => {
+test('runs candidate research and explicit Project Change creation into the aggregate directory', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, repo.cleanup);
@@ -66,10 +66,14 @@ test('runs candidate research activation into the aggregate directory without a 
     status: 'RESEARCH_ONLY',
   });
 
-  const activated = runCli(home.root, ['workset', 'activate-project', 'user', '--json']);
-  assert.equal(activated.status, 0, activated.stderr);
-  const member = JSON.parse(activated.stdout);
+  const createdChange = runCli(home.root, [
+    'workset', 'create-change', 'user', 'Authorization ownership', '--scenario', 'small-feature', '--json',
+  ]);
+  assert.equal(createdChange.status, 0, createdChange.stderr);
+  const result = JSON.parse(createdChange.stdout);
+  const member = result.member;
   assert.equal(member.status, 'ACTIVE');
+  assert.equal(member.changeId, result.change.id);
   assert.equal(member.worktree, `${worksetWorkspaceRoot(home.root, workset.id)}/user`);
   assert.equal(await pathExists(member.worktree), true);
   assert.notEqual(member.worktree, repo.root);

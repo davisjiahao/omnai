@@ -24,6 +24,7 @@ export type WorksetRouteAction =
       applicationStatus: 'PENDING' | 'APPLYING' | 'FAILED';
       reason: string;
     }
+  | { action: 'finalize-reentry'; reentryId: string; reason: string }
   | { action: 'project-workflow'; project: string; reason: string }
   | { action: 'none'; reason: string };
 
@@ -60,10 +61,7 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
   }
 
   const records = await listWorksetReentries(home, workset.id);
-  const decided = records.find((record) =>
-    record.status === 'DECIDED'
-    && record.applications.some((application) => ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)),
-  );
+  const decided = records.find((record) => record.status === 'DECIDED');
   if (decided) {
     const application = decided.applications.find((item) => ['PENDING', 'APPLYING', 'FAILED'].includes(item.status));
     if (application && ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)) {
@@ -75,6 +73,11 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
         reason: `Approved Re-entry ${decided.id} has a ${application.status} project reconciliation for ${application.project}.`,
       };
     }
+    return {
+      action: 'finalize-reentry',
+      reentryId: decided.id,
+      reason: `Approved Re-entry ${decided.id} has all project applications complete and must be finalized.`,
+    };
   }
 
   if (membership.action === 'project-workflow' && membership.project) {

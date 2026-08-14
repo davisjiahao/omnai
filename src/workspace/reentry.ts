@@ -34,6 +34,7 @@ export interface ReentryRoute {
   reason: string;
 }
 
+const reentryKindSchema = z.enum(REENTRY_KINDS);
 const routeSchema = z.object({
   capability: z.enum(['research', 'frame', 'model', 'spec', 'design', 'experiment', 'plan', 'work']),
   interaction: z.enum(['none', 'grill', 'brainstorm']),
@@ -44,7 +45,7 @@ export const worksetReentrySchema = z.object({
   schemaVersion: z.literal(1),
   id: z.string().regex(/^WRE-\d{4}$/),
   worksetId: z.string().regex(/^WKS-\d{4}$/),
-  kind: z.enum(REENTRY_KINDS),
+  kind: reentryKindSchema,
   reason: z.string().min(1),
   route: routeSchema,
   affectedProjects: z.array(z.string().min(1)).default([]),
@@ -105,6 +106,10 @@ const ROUTES: Record<ReentryKind, ReentryRoute> = {
     reason: 'The change is bounded to implementation detail and does not reopen upstream decisions.',
   },
 };
+
+export function parseReentryKind(value: string): ReentryKind {
+  return reentryKindSchema.parse(value);
+}
 
 export function routeWorksetReentry(kind: ReentryKind): ReentryRoute {
   return ROUTES[kind];

@@ -28,4 +28,7 @@ test('exports the B2a Project Change and selective Reconcile surface', () => {
   assert.equal(typeof omnai.decideWorksetReentry, 'function');
   assert.equal(typeof omnai.applyWorksetReentry, 'function');
   assert.equal(typeof omnai.reentryApplicationStatus, 'function');
+  assert.equal(typeof omnai.previewFailedWorksetReentryApplicationReplan, 'function');
+  assert.equal(typeof omnai.confirmFailedWorksetReentryApplicationReplan, 'function');
+  assert.equal('findCorrelatedRevision' in omnai, false);
 });

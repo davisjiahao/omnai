@@ -16,6 +16,7 @@ import {
 import {
   recordWorksetReentry,
   resolveWorksetReentry,
+  saveWorksetReentry,
 } from '../src/workspace/reentry.js';
 import { resolveWorksetNext } from '../src/workspace/workset-router.js';
 
@@ -173,5 +174,68 @@ test('a planned newer PENDING Re-entry yields to an older outstanding DECIDED ap
     project: 'user',
     applicationStatus: 'PENDING',
     reason: `Approved Re-entry ${first.id} has a PENDING project reconciliation for user.`,
+  });
+});
+
+test('stale-precondition FAILED application routes to explicit replan instead of guaranteed-failing apply retry', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const userRepo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, userRepo.cleanup);
+  await registerProject(home.root, userRepo.root, 'user');
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  await activate(home.root, workset.id, 'user');
+
+  const reentry = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'PLAN_CHANGED',
+    reason: 'Delivery order changed.',
+    affectedProjects: ['user'],
+  });
+  await planWorksetReentry(home.root, workset.id, reentry.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+  ]);
+  const decided = await decideWorksetReentry(home.root, workset.id, reentry.id);
+  const application = decided.applications[0]!;
+  application.status = 'FAILED';
+  application.failureKind = 'STALE_PRECONDITION';
+  application.error = 'Frozen revision drifted.';
+  await saveWorksetReentry(home.root, decided);
+
+  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
+    action: 'replan-reentry',
+    reentryId: reentry.id,
+    project: 'user',
+    reason: `Approved Re-entry ${reentry.id} has a stale frozen precondition for user and requires explicit replan.`,
+  });
+});
+
+test('non-stale FAILED application remains on repair-and-retry apply route', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const userRepo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, userRepo.cleanup);
+  await registerProject(home.root, userRepo.root, 'user');
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  await activate(home.root, workset.id, 'user');
+
+  const reentry = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'PLAN_CHANGED',
+    reason: 'Delivery order changed.',
+    affectedProjects: ['user'],
+  });
+  await planWorksetReentry(home.root, workset.id, reentry.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+  ]);
+  const decided = await decideWorksetReentry(home.root, workset.id, reentry.id);
+  const application = decided.applications[0]!;
+  application.status = 'FAILED';
+  application.failureKind = 'APPLY_ERROR';
+  application.error = 'Transient apply failure.';
+  await saveWorksetReentry(home.root, decided);
+
+  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
+    action: 'apply-reentry',
+    reentryId: reentry.id,
+    project: 'user',
+    applicationStatus: 'FAILED',
+    reason: `Approved Re-entry ${reentry.id} has a FAILED project reconciliation for user.`,
   });
 });

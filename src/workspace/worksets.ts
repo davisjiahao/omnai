@@ -185,7 +185,11 @@ async function nextWorksetId(home: string): Promise<string> {
 }
 
 function slugify(value: string): string {
-  const slug = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
   if (!slug) throw new Error('Workset title must contain at least one letter or number.');
   return slug;
 }

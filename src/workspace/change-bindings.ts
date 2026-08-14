@@ -70,6 +70,21 @@ export async function createAndActivateWorksetProjectChange(
 ): Promise<{ workset: Workset; change: ChangeRef }> {
   const workset = await resolveWorkset(home, worksetRef);
   const member = requireWorksetMember(workset, projectAlias);
+  const canonicalScenario = getScenario(scenario).id;
+
+  if (member.status === 'ACTIVE' && member.changeId && member.worktree) {
+    const bound = (await listChanges(member.worktree)).find((change) => change.metadata.id === member.changeId);
+    if (
+      bound
+      && bound.metadata.status !== 'ARCHIVED'
+      && bound.metadata.title === title
+      && bound.metadata.scenario === canonicalScenario
+    ) {
+      return { workset, change: bound };
+    }
+    throw new Error(`Project '${projectAlias}' is already ACTIVE and bound to Project Change '${member.changeId}'.`);
+  }
+
   if (member.status !== 'RESEARCH_ONLY') {
     throw new Error(`Project '${projectAlias}' must be RESEARCH_ONLY before creating a Project Change for this Workset.`);
   }
@@ -79,7 +94,6 @@ export async function createAndActivateWorksetProjectChange(
 
   const registered = await requireRegisteredProject(home, projectAlias);
   const createdWorktree = await createWorksetWorktree(home, workset, registered);
-  const canonicalScenario = getScenario(scenario).id;
   const recoveryCandidates = (await listChanges(createdWorktree.path)).filter((change) =>
     !changeExistsAtHead(createdWorktree.path, change)
     && change.metadata.status !== 'ARCHIVED'

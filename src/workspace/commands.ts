@@ -4,7 +4,7 @@ import {
   registerProject,
   requireRegisteredProject,
 } from './project-registry.js';
-import { resolveOmnaiHome } from './paths.js';
+import { resolveOmnaiHome, worksetWorkspaceRoot } from './paths.js';
 import {
   activateWorksetProject,
   addWorksetCandidate,
@@ -15,7 +15,6 @@ import {
   resolveWorkset,
   worksetNext,
 } from './worksets.js';
-import { syncVsCodeWorkspace } from './vscode-workspace.js';
 
 export function isPersonalWorkspaceCommand(value: string | undefined): boolean {
   return value === 'project' || value === 'workset';
@@ -158,13 +157,13 @@ export function createPersonalWorkspaceProgram(): Command {
     });
 
   workset
-    .command('sync-workspace')
+    .command('path')
     .argument('[workset]', 'Workset ID or slug')
     .option('--json', 'Print machine-readable JSON')
     .action(async (reference: string | undefined, options: { json?: boolean }) => {
       const home = resolveOmnaiHome();
       const current = await resolveWorkset(home, reference);
-      const path = await syncVsCodeWorkspace(home, current);
+      const path = worksetWorkspaceRoot(home, current.id);
       printResult({ workset: current.id, path }, options.json, path);
     });
 

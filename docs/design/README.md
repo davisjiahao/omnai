@@ -8,6 +8,7 @@ For OmnAI v0.2, read these documents in this order:
 2. `omnai-v0.2-aggregate-execution-workspace.md` — **authoritative amendment for workspace execution and VS Code integration**.
 3. `omnai-v0.2-selective-reentry.md` — Milestone B1 contract for mid-flight change detection, interaction routing, and candidate-project research.
 4. `omnai-v0.2-b2a-project-reconcile.md` — **authoritative B2a amendment for Project Change binding and end-to-end Re-entry reconciliation**.
+5. `omnai-v0.2-b2a-failed-application-replan.md` — **authoritative B2a recovery amendment for stale-precondition FAILED applications, explicit replan confirmation, and attempt history**.
 
 The aggregate-execution-workspace amendment supersedes every earlier v0.2 statement that requires generated `.code-workspace` files, VS Code multi-root projection, workspace-folder synchronization, `workset sync-workspace`, or hiding an inactive project's Worktree.
 
@@ -33,16 +34,21 @@ mid-flight change
   -> OmnAI Core calculates deterministic closures
   -> human-approved frozen DECIDED plan
   -> per-project repository Reconcile applications
+  -> stale-precondition FAILED application may be explicitly replanned
+     while preserving the old frozen attempt in attemptHistory
   -> RESOLVED only after every required application is APPLIED / NOT_REQUIRED
 ```
 
 For schema-v2 WRE records, B2a supersedes B1's older direct `reentry resolve` coordination semantics. Historical schema-v1 records remain readable as historical coordination records; they are not retroactive proof of project Revision/Baseline reconciliation.
+
+A stale-precondition replan is project-scoped and explicit. Preview is read-only, confirm recalculates from current repository truth, already APPLIED/NOT_REQUIRED siblings are unchanged, and existing `<WRE>/<project>` correlation Revision lineage blocks replan.
 
 Current execution plans:
 
 - `../superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`
 - `../superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`
 - `../superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md`
+- `../superpowers/plans/2026-08-14-omnai-v0.2-b2a-failed-application-replan.md`
 
 The earlier `2026-08-14-omnai-v0.2-milestone-a-personal-workset-core.md` plan is historical for the superseded multi-root implementation and must not be used for new implementation work.
 

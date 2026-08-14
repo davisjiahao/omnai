@@ -26,6 +26,7 @@ The core rule is: **conversation history and agent confidence are context, not p
 - one Workset project ↔ one explicitly confirmed Project Change binding;
 - selective Workset Re-entry for mid-flight requirement/fact changes;
 - deterministic Readiness/Task closure calculation and frozen per-project Reconcile plans;
+- explicit stale-precondition application replan with immutable failed-attempt history;
 - thin host skills for Claude Code, Codex, and OpenCode;
 - no backend service, database, daemon, Web UI, or built-in LLM API.
 
@@ -156,6 +157,7 @@ omnai workset reentry list [workset] [--json]
 omnai workset reentry plan <WRE-id> --file <proposal.yaml> [--workset <id>] [--json]
 omnai workset reentry decide <WRE-id> [--workset <id>] [--json]
 omnai workset reentry apply <WRE-id> [--project <alias>] [--workset <id>] [--json]
+omnai workset reentry replan <WRE-id> --project <alias> [--workset <id>] [--confirm] [--json]
 omnai workset reentry status <WRE-id> [--workset <id>] [--json]
 
 # Historical schema-v1 coordination records only:
@@ -248,6 +250,21 @@ omnai workset reentry apply WRE-0001 --json
 Each required application calls the repository-local Reconcile engine, advances exactly that Project Change's Revision/Baseline, and selectively invalidates the frozen Readiness/Task scope. Projects apply independently: one failure does not roll back siblings that already reached `APPLIED`.
 
 Repository lineage records correlation `<WRE>/<project>`, so retry can recover a repository Reconcile that succeeded before Workset persistence finished without advancing a second Revision. Frozen Revision/Baseline drift fails safely instead of silently replanning.
+
+When that drift produces `FAILED + STALE_PRECONDITION`, `workset next` returns `replan-reentry` instead of recommending an apply retry that is guaranteed to fail with the same frozen precondition. Replan is explicit and project-scoped:
+
+```bash
+# Read-only preview against current Project Change truth:
+omnai workset reentry replan WRE-0001 --project quote --json
+
+# Explicitly archive the failed frozen attempt and freeze the current Revision/Baseline:
+omnai workset reentry replan WRE-0001 --project quote --confirm --json
+
+# Normal apply resumes after confirmation:
+omnai workset reentry apply WRE-0001 --project quote --json
+```
+
+Preview does not mutate Workset or repository state. Confirm recalculates from current repository truth, appends the replaced FAILED attempt to `attemptHistory`, and resets only that application to `PENDING`. Already `APPLIED` or `NOT_REQUIRED` siblings are untouched. Replan is rejected when repository Revision lineage already contains correlation `<WRE>/<project>`, because an earlier attempt may already have written repository state and must be recovered or inspected rather than hidden behind a new frozen attempt.
 
 A schema-v2 WRE reaches `RESOLVED` only when every required application is `APPLIED` or `NOT_REQUIRED`. If the process stops after the final application but before WRE finalization, `workset next` returns `finalize-reentry`; rerunning `reentry apply` finalizes it without another repository Reconcile.
 
@@ -411,9 +428,11 @@ Current v0.2 contract:
 - [`docs/design/omnai-v0.2-aggregate-execution-workspace.md`](docs/design/omnai-v0.2-aggregate-execution-workspace.md) — supersedes the earlier `.code-workspace` / multi-root portions
 - [`docs/design/omnai-v0.2-selective-reentry.md`](docs/design/omnai-v0.2-selective-reentry.md) — B1 routing contract, superseded by B2a for completion semantics
 - [`docs/design/omnai-v0.2-b2a-project-reconcile.md`](docs/design/omnai-v0.2-b2a-project-reconcile.md) — authoritative Project Change binding and end-to-end Reconcile contract
+- [`docs/design/omnai-v0.2-b2a-failed-application-replan.md`](docs/design/omnai-v0.2-b2a-failed-application-replan.md) — authoritative stale-precondition recovery and attempt-history amendment
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md)
+- [`docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-failed-application-replan.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-failed-application-replan.md)
 
 Repository-local v0.1 reference:
 

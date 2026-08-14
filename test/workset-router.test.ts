@@ -4,6 +4,10 @@ import { createAndActivateWorksetProjectChange } from '../src/workspace/change-b
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
+  decideWorksetReentry,
+  planWorksetReentry,
+} from '../src/workspace/reconcile-plan.js';
+import {
   addWorksetCandidate,
   beginProjectResearch,
   createWorkset,
@@ -110,4 +114,64 @@ test('oldest pending Re-entry outranks ordinary active-project work', async () =
     /B2a lifecycle|cannot be resolved directly/i,
   );
   assert.equal((await resolveWorksetNext(home.root, workset.id) as { reentryId?: string }).reentryId, first.id);
+});
+
+test('planned PENDING Re-entry routes to explicit decision instead of repeating the interaction', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const userRepo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, userRepo.cleanup);
+  await registerProject(home.root, userRepo.root, 'user');
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  await activate(home.root, workset.id, 'user');
+
+  const reentry = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'PLAN_CHANGED',
+    reason: 'Delivery order changed.',
+    affectedProjects: ['user'],
+  });
+  await planWorksetReentry(home.root, workset.id, reentry.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+  ]);
+
+  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
+    action: 'decide-reentry',
+    reentryId: reentry.id,
+    reason: `Re-entry ${reentry.id} has a calculated Project Reconcile proposal ready for explicit decision.`,
+  });
+});
+
+test('a planned newer PENDING Re-entry yields to an older outstanding DECIDED application', async () => {
+  const home = await createTestDirectory('omnai-home-');
+  const userRepo = await createTestRepository('user-center');
+  cleanups.push(home.cleanup, userRepo.cleanup);
+  await registerProject(home.root, userRepo.root, 'user');
+  const workset = await createWorkset(home.root, 'Authorization Migration');
+  await activate(home.root, workset.id, 'user');
+
+  const first = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'PLAN_CHANGED',
+    reason: 'First delivery order change.',
+    affectedProjects: ['user'],
+  });
+  await planWorksetReentry(home.root, workset.id, first.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+  ]);
+  await decideWorksetReentry(home.root, workset.id, first.id);
+
+  const second = await recordWorksetReentry(home.root, workset.id, {
+    kind: 'PLAN_CHANGED',
+    reason: 'Second delivery order change.',
+    affectedProjects: ['user'],
+  });
+  await planWorksetReentry(home.root, workset.id, second.id, [
+    { project: 'user', outcome: 'REQUIRED', level: 'L1', reopenFrom: 'plan', taskRoots: [] },
+  ]);
+
+  assert.deepEqual(await resolveWorksetNext(home.root, workset.id), {
+    action: 'apply-reentry',
+    reentryId: first.id,
+    project: 'user',
+    applicationStatus: 'PENDING',
+    reason: `Approved Re-entry ${first.id} has a PENDING project reconciliation for user.`,
+  });
 });

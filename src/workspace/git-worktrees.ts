@@ -29,7 +29,7 @@ export async function createWorksetWorktree(
   const target = join(worksetWorkspaceRoot(home, workset.id), project.alias);
 
   if (await pathExists(target)) {
-    throw new Error(`Worktree target '${target}' already exists.`);
+    return reuseExpectedWorktree(sourceRoot, target, branch, project.alias);
   }
   if (branchExists(sourceRoot, branch)) {
     throw new Error(`Worktree branch '${branch}' already exists in ${project.name}.`);
@@ -47,6 +47,44 @@ export async function createWorksetWorktree(
   }
 
   return { path: target, branch, sourceCommit };
+}
+
+function reuseExpectedWorktree(
+  sourceRoot: string,
+  target: string,
+  expectedBranch: string,
+  projectAlias: string,
+): WorksetWorktree {
+  try {
+    const targetRoot = gitOutput(target, ['rev-parse', '--show-toplevel']);
+    if (resolve(targetRoot) !== resolve(target)) {
+      throw new Error('target is not the root of a Git worktree');
+    }
+
+    if (gitCommonDir(target) !== gitCommonDir(sourceRoot)) {
+      throw new Error('target belongs to a different Git repository');
+    }
+
+    const actualBranch = gitOutput(target, ['symbolic-ref', '--quiet', '--short', 'HEAD']);
+    if (actualBranch !== expectedBranch) {
+      throw new Error(`target is on branch '${actualBranch}' instead of '${expectedBranch}'`);
+    }
+
+    return {
+      path: target,
+      branch: expectedBranch,
+      sourceCommit: gitOutput(target, ['rev-parse', 'HEAD']),
+    };
+  } catch (error) {
+    throw new Error(
+      `Worktree target '${target}' already exists but is not the expected Workset worktree for '${projectAlias}': ${errorMessage(error)}`,
+    );
+  }
+}
+
+function gitCommonDir(cwd: string): string {
+  const common = gitOutput(cwd, ['rev-parse', '--git-common-dir']);
+  return resolve(cwd, common);
 }
 
 function gitOutput(cwd: string, args: string[]): string {

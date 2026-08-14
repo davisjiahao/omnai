@@ -1,4 +1,7 @@
 import { Command } from 'commander';
+import YAML from 'yaml';
+import { z } from 'zod';
+import { readText } from '../core/files.js';
 import {
   bindWorksetProjectChange,
   createAndActivateWorksetProjectChange,
@@ -12,9 +15,12 @@ import {
 import {
   listWorksetReentries,
   parseReentryKind,
+  projectReconcileProposalSchema,
   recordWorksetReentry,
   resolveWorksetReentry,
 } from './reentry.js';
+import { applyWorksetReentry, reentryApplicationStatus } from './reconcile-apply.js';
+import { decideWorksetReentry, planWorksetReentry } from './reconcile-plan.js';
 import { resolveOmnaiHome, worksetWorkspaceRoot } from './paths.js';
 import { resolveWorksetNext, type WorksetRouteAction } from './workset-router.js';
 import {
@@ -26,6 +32,8 @@ import {
   markWorksetProjectInactive,
   resolveWorkset,
 } from './worksets.js';
+
+const projectReconcileProposalListSchema = z.array(projectReconcileProposalSchema);
 
 export function isPersonalWorkspaceCommand(value: string | undefined): boolean {
   return value === 'project' || value === 'workset';
@@ -257,7 +265,7 @@ export function createPersonalWorkspaceProgram(): Command {
       printResult(record, options.json, `${record.id}: ${record.kind} -> ${record.route.capability}/${record.route.interaction}`);
     });
 
-  const reentry = workset.command('reentry').description('Inspect and resolve Workset selective Re-entry records');
+  const reentry = workset.command('reentry').description('Plan, apply, and inspect Workset selective Re-entry records');
   reentry
     .command('list')
     .argument('[workset]', 'Workset ID or slug')
@@ -280,15 +288,67 @@ export function createPersonalWorkspaceProgram(): Command {
     });
 
   reentry
-    .command('resolve')
+    .command('plan')
+    .argument('<reentry>', 'WRE identifier')
+    .requiredOption('--file <path>', 'YAML file containing per-project Reconcile proposals')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { file: string; workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const raw = await readText(options.file);
+      const proposal = projectReconcileProposalListSchema.parse(YAML.parse(raw));
+      const planned = await planWorksetReentry(home, target.id, reentryId, proposal);
+      printResult(planned, options.json, `Planned ${reentryId}; review the calculated closure before deciding.`);
+    });
+
+  reentry
+    .command('decide')
     .argument('<reentry>', 'WRE identifier')
     .option('--workset <workset>', 'Workset ID or slug')
     .option('--json', 'Print machine-readable JSON')
     .action(async (reentryId: string, options: { workset?: string; json?: boolean }) => {
       const home = resolveOmnaiHome();
       const target = await resolveWorkset(home, options.workset);
+      const decided = await decideWorksetReentry(home, target.id, reentryId);
+      printResult(decided, options.json, `Decided ${reentryId}; project Reconcile applications are frozen.`);
+    });
+
+  reentry
+    .command('apply')
+    .argument('<reentry>', 'WRE identifier')
+    .option('--project <alias>', 'Apply or retry only one project application')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { project?: string; workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const applied = await applyWorksetReentry(home, target.id, reentryId, options.project);
+      printResult(applied, options.json, `${reentryId} is ${applied.status}.`);
+    });
+
+  reentry
+    .command('status')
+    .argument('<reentry>', 'WRE identifier')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
+      const status = await reentryApplicationStatus(home, target.id, reentryId);
+      printResult(status, options.json, formatReentryStatus(status));
+    });
+
+  reentry
+    .command('resolve')
+    .argument('<reentry>', 'Legacy schema v1 WRE identifier')
+    .option('--workset <workset>', 'Workset ID or slug')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (reentryId: string, options: { workset?: string; json?: boolean }) => {
+      const home = resolveOmnaiHome();
+      const target = await resolveWorkset(home, options.workset);
       const record = await resolveWorksetReentry(home, target.id, reentryId);
-      printResult(record, options.json, `Resolved ${record.id}.`);
+      printResult(record, options.json, `Resolved legacy ${record.id}.`);
     });
 
   return program;
@@ -319,8 +379,19 @@ function formatNext(next: WorksetRouteAction): string {
   if (next.action === 'reenter') {
     return `reenter ${next.capability}/${next.interaction} (${next.reentryId}) — ${next.reason}`;
   }
+  if (next.action === 'apply-reentry') {
+    return `apply-reentry ${next.project} (${next.reentryId}, ${next.applicationStatus}) — ${next.reason}`;
+  }
   if ('project' in next) {
     return `${next.action} ${next.project} — ${next.reason}`;
   }
   return `${next.action} — ${next.reason}`;
+}
+
+function formatReentryStatus(record: Awaited<ReturnType<typeof reentryApplicationStatus>>): string {
+  const lines = [`${record.id}: ${record.status} ${record.kind}`];
+  for (const application of record.applications) {
+    lines.push(`  ${application.project.padEnd(20)} ${application.status}${application.changeId ? ` ${application.changeId}` : ''}`);
+  }
+  return lines.join('\n');
 }

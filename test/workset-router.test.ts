@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { createAndBindWorksetProjectChange } from '../src/workspace/change-bindings.js';
+import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import {
-  activateWorksetProject,
   addWorksetCandidate,
   beginProjectResearch,
   createWorkset,
@@ -24,8 +23,7 @@ afterEach(async () => {
 async function activate(home: string, worksetId: string, project: string): Promise<void> {
   await addWorksetCandidate(home, worksetId, project);
   await beginProjectResearch(home, worksetId, project);
-  await createAndBindWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
-  await activateWorksetProject(home, worksetId, project);
+  await createAndActivateWorksetProjectChange(home, worksetId, project, `${project} Workset Change`, 'small-feature');
 }
 
 test('new candidate research and impact decisions outrank pending Grill re-entry', async () => {

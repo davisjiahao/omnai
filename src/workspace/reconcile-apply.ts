@@ -199,8 +199,9 @@ function validateCorrelatedRecovery(
     || revision.previousBaseline !== application.fromBaseline
     || revision.level !== application.level
     || !sameSet(revision.affectedArtifacts, application.readinessClosure)
+    || !sameSet(revision.affectedTasks, application.taskClosure)
   ) {
-    return `Correlation '${revision.correlationId}' exists but does not match the frozen Reconcile application.`;
+    return `Correlation '${revision.correlationId}' exists but does not match the frozen Reconcile application scope.`;
   }
   if (activeRevision !== revision.id || activeBaseline !== revision.baseline) {
     return `Correlation '${revision.correlationId}' was applied at ${revision.id}/${revision.baseline ?? 'unknown'}, but the Project Change has since advanced to ${activeRevision}/${activeBaseline}.`;

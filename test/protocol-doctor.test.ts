@@ -86,6 +86,11 @@ test('the npm package contains all protocols and exactly four Host Skill files',
     files?: string[];
   };
   assert.ok(packageJson.files?.includes('resources'));
+  assert.deepEqual(
+    packageJson.files,
+    [...new Set(packageJson.files)],
+    'package.json files entries must be unique',
+  );
 
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
   const packed = spawnSync(npm, ['pack', '--dry-run', '--json'], {

@@ -7,7 +7,7 @@ import YAML from 'yaml';
 import { pathExists, readText } from '../src/core/files.js';
 import { changeArtifactPath, changeRunsRoot } from '../src/core/paths.js';
 import { prepareStage, type PreparedStage } from '../src/core/stages.js';
-import { createChange, resolveChange } from '../src/core/store.js';
+import { createChange, resolveChange, type ChangeRef } from '../src/core/store.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 
 interface AuditedManifest {
@@ -75,7 +75,7 @@ test('protocol preflight failure leaves runs, progress, and readiness unchanged'
 
   const invoke = prepareStage as unknown as (
     repoRoot: string,
-    change: typeof change,
+    change: ChangeRef,
     capability: 'design',
     instruction: string,
     options: TestPrepareStageOptions,

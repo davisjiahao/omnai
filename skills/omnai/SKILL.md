@@ -9,7 +9,7 @@ OmnAI Core is the workflow source of truth. Conversation history is supporting c
 
 ## Always begin with context
 
-Run:
+Run `omnai context --json`:
 
 ```bash
 omnai context --json

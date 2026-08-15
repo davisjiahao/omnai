@@ -1,7 +1,8 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 import type { Capability, ChangeMetadata, StageRunManifest } from '../domain/types.js';
+import { loadProtocolBundle, repositoryProtocolId } from '../protocols/index.js';
 import { changeArtifactPath, changeRunsRoot, projectKnowledgeRoot } from './paths.js';
 import { appendJsonLine, ensureDir, pathExists, readText, writeTextAtomic, writeYaml } from './files.js';
 import type { ChangeRef } from './store.js';
@@ -49,12 +50,23 @@ const STAGES: Record<Capability, StageDefinition> = {
 };
 
 export interface PreparedStage { manifest: StageRunManifest; runDirectory: string; promptPath: string; }
+export interface PrepareStageOptions { protocolRoot?: string; }
 
-export async function prepareStage(repoRoot: string, change: ChangeRef, capability: Capability, instruction: string): Promise<PreparedStage> {
+export async function prepareStage(
+  repoRoot: string,
+  change: ChangeRef,
+  capability: Capability,
+  instruction: string,
+  options: PrepareStageOptions = {},
+): Promise<PreparedStage> {
   const definition = STAGES[capability];
-  const runId = `RUN-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`;
-  const runDirectory = join(changeRunsRoot(repoRoot, change.directoryName), runId);
-  await ensureDir(runDirectory);
+
+  // Protocol and prompt preparation is deliberately mutation-free. A missing or
+  // invalid protocol must not leave a partial run, progress event, or readiness change.
+  const protocols = await loadProtocolBundle(
+    [repositoryProtocolId(capability)],
+    options.protocolRoot,
+  );
 
   const contextEntries: Array<{ path: string; content: string }> = [];
   for (const artifact of definition.context) {
@@ -70,20 +82,42 @@ export async function prepareStage(repoRoot: string, change: ChangeRef, capabili
   const scenario = getScenario(change.metadata.scenario);
   const policy = policyGuidance(capability, change, scenario);
   const outputPaths = definition.outputs.map((output) => relative(repoRoot, changeArtifactPath(repoRoot, change.directoryName, output)));
+  const runId = `RUN-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomUUID().slice(0, 8)}`;
+  const runDirectory = join(changeRunsRoot(repoRoot, change.directoryName), runId);
   const promptPath = join(runDirectory, 'prompt.md');
-  const prompt = `${capabilityPrompt(capability, instruction, definition.outputContract)}\nScenario policy:\n${policy}\n\nAuthoritative context:\n${contextEntries
+  const prompt = `${capabilityPrompt(capability, instruction, definition.outputContract, protocols)}\nScenario policy:\n${policy}\n\nAuthoritative context:\n${contextEntries
     .map((entry) => `\n---\nSOURCE: ${entry.path}\n${entry.content}`).join('\n')}\n\nCanonical outputs:\n${outputPaths.map((path) => `- ${path}`).join('\n')}\n`;
-  await writeTextAtomic(promptPath, prompt);
-
   const now = new Date().toISOString();
   const manifest: StageRunManifest = {
-    schemaVersion: 1, id: runId, changeId: change.metadata.id, revision: change.metadata.activeRevision,
-    capability, status: 'PREPARED', instruction, promptPath: relative(repoRoot, promptPath), outputPaths, createdAt: now,
+    schemaVersion: 2,
+    id: runId,
+    changeId: change.metadata.id,
+    revision: change.metadata.activeRevision,
+    capability,
+    status: 'PREPARED',
+    instruction,
+    promptPath: relative(repoRoot, promptPath),
+    promptHash: sha256(prompt),
+    protocols: protocols.protocols.map(({ id, version, hash }) => ({ id, version, hash })),
+    outputPaths,
+    createdAt: now,
   };
+
+  await ensureDir(runDirectory);
+  await writeTextAtomic(promptPath, prompt);
   await writeYaml(join(runDirectory, 'run.yaml'), manifest);
   await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
-    timestamp: now, event: 'CAPABILITY_PREPARED', changeId: change.metadata.id, revision: change.metadata.activeRevision,
-    runId, data: { capability, prompt: manifest.promptPath },
+    timestamp: now,
+    event: 'CAPABILITY_PREPARED',
+    changeId: change.metadata.id,
+    revision: change.metadata.activeRevision,
+    runId,
+    data: {
+      capability,
+      prompt: manifest.promptPath,
+      promptHash: manifest.promptHash,
+      protocols: manifest.protocols,
+    },
   });
   if (definition.readiness) await markReadiness(repoRoot, change, definition.readiness, 'IN_PROGRESS');
   return { manifest, runDirectory, promptPath };
@@ -162,4 +196,8 @@ function policyGuidance(capability: Capability, change: ChangeRef, scenario: Ret
     for (const item of matrix) base.push(`- ${item.id}: ${item.required ? 'REQUIRED' : 'OPTIONAL'} — ${item.because}`);
   }
   return base.join('\n');
+}
+
+function sha256(content: string): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`;
 }

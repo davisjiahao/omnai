@@ -96,14 +96,6 @@ export class AgentsGenerator {
       '- Follow any nested AGENTS.md files inside each repository.',
       '- Run and report tests separately for every changed repository.',
       '- Commit and push each repository independently; there is no atomic cross-repository commit.',
-      '',
-      '## Communication rules',
-      '',
-      '- Lead with the conclusion and explain concepts in plain language before introducing formal terminology.',
-      '- On first use of a specialized term or acronym, define it briefly and retain the canonical term so it remains searchable.',
-      '- Use short sentences, concrete nouns, and active voice. Explain alternatives through observable outcomes, trade-offs, and user impact.',
-      "- Match explanation depth to the user's demonstrated familiarity in the current domain; expertise in one domain does not imply expertise in another.",
-      '- Use the smallest useful visual when it materially improves understanding: tables for exact comparisons, and Mermaid for flows, hierarchy, state, or cross-repository relationships. Skip decorative visuals.',
       ''
     ].join('\n');
   }

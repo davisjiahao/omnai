@@ -1157,9 +1157,6 @@ it('renders one parent instruction file for every selected repository', () => {
   expect(text).toContain('Each child directory is an independent Git repository.');
   expect(text).toContain('Run and report tests separately for every changed repository.');
   expect(text).toContain('Follow any nested AGENTS.md files inside each repository.');
-  expect(text).toContain('explain concepts in plain language before introducing formal terminology');
-  expect(text).toContain('On first use of a specialized term or acronym, define it briefly');
-  expect(text).toContain('Use the smallest useful visual when it materially improves understanding');
   expect(text).not.toContain('token');
 });
 ```
@@ -1192,17 +1189,7 @@ Expected: FAIL because `AgentsGenerator` does not exist.
 - Follow any nested AGENTS.md files inside each repository.
 - Run and report tests separately for every changed repository.
 - Commit and push each repository independently; there is no atomic cross-repository commit.
-
-## Communication rules
-
-- Lead with the conclusion and explain concepts in plain language before introducing formal terminology.
-- On first use of a specialized term or acronym, define it briefly and retain the canonical term so it remains searchable.
-- Use short sentences, concrete nouns, and active voice. Explain alternatives through observable outcomes, trade-offs, and user impact.
-- Match explanation depth to the user's demonstrated familiarity in the current domain; expertise in one domain does not imply expertise in another.
-- Use the smallest useful visual when it materially improves understanding: tables for exact comparisons, and Mermaid for flows, hierarchy, state, or cross-repository relationships. Skip decorative visuals.
 ```
-
-These rules preserve technical accuracy: they do not ban necessary terminology or replace it with vague analogies. More specific nested `AGENTS.md` files may add domain rules, and a direct user request may change explanation depth for that response. Do not depend on an external skill, private renderer, or model-specific visual capability; Markdown and Mermaid are the fallback.
 
 Sort rows in the same order as `state.repositories`. Escape Markdown table pipes in IDs/display names. `write()` writes UTF-8 to `<workspacePath>/AGENTS.md` via a same-directory temporary file and rename. Do not include source paths, clone URLs, environment data, or Git output.
 

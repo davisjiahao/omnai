@@ -6,10 +6,19 @@ import { afterEach, test } from 'node:test';
 import YAML from 'yaml';
 import { pathExists, readText } from '../src/core/files.js';
 import { changeArtifactPath, changeRunsRoot } from '../src/core/paths.js';
-import { prepareStage } from '../src/core/stages.js';
+import { prepareStage, type PreparedStage } from '../src/core/stages.js';
 import { createChange, resolveChange } from '../src/core/store.js';
-import type { PreparedStage, PrepareStageOptions } from '../src/core/stages.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
+
+interface AuditedManifest {
+  schemaVersion: number;
+  promptHash: string;
+  protocols: Array<{ id: string; version: number; hash: string }>;
+}
+
+interface TestPrepareStageOptions {
+  protocolRoot?: string;
+}
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -29,19 +38,20 @@ test('prepared repository runs use canonical protocols and record exact audit ha
     'Compare options.',
   );
   const prompt = await readText(prepared.promptPath);
+  const manifest = prepared.manifest as unknown as AuditedManifest;
   const writtenManifest = YAML.parse(
     await readText(join(prepared.runDirectory, 'run.yaml')),
-  ) as PreparedStage['manifest'];
+  ) as AuditedManifest;
 
   assert.match(prompt, /protocol:common\.authoritative-work@1/);
   assert.match(prompt, /protocol:repository\.design@1/);
   assert.match(prompt, /Explore 2-3 viable approaches/);
-  assert.equal(prepared.manifest.schemaVersion, 2);
-  assert.deepEqual(prepared.manifest.protocols.map((item) => item.id), [
+  assert.equal(manifest.schemaVersion, 2);
+  assert.deepEqual(manifest.protocols.map((item) => item.id), [
     'common.authoritative-work',
     'repository.design',
   ]);
-  assert.equal(prepared.manifest.promptHash, sha256(prompt));
+  assert.equal(manifest.promptHash, sha256(prompt));
   assert.deepEqual(writtenManifest, prepared.manifest);
 });
 
@@ -55,11 +65,12 @@ test('protocol preflight failure leaves runs, progress, and readiness unchanged'
 
   const runsRoot = changeRunsRoot(fixture.root, change.directoryName);
   const progressPath = changeArtifactPath(fixture.root, change.directoryName, 'progress.jsonl');
+  const metadataPath = changeArtifactPath(fixture.root, change.directoryName, 'change.yaml');
   const before = {
     runs: await readdir(runsRoot),
     progress: await readText(progressPath),
     readiness: change.metadata.readiness.design,
-    metadata: await readText(changeArtifactPath(fixture.root, change.directoryName, 'change.yaml')),
+    metadata: await readText(metadataPath),
   };
 
   const invoke = prepareStage as unknown as (
@@ -67,7 +78,7 @@ test('protocol preflight failure leaves runs, progress, and readiness unchanged'
     change: typeof change,
     capability: 'design',
     instruction: string,
-    options: PrepareStageOptions,
+    options: TestPrepareStageOptions,
   ) => Promise<PreparedStage>;
 
   await assert.rejects(
@@ -85,10 +96,7 @@ test('protocol preflight failure leaves runs, progress, and readiness unchanged'
   assert.deepEqual(await readdir(runsRoot), before.runs);
   assert.equal(await readText(progressPath), before.progress);
   assert.equal(reloaded.metadata.readiness.design, before.readiness);
-  assert.equal(
-    await readText(changeArtifactPath(fixture.root, change.directoryName, 'change.yaml')),
-    before.metadata,
-  );
+  assert.equal(await readText(metadataPath), before.metadata);
   assert.equal(await pathExists(join(runsRoot, 'prompt.md')), false);
 });
 

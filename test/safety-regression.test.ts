@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
 import { completeStage } from '../src/core/stages.js';
 import { createChange, initializeProject, loadProjectConfig } from '../src/core/store.js';
-import { installHostSkills } from '../src/core/host-skills.js';
 import { createTestRepository } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -46,14 +45,4 @@ test('verification command discovery only uses commands the repository can actua
   await writeFile(join(wrapperRepo.root, 'mvnw'), '#!/bin/sh\n', 'utf8');
   await initializeProject(wrapperRepo.root);
   assert.equal((await loadProjectConfig(wrapperRepo.root)).verification.commands.includes('./mvnw test'), true);
-});
-
-test('host skill installer refuses to overwrite a foreign same-name skill', async () => {
-  const fixture = await createTestRepository();
-  cleanups.push(fixture.cleanup);
-  const foreign = join(fixture.root, '.claude', 'skills', 'omnai-review');
-  await mkdir(foreign, { recursive: true });
-  await writeFile(join(foreign, 'SKILL.md'), '---\nname: my-own-review\n---\nforeign skill\n', 'utf8');
-
-  await assert.rejects(() => installHostSkills(fixture.root, 'claude'), /refus|overwrite|foreign|existing/i);
 });

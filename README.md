@@ -429,6 +429,7 @@ Current v0.2 contract:
 - [`docs/design/omnai-v0.2-selective-reentry.md`](docs/design/omnai-v0.2-selective-reentry.md) — B1 routing contract, superseded by B2a for completion semantics
 - [`docs/design/omnai-v0.2-b2a-project-reconcile.md`](docs/design/omnai-v0.2-b2a-project-reconcile.md) — authoritative Project Change binding and end-to-end Reconcile contract
 - [`docs/design/omnai-v0.2-b2a-failed-application-replan.md`](docs/design/omnai-v0.2-b2a-failed-application-replan.md) — authoritative stale-precondition recovery and attempt-history amendment
+- [`docs/superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md`](docs/superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md) — approved B2b Entry Skill / internal Protocol Resource boundary, including the explicit Show-me interaction
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md)

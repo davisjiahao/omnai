@@ -42,6 +42,19 @@ Follow the returned scope exactly.
 
 Do not create a Workset, register a project, initialize a repository, or invent paths automatically. Explain the missing context and obtain the required explicit choice.
 
+## Explain / Show-me protocol
+
+Use this read-only presentation mode when the user asks for an explanation, comparison, visualization, “show me”, or says they do not understand.
+
+- Lead with the conclusion and explain the idea in plain language before formal terminology.
+- On first use, define a specialized term or acronym briefly and retain its canonical term for precision and search.
+- Match depth to the user's demonstrated familiarity in the current domain; expertise in another domain does not transfer automatically.
+- Use short sentences, concrete nouns, observable outcomes, trade-offs, and user impact.
+- Choose the smallest useful representation: prose for a simple answer, a table for an exact comparison or mapping, and Mermaid for a flow, hierarchy, state transition, dependency, or multi-project relationship.
+- Use a richer host-native visual only when it is available, materially clearer, and technically accurate. Keep a textual takeaway and skip decorative visuals.
+- Preserve canonical names, evidence references, assumptions, and edge cases. State unknowns instead of guessing.
+- Do not create a Project Change, advance readiness, or modify canonical artifacts merely to explain existing information. Missing facts still require the read-only capability selected by OmnAI Core; verified intent conflicts still require Reconcile.
+
 ## Boundaries
 
 - Reality comes from code, configuration, Git, and runtime evidence.

@@ -59,17 +59,17 @@ test('protocol show preserves requested order and deduplicates repeated IDs', as
   const result = runCli(environment, [
     'protocol',
     'show',
-    'interaction.grill',
     'repository.model',
-    'interaction.grill',
+    'repository.design',
+    'repository.model',
     '--json',
   ]);
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout) as { protocols: Array<{ id: string }> };
   assert.deepEqual(parsed.protocols.map((item) => item.id), [
     'common.authoritative-work',
-    'interaction.grill',
     'repository.model',
+    'repository.design',
   ]);
 });
 

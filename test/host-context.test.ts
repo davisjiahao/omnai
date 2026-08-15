@@ -36,9 +36,16 @@ async function createActiveWorksetProject() {
     'complex-domain-feature',
   );
   const member = active.workset.members.find((item) => item.project === 'user');
-  assert.ok(member?.worktree);
-  assert.ok(member.changeId);
-  return { home, workset: active.workset, member };
+  assert.ok(member);
+  const worktree = member.worktree;
+  const changeId = member.changeId;
+  assert.ok(worktree);
+  assert.ok(changeId);
+  return {
+    home,
+    workset: active.workset,
+    member: { ...member, worktree, changeId },
+  };
 }
 
 test('resolves the aggregate root as Workset context', async () => {

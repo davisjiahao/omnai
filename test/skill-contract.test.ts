@@ -11,6 +11,8 @@ const SKILLS = [
   'omnai-reconcile',
 ] as const;
 
+const FINE_GRAINED_SKILL = /\bomnai-(?:frame|research|map|model|spec|design|plan|triage|reproduce|debug|diagnose|experiment|fix|mitigate|work|simplify|review|verify|qa|ship|release|canary|learn|archive)\b/i;
+
 interface ParsedSkill {
   name: string;
   description: string;
@@ -31,65 +33,75 @@ async function loadSkill(name: string): Promise<ParsedSkill> {
   };
 }
 
-test('all four canonical Skills have discoverable matching frontmatter and begin from Core context', async () => {
+test('all four canonical Skills are thin protocol-aware entry points', async () => {
   for (const directory of SKILLS) {
     const skill = await loadSkill(directory);
     assert.equal(skill.name, directory);
     assert.match(skill.description, /^Use when\b/);
     assert.match(skill.body, /`omnai context --json`/);
+    assert.match(skill.body, /`omnai protocol show\b/);
+    assert.doesNotMatch(skill.body, /resources\/protocols/i);
+    assert.doesNotMatch(skill.body, FINE_GRAINED_SKILL);
+    assert.doesNotMatch(skill.body, /\bomnai-run\b/i);
+    assert.match(skill.body, /Core|deterministic|authoritative/i);
   }
 });
 
-test('omnai is a thin deterministic router and does not pretend Milestone C Run support exists', async () => {
+test('omnai is the thin Core-routed default entry including read-only Show-me composition', async () => {
   const skill = await loadSkill('omnai');
+  assert.equal(
+    skill.description,
+    'Use when starting, resuming, inspecting, changing, explaining, comparing, or visualizing non-trivial engineering work in an OmnAI Workset or repository, including “show me” and unclear-explanation requests.',
+  );
   assert.match(skill.body, /`omnai workset next --json`/);
+  assert.match(skill.body, /`omnai next --json`/);
+  assert.match(skill.body, /protocolIds/);
+  assert.match(skill.body, /`omnai protocol show <protocolIds\.\.\.> --json`/);
+  assert.match(skill.body, /interaction\.show-me/);
+  assert.match(skill.body, /fresh .*next --json|run .*next --json.*again/i);
+  assert.match(skill.body, /route remembered from (chat|conversation).*not authoritative|never use .*remembered.*route/i);
+  assert.match(skill.body, /read-only|creates? no .*state|must not mutate/i);
   assert.match(skill.body, /Do not invent .*workflow state in (chat|conversation)/i);
-  assert.match(skill.body, /conversation .* not .*authoritative|conversation .*context/i);
-  assert.match(skill.body, /Do not .*`omnai-run`.*Milestone C/i);
   assert.match(skill.body, /fresh verification evidence/i);
+  assert.doesNotMatch(skill.body, /Decision Frontier|one question at a time|two or more materially distinct viable approaches/i);
 });
 
-test('omnai-grill resolves only the blocking Decision Frontier one question at a time', async () => {
+test('omnai-grill delegates its full method to interaction.grill and the active capability protocol', async () => {
   const skill = await loadSkill('omnai-grill');
-  assert.match(skill.body, /Decision Frontier/);
-  assert.match(skill.body, /one question at a time/i);
-  assert.match(skill.body, /product|domain|scope|ownership|lifecycle|invariant/i);
-  assert.match(skill.body, /preserve .*already (settled|decided)|do not reopen .*settled/i);
-  assert.match(skill.body, /return .*router|workset next/i);
-});
-
-test('omnai-brainstorm compares distinct viable approaches and escalates evidence-dependent choices', async () => {
-  const skill = await loadSkill('omnai-brainstorm');
-  assert.match(skill.body, /two or more materially (distinct|different).*viable approaches/i);
-  assert.match(skill.body, /constraints.*criteria|criteria.*constraints/i);
-  assert.match(skill.body, /recommend/i);
-  assert.match(skill.body, /experiment/i);
-  assert.match(skill.body, /upstream ambiguity.*grill|route.*grill/i);
-});
-
-test('omnai-reconcile follows the schema-v2 Workset lifecycle and leaves closure expansion to Core', async () => {
-  const skill = await loadSkill('omnai-reconcile');
-  for (const kind of [
-    'REALITY_CHANGED',
-    'PRODUCT_CHANGED',
-    'DOMAIN_CHANGED',
-    'SCOPE_CHANGED',
-    'TECHNICAL_CONSTRAINT_CHANGED',
-    'NEEDS_EXPERIMENT',
-    'PLAN_CHANGED',
-    'IMPLEMENTATION_DETAIL_CHANGED',
-  ]) {
-    assert.match(skill.body, new RegExp(kind));
-  }
-  assert.match(skill.body, /`omnai workset change/);
   assert.match(skill.body, /`omnai workset next --json`/);
-  assert.match(skill.body, /reentry plan/);
-  assert.match(skill.body, /explicit .*approval/i);
-  assert.match(skill.body, /reentry decide/);
-  assert.match(skill.body, /reentry apply/);
-  assert.match(skill.body, /reentry replan/);
-  assert.match(skill.body, /finalize-reentry/);
-  assert.match(skill.body, /Core .*closure|closure .*Core/i);
-  assert.match(skill.body, /Do not .*manual(ly)? .*closure|never .*expand .*closure/i);
-  assert.match(skill.body, /Never .*reentry resolve.*schema-v2/i);
+  assert.match(skill.body, /protocolIds/);
+  assert.match(skill.body, /interaction\.grill/);
+  assert.match(skill.body, /`omnai next --json`/);
+  assert.match(skill.body, /repository capability protocol|repository\.\<capability\>|repository\.<capability>/i);
+  assert.match(skill.body, /owning artifact|active capability/i);
+  assert.match(skill.body, /return .*routing|run .*next --json.*again/i);
+  assert.doesNotMatch(skill.body, /Decision Frontier|one question at a time|Questioning protocol/i);
+});
+
+test('omnai-brainstorm delegates its full method to interaction.brainstorm and the active capability protocol', async () => {
+  const skill = await loadSkill('omnai-brainstorm');
+  assert.match(skill.body, /`omnai workset next --json`/);
+  assert.match(skill.body, /protocolIds/);
+  assert.match(skill.body, /interaction\.brainstorm/);
+  assert.match(skill.body, /`omnai next --json`/);
+  assert.match(skill.body, /repository capability protocol|repository\.\<capability\>|repository\.<capability>/i);
+  assert.match(skill.body, /owning artifact|active capability/i);
+  assert.match(skill.body, /return .*routing|run .*next --json.*again/i);
+  assert.doesNotMatch(skill.body, /Comparison protocol|evaluation criteria|migration and rollback behavior|Keep the option set/i);
+});
+
+test('omnai-reconcile keeps only safety and protocol-routing rules', async () => {
+  const skill = await loadSkill('omnai-reconcile');
+  assert.match(skill.body, /workset\.reentry-classification/);
+  assert.match(skill.body, /`omnai workset next --json`/);
+  assert.match(skill.body, /protocolIds/);
+  assert.match(skill.body, /repository\.reconcile/);
+  assert.match(skill.body, /preserve unaffected/i);
+  assert.match(skill.body, /no silent .*bind|never silently bind/i);
+  assert.match(skill.body, /no manual closure|do not manually .*closure/i);
+  assert.match(skill.body, /explicit .*approval.*decide|decide.*explicit .*approval/i);
+  assert.match(skill.body, /schema-v2.*direct resolve|direct resolve.*schema-v2/i);
+  assert.match(skill.body, /stale precondition.*replan|replan.*stale precondition/i);
+  assert.doesNotMatch(skill.body, /REALITY_CHANGED|PRODUCT_CHANGED|DOMAIN_CHANGED|SCOPE_CHANGED/);
+  assert.doesNotMatch(skill.body, /reentry plan <WRE>|reentry apply <WRE>|attemptHistory/i);
 });

@@ -88,7 +88,7 @@ export type ImpactModel = z.infer<typeof impactModelSchema>;
 
 export const projectConfigSchema = z.object({
   schemaVersion: z.literal(1), project: z.string().min(1), activeChange: z.string().nullable().default(null),
-  defaultScenario: z.string().default('small-feature'), installedHosts: z.array(z.enum(['claude', 'codex', 'opencode'])).default([]),
+  defaultScenario: z.string().default('small-feature'),
   verification: z.object({ commands: z.array(z.string()).default([]) }).default({ commands: [] }),
 });
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;

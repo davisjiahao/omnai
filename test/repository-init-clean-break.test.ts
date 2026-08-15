@@ -48,6 +48,14 @@ test('omnai init rejects the unreleased --host option without creating project s
   assert.equal(await pathExists(join(fixture.repo, '.omnai')), false);
 });
 
+test('the unreleased repository-local install command is removed', async () => {
+  const fixture = await createEnvironment();
+  const result = runCli(fixture.omnaiHome, fixture.userHome, fixture.repo, ['install', '--host', 'codex']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /unknown command.*install|install.*unknown command/i);
+  assert.equal(await pathExists(join(fixture.repo, '.omnai')), false);
+});
+
 test('omnai init initializes only repository-local state and no Host Skill directories', async () => {
   const fixture = await createEnvironment();
   const result = runCli(fixture.omnaiHome, fixture.userHome, fixture.repo, ['init']);
@@ -83,4 +91,13 @@ test('ProjectConfig no longer has an installedHosts field', () => {
 test('the public package no longer exposes the repository-local Host installer', () => {
   assert.equal('installHostSkills' in omnai, false);
   assert.equal('locateSkillsRoot' in omnai, false);
+});
+
+test('the source tree contains no dead repository-local Host installer or false prompt lock', async () => {
+  const cli = await readFile(join(process.cwd(), 'src', 'cli.ts'), 'utf8');
+  const store = await readFile(join(process.cwd(), 'src', 'core', 'store.ts'), 'utf8');
+
+  assert.doesNotMatch(cli, /installHostSkills|SupportedHost|assertHost\s*\(|\.command\(['"]install['"]\)/);
+  assert.doesNotMatch(store, /installedHosts|promptVersions/);
+  assert.equal(await pathExists(join(process.cwd(), 'src', 'core', 'host-skills.ts')), false);
 });

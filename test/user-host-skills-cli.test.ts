@@ -3,7 +3,8 @@ import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, test } from 'node:test';
-import { pathExists } from '../src/core/files.js';
+import { pathExists, readYaml } from '../src/core/files.js';
+import { userHostManifestSchema } from '../src/host/user-host-skills.js';
 import { hostManifestPath } from '../src/workspace/paths.js';
 import { createTestDirectory } from './helpers.js';
 
@@ -64,15 +65,19 @@ test('host install codex writes exactly four Skills to the native user directory
   for (const skill of ENTRY_SKILLS) {
     assert.equal(await pathExists(join(root, skill, 'SKILL.md')), true);
   }
+  assert.equal(await pathExists(join(root, 'resources')), false);
+  assert.equal(await pathExists(join(root, 'protocols')), false);
   assert.equal(await pathExists(join(userHome, '.codex', 'skills')), false);
   assert.equal(await pathExists(hostManifestPath(omnaiHome, 'codex')), true);
+  const manifest = await readYaml(hostManifestPath(omnaiHome, 'codex'), userHostManifestSchema);
+  assert.deepEqual(manifest.skills.map((item) => item.name), [...ENTRY_SKILLS]);
 
   const status = runJson(omnaiHome, userHome, ['host', 'status', 'codex']);
   assert.equal(status.length, 1);
   assert.equal(status[0].status, 'READY');
 });
 
-test('host install all writes three manifests and twelve canonical Skill files', async () => {
+test('host install all writes three manifests and twelve canonical Skill files without protocol resources', async () => {
   const { omnaiHome, userHome } = await createHomes();
   const results = runJson(omnaiHome, userHome, ['host', 'install', 'all']);
   assert.deepEqual(results.map((item: { host: string }) => item.host), ['claude', 'codex', 'opencode']);
@@ -86,9 +91,14 @@ test('host install all writes three manifests and twelve canonical Skill files',
     for (const skill of ENTRY_SKILLS) {
       assert.equal(await pathExists(join(destination, skill, 'SKILL.md')), true, `${destination}/${skill}`);
     }
+    assert.equal(await pathExists(join(destination, 'resources')), false, destination);
+    assert.equal(await pathExists(join(destination, 'protocols')), false, destination);
   }
-  for (const host of ['claude', 'codex', 'opencode']) {
-    assert.equal(await pathExists(hostManifestPath(omnaiHome, host)), true, host);
+  for (const host of ['claude', 'codex', 'opencode'] as const) {
+    const path = hostManifestPath(omnaiHome, host);
+    assert.equal(await pathExists(path), true, host);
+    const manifest = await readYaml(path, userHostManifestSchema);
+    assert.deepEqual(manifest.skills.map((item) => item.name), [...ENTRY_SKILLS]);
   }
   assert.deepEqual(
     runJson(omnaiHome, userHome, ['host', 'status', 'all'])

@@ -9,13 +9,13 @@ actions:
 
 # Workset Re-entry interaction
 
-Perform the capability and interaction selected by the oldest actionable WRE. The `omnai workset next --json` precedence is authoritative; candidate research and impact decisions may outrank the WRE interaction.
+Perform the capability and interaction selected by the oldest actionable WRE. Workset next precedence is authoritative; candidate research and impact decisions may outrank the WRE interaction.
 
 ## Method
 
 - Load the ordered protocol IDs returned by Core.
 - Use the active capability protocol and, when present, the Grill or Brainstorm interaction protocol.
-- Recover the changed decision or evidence for every affected project while preserving unaffected work and already settled decisions.
+- Recover the changed decision or evidence for every affected project. Preserve unaffected work and already settled decisions.
 - Update only the authoritative artifacts owned by the reopened capability.
 - Identify semantic project-level `reopenFrom` roots and root Task IDs after the interaction reaches a decision.
 - Return to Workset routing before planning or applying anything.

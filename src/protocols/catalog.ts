@@ -14,6 +14,12 @@ export const WORKSET_PROTOCOL_ACTIONS = [
   'project-workflow',
 ] as const;
 
+export const PROTOCOL_INTERACTIONS = [
+  'grill',
+  'brainstorm',
+  'show-me',
+] as const;
+
 export const PROTOCOL_IDS = [
   'common.authoritative-work',
   'repository.frame',
@@ -43,6 +49,7 @@ export const PROTOCOL_IDS = [
   'repository.reconcile',
   'interaction.grill',
   'interaction.brainstorm',
+  'interaction.show-me',
   'workset.candidate-research',
   'workset.project-impact-decision',
   'workset.project-change-binding',
@@ -66,7 +73,8 @@ export const PROTOCOL_ERROR_CODES = [
 
 export type ProtocolId = (typeof PROTOCOL_IDS)[number];
 export type RepositoryProtocolId = `repository.${Capability}`;
-export type InteractionProtocolId = 'interaction.grill' | 'interaction.brainstorm';
+export type ProtocolInteraction = (typeof PROTOCOL_INTERACTIONS)[number];
+export type InteractionProtocolId = `interaction.${ProtocolInteraction}`;
 export type WorksetProtocolId = Extract<ProtocolId, `workset.${string}`>;
 export type ProtocolKind = 'common' | 'repository-capability' | 'interaction' | 'workset-action';
 export type WorksetProtocolAction = (typeof WORKSET_PROTOCOL_ACTIONS)[number];
@@ -103,6 +111,7 @@ export class ProtocolError extends Error {
 
 const protocolIdSchema = z.enum(PROTOCOL_IDS);
 const capabilitySchema = z.enum(CAPABILITIES);
+const protocolInteractionSchema = z.enum(PROTOCOL_INTERACTIONS);
 const worksetActionSchema = z.enum(WORKSET_PROTOCOL_ACTIONS);
 
 export const protocolMetadataSchema = z.discriminatedUnion('kind', [
@@ -124,7 +133,7 @@ export const protocolMetadataSchema = z.discriminatedUnion('kind', [
     id: protocolIdSchema,
     version: z.number().int().positive(),
     kind: z.literal('interaction'),
-    interaction: z.enum(['grill', 'brainstorm']),
+    interaction: protocolInteractionSchema,
   }).strict(),
   z.object({
     schemaVersion: z.literal(1),

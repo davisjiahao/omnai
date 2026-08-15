@@ -27,7 +27,7 @@ const EXPECTED_PROTOCOL_IDS = [
   'repository.simplify', 'repository.review', 'repository.verify', 'repository.qa',
   'repository.ship', 'repository.release', 'repository.canary', 'repository.learn',
   'repository.archive', 'repository.reconcile',
-  'interaction.grill', 'interaction.brainstorm',
+  'interaction.grill', 'interaction.brainstorm', 'interaction.show-me',
   'workset.candidate-research', 'workset.project-impact-decision',
   'workset.project-change-binding', 'workset.project-workflow-handoff',
   'workset.reentry-classification', 'workset.reentry-interaction',
@@ -51,6 +51,7 @@ test('the closed catalog covers every capability in deterministic order', () => 
 test('protocol IDs map only to canonical package-relative paths', () => {
   assert.equal(protocolRelativePath('repository.design'), 'repository/design.md');
   assert.equal(protocolRelativePath('interaction.grill'), 'interaction/grill.md');
+  assert.equal(protocolRelativePath('interaction.show-me'), 'interaction/show-me.md');
   assert.equal(protocolRelativePath('workset.reentry-replan'), 'workset/reentry-replan.md');
   for (const id of PROTOCOL_IDS) {
     const path = protocolRelativePath(id);
@@ -126,6 +127,24 @@ test('invalid YAML and metadata mismatches fail with PROTOCOL_METADATA_INVALID',
   ].join('\n'));
   await assert.rejects(
     () => loadProtocol('repository.design', root),
+    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
+  );
+
+  await writeRaw(root, 'interaction/show-me.md', [
+    '---', 'schemaVersion: 1', 'id: interaction.show-me', 'version: 1',
+    'kind: interaction', 'interaction: slideshow', '---', 'Unknown interaction.', '',
+  ].join('\n'));
+  await assert.rejects(
+    () => loadProtocol('interaction.show-me', root),
+    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
+  );
+
+  await writeRaw(root, 'interaction/show-me.md', [
+    '---', 'schemaVersion: 1', 'id: interaction.show-me', 'version: 1',
+    'kind: interaction', 'interaction: grill', '---', 'Mismatched interaction.', '',
+  ].join('\n'));
+  await assert.rejects(
+    () => loadProtocol('interaction.show-me', root),
     (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
   );
 });

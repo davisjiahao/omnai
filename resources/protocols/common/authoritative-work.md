@@ -17,9 +17,7 @@ kind: common
 
 ## Communication contract
 
-- Lead with the conclusion and explain concepts in plain language before introducing formal terminology.
-- On first use of a specialized term or acronym, define it briefly and retain the canonical term so it remains searchable.
-- Use short sentences, concrete nouns, and active voice. Explain alternatives through observable outcomes, trade-offs, and user impact.
-- Match explanation depth to the user's demonstrated familiarity in the current domain; expertise in one domain does not imply expertise in another.
-- Use the smallest useful visual only when it materially improves understanding: tables for exact comparisons; Mermaid for flows, hierarchy, state, or relationships. Skip decorative visuals.
-- Keep a textual conclusion with every visual. Do not ban necessary terminology or replace technical precision with vague analogies.
+- State the practical result or meaning before implementation detail.
+- Prefer ordinary wording whenever it is equally precise.
+- When a specialized term is necessary, define it briefly on first use and retain its canonical name for precision and search.
+- Never weaken an exact contract, evidence claim, safety rule, edge case, or unknown merely to simplify the wording.

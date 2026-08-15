@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { readdir } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { afterEach, test } from 'node:test';
 import { loadProtocolBundle } from '../src/protocols/index.js';
@@ -16,6 +16,15 @@ async function createEnvironment() {
   const omnaiHome = await createTestDirectory('protocol-cli-omnai-home-');
   const userHome = await createTestDirectory('protocol-cli-user-home-');
   cleanups.push(userHome.cleanup, omnaiHome.cleanup, cwd.cleanup);
+  await Promise.all([
+    writeSentinel(cwd.root, '.git/HEAD', 'ref: refs/heads/show-me-test\n'),
+    writeSentinel(cwd.root, '.omnai/changes/CHG-0001/readiness.yaml', 'design: READY\n'),
+    writeSentinel(cwd.root, '.omnai/investigations/INV-0001/research.md', 'known evidence\n'),
+    writeSentinel(cwd.root, '.omnai/runs/RUN-0001/run.yaml', 'status: PREPARED\n'),
+    writeSentinel(omnaiHome.root, 'worksets/WKS-0001/workset.yaml', 'status: OPEN\n'),
+    writeSentinel(omnaiHome.root, 'preferences.yaml', 'visualFrequency: unset\n'),
+    writeSentinel(userHome.root, '.config/omnai/sentinel', 'unchanged\n'),
+  ]);
   return { cwd: cwd.root, omnaiHome: omnaiHome.root, userHome: userHome.root };
 }
 
@@ -73,6 +82,38 @@ test('protocol show preserves requested order and deduplicates repeated IDs', as
   ]);
 });
 
+test('protocol show renders the Show-me overlay alone through the closed catalog', async () => {
+  const environment = await createEnvironment();
+  const result = runCli(environment, ['protocol', 'show', 'interaction.show-me', '--json']);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  const parsed = JSON.parse(result.stdout) as {
+    protocols: Array<Record<string, unknown> & { id: string }>;
+    rendered: string;
+  };
+  assert.deepEqual(parsed.protocols.map((item) => item.id), [
+    'common.authoritative-work',
+    'interaction.show-me',
+  ]);
+  assert.equal(parsed.protocols.some((item) => 'sourcePath' in item), false);
+  assert.match(parsed.rendered, /protocol:interaction\.show-me@1/);
+});
+
+test('protocol show composes Show-me before Core-selected repository guidance', async () => {
+  const environment = await createEnvironment();
+  const result = runCli(environment, [
+    'protocol', 'show', 'interaction.show-me', 'repository.design', '--json',
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  const parsed = JSON.parse(result.stdout) as { protocols: Array<{ id: string }> };
+  assert.deepEqual(parsed.protocols.map((item) => item.id), [
+    'common.authoritative-work',
+    'interaction.show-me',
+    'repository.design',
+  ]);
+});
+
 test('human protocol output equals the canonical rendered bundle', async () => {
   const environment = await createEnvironment();
   const result = runCli(environment, ['protocol', 'show', 'repository.design']);
@@ -91,9 +132,9 @@ test('protocol show works outside Git and does not write cwd, HOME, or OMNAI_HOM
   const environment = await createEnvironment();
   const before = await snapshot(environment);
 
-  const result = runCli(environment, ['protocol', 'show', 'repository.research', '--json']);
+  const result = runCli(environment, ['protocol', 'show', 'interaction.show-me', '--json']);
   assert.equal(result.status, 0, result.stderr);
-  assert.equal((JSON.parse(result.stdout) as { protocols: Array<{ id: string }> }).protocols.at(-1)?.id, 'repository.research');
+  assert.equal((JSON.parse(result.stdout) as { protocols: Array<{ id: string }> }).protocols.at(-1)?.id, 'interaction.show-me');
   assert.deepEqual(await snapshot(environment), before);
 });
 
@@ -106,5 +147,30 @@ async function snapshot(environment: Awaited<ReturnType<typeof createEnvironment
 }
 
 async function entries(root: string): Promise<string[]> {
-  return (await readdir(root, { recursive: true })).map(String).sort();
+  return walk(root);
+}
+
+async function walk(root: string, relative = ''): Promise<string[]> {
+  const current = join(root, relative);
+  const results: string[] = [];
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const child = join(relative, entry.name);
+    if (entry.isDirectory()) {
+      results.push(`directory:${child}`);
+      results.push(...await walk(root, child));
+      continue;
+    }
+    if (entry.isFile()) {
+      results.push(`file:${child}:${(await readFile(join(root, child))).toString('base64')}`);
+      continue;
+    }
+    results.push(`other:${child}`);
+  }
+  return results.sort();
+}
+
+async function writeSentinel(root: string, relativePath: string, content: string): Promise<void> {
+  const path = join(root, relativePath);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, content, 'utf8');
 }

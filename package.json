@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "skills",
+    "resources",
     "templates",
     "LICENSE",
     "README.md"

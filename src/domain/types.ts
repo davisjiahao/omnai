@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ProtocolRef } from '../protocols/catalog.js';
 
 export const CHANGE_STATUSES = [
   'DRAFT', 'READY', 'IN_PROGRESS', 'BLOCKED', 'VERIFYING', 'READY_TO_ARCHIVE', 'ARCHIVED', 'NEEDS_RECONCILE',
@@ -96,7 +97,6 @@ export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 export const workflowLockSchema = z.object({
   schemaVersion: z.literal(1), workflowVersion: z.string(),
   artifactSchemas: z.record(z.string(), z.number().int().positive()),
-  promptVersions: z.record(z.string(), z.number().int().positive()),
 });
 export type WorkflowLock = z.infer<typeof workflowLockSchema>;
 
@@ -178,7 +178,7 @@ export interface ScenarioProfile {
 }
 
 export interface StageRunManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   changeId: string;
   revision: string;
@@ -186,6 +186,8 @@ export interface StageRunManifest {
   status: 'PREPARED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   instruction: string;
   promptPath: string;
+  promptHash: string;
+  protocols: ProtocolRef[];
   outputPaths: string[];
   createdAt: string;
   completedAt?: string;

@@ -6,7 +6,7 @@ import {
   repositoryProtocolId,
 } from '../src/protocols/index.js';
 
-test('the packaged common protocol owns authoritative facts and readable communication rules', async () => {
+test('the packaged common protocol owns authoritative facts and only the minimum accessibility floor', async () => {
   const document = await loadProtocol('common.authoritative-work');
   assert.equal(document.kind, 'common');
 
@@ -16,18 +16,23 @@ test('the packaged common protocol owns authoritative facts and readable communi
     /do not silently change upstream intent/i,
     /stay within the declared capability/i,
     /preserve evidence references.*confirmed facts from assumptions/i,
-    /lead with the conclusion/i,
-    /first use of a specialized term or acronym/i,
-    /retain the canonical term.*searchable/i,
-    /observable outcomes, trade-offs, and user impact/i,
-    /smallest useful visual/i,
-    /tables for exact comparisons/i,
-    /Mermaid for flows, hierarchy, state, or relationships/i,
-    /skip decorative visuals/i,
-    /textual conclusion with every visual/i,
-    /do not ban necessary terminology/i,
+    /practical result or meaning before implementation detail/i,
+    /ordinary wording whenever it is equally precise/i,
+    /specialized term.*first use.*canonical name.*precision and search/i,
+    /never weaken an exact contract, evidence claim, safety rule, edge case, or unknown/i,
   ]) {
     assert.match(document.content, pattern);
+  }
+
+  for (const richerMethod of [
+    /Markdown table/i,
+    /Mermaid/i,
+    /visual companion/i,
+    /interactive explainer/i,
+    /external browser/i,
+    /two to four/i,
+  ]) {
+    assert.doesNotMatch(document.content, richerMethod);
   }
 });
 

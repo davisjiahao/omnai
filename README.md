@@ -27,17 +27,8 @@ The core rule is: **conversation history and agent confidence are context, not p
 - selective Workset Re-entry for mid-flight requirement/fact changes;
 - deterministic Readiness/Task closure calculation and frozen per-project Reconcile plans;
 - explicit stale-precondition application replan with immutable failed-attempt history;
-- a common human-readable communication contract plus a read-only Explain/Show-me Router protocol;
 - thin host skills for Claude Code, Codex, and OpenCode;
 - no backend service, database, daemon, Web UI, or built-in LLM API.
-
-## Human-readable explanations
-
-OmnAI does not ban technical terms. It explains a specialized term or acronym on first use, keeps the canonical name for precision and search, leads with the practical conclusion, and adjusts depth to the user's demonstrated familiarity in the current domain.
-
-Every capability prompt receives this contract automatically. For an explicit “show me”, comparison, visualization, or “I do not understand” request, the canonical `omnai` Router enters its Explain/Show-me protocol. The protocol is read-only: it creates no Project Change, advances no readiness state, and does not modify project truth.
-
-Visuals are routed by information shape rather than decoration: tables for exact comparisons, Mermaid for flows/hierarchy/state/relationships, and prose for simple answers. Richer host-native visuals are optional when available and technically accurate; Markdown and Mermaid remain the fallback.
 
 ## Install from this repository
 
@@ -438,6 +429,8 @@ Current v0.2 contract:
 - [`docs/design/omnai-v0.2-selective-reentry.md`](docs/design/omnai-v0.2-selective-reentry.md) — B1 routing contract, superseded by B2a for completion semantics
 - [`docs/design/omnai-v0.2-b2a-project-reconcile.md`](docs/design/omnai-v0.2-b2a-project-reconcile.md) — authoritative Project Change binding and end-to-end Reconcile contract
 - [`docs/design/omnai-v0.2-b2a-failed-application-replan.md`](docs/design/omnai-v0.2-b2a-failed-application-replan.md) — authoritative stale-precondition recovery and attempt-history amendment
+- [`docs/superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md`](docs/superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md) — approved B2b Entry Skill / internal Protocol Resource boundary, including the explicit Show-me interaction
+- [`docs/superpowers/plans/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources.md`](docs/superpowers/plans/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources.md) — test-first implementation plan for the closed protocol catalog, Show-me, packaging, and routing
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md)
 - [`docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md`](docs/superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md)

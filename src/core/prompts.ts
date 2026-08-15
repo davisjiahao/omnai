@@ -1,44 +1,11 @@
 import type { Capability } from '../domain/types.js';
+import type { ProtocolBundle } from '../protocols/catalog.js';
 
-export const COMMUNICATION_CONTRACT = `Communication contract:
-- Lead with the conclusion and explain concepts in plain language before introducing formal terminology.
-- On first use of a specialized term or acronym, define it briefly and retain the canonical term so it remains searchable.
-- Use short sentences, concrete nouns, and active voice. Explain alternatives through observable outcomes, trade-offs, and user impact.
-- Match explanation depth to the user's demonstrated familiarity in the current domain; expertise in one domain does not imply expertise in another.
-- Use the smallest useful visual only when it materially improves understanding: tables for exact comparisons; Mermaid for flows, hierarchy, state, or relationships. Skip decorative visuals.
-- Keep a textual conclusion with every visual. Do not ban necessary terminology or replace technical precision with vague analogies.
-`;
-
-const common = `You are executing an OmnAI native workflow capability.\n\nRules:\n- Treat code, configuration, approved artifacts, Git history, and fresh evidence as facts.\n- Treat conversation memory as supplementary context, never as the source of truth.\n- Do not silently change upstream intent. Surface conflicts as an OmnAI reconcile signal.\n- Stay within the declared capability. Do not begin a later capability automatically.\n- Preserve evidence references and distinguish confirmed facts from assumptions.\n\n${COMMUNICATION_CONTRACT}`;
-
-const stagePrompts: Record<Capability, string> = {
-  frame: `Challenge the product framing before technical design. Establish target user, painful status quo, concrete demand, narrowest valuable wedge, success signal, scope, and non-goals. Do not design implementation yet.`,
-  research: `Document the codebase as it exists today. Read explicitly referenced inputs first. Decompose the question into focused searches. Locate entry points, trace behavior and dependencies, find similar patterns, and cite exact paths and lines. For migration, replacement, removal, or architecture work, recover historical lineage and distinguish constraints that still apply from constraints that no longer apply. Do not propose refactors unless the instruction explicitly asks for recommendations.`,
-  map: `Create a destination-oriented decision map for work too large or uncertain for one session. Separate resolved decisions, current frontier, blocked decisions, fog that is not yet precise enough to ticket, and out-of-scope work. Do not pretend the fog is known.`,
-  model: `Build a design tree of domain decisions. Ask only frontier questions whose prerequisites are settled. Research environmental facts yourself. Challenge overloaded terminology, test boundaries with concrete edge cases, define lifecycle, ownership, invariants, and propose ADRs only for hard-to-reverse trade-offs.`,
-  spec: `Express the change as intent, not implementation. Use added, modified, removed, and preserved requirements with stable acceptance-criterion IDs, compatibility expectations, non-goals, and open questions. The specification must be observable and testable.`,
-  design: `Explore 2-3 viable approaches, recommend one with trade-offs, and describe components, interfaces, data flow, state, errors, security, observability, testing, delivery, migration, and rollback. Scale depth to risk and complexity. If a boundary contract changes, keep contract.md consistent with the design.`,
-  plan: `Create a dependency-ordered task graph. Prefer independently demoable vertical slices; use contract-first or risk-first slices when appropriate. Use expand-migrate-contract for wide refactors. Every task needs exact scope, files, interfaces, steps, and evidence. No placeholders.`,
-  triage: `Classify the issue before debugging. Establish missing information, reproducibility, severity, affected users, evidence, and whether the next state is ready-for-debug, ready-for-fix, needs-experiment, ready-for-human, or wontfix. Do not edit production code.`,
-  reproduce: `Turn the reported symptom into a deterministic reproduction or a concrete instrumentation plan. Record exact conditions, inputs, expected behavior, actual behavior, and evidence. Do not propose fixes yet.`,
-  debug: `Find and confirm root cause before any production fix. Trace data across component boundaries, compare working and broken patterns, state one hypothesis at a time, and gather evidence that localizes the source rather than the symptom.`,
-  diagnose: `Legacy diagnosis capability. Find root cause before fixes. Trace data across component boundaries, compare working and broken patterns, state one hypothesis at a time, and run the smallest experiment that can disprove it. After repeated failed hypotheses, question the architecture rather than stacking guesses.`,
-  experiment: `Resolve an uncertain technical or fix decision with explicit candidates, a measurable success criterion, one-variable trials, captured evidence, cleanup between attempts, and a bounded conclusion. Experimental code must not silently become production code.`,
-  fix: `Write the smallest fix strategy that addresses the confirmed root cause. State scope, regression guard, compatibility impact, rollback or recovery, and any trade-offs. Do not expand into unrelated refactoring.`,
-  mitigate: `Reduce active harm while preserving evidence. Separate containment from root-cause correction. Prefer reversible actions, document side effects, and identify what still requires investigation.`,
-  work: `Implement only the selected task from its context packet. Use a failing behavioral test before production code when behavior changes. Keep the change incremental, compilable, rollback-friendly, and within allowed paths. Report DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT, or BLOCKED.`,
-  simplify: `Simplify the recent change without altering behavior. Remove unearned abstractions, duplication, and needless indirection. Do not expand the task into unrelated cleanup. Re-run relevant evidence after edits.`,
-  review: `Review from fresh context against the artifact contract. Select review lenses from risk and impact. Separate specification compliance from code quality and consider business, domain, architecture, contract, data, security, performance, operations, and UX only when relevant. Findings are data, not automatic verdicts.`,
-  verify: `Build the required evidence matrix from scenario, risk, and impact. Gather fresh evidence for every required item, run the full command that proves each claim, read exit codes and failures, verify acceptance criteria line by line, and record honest PASS, FAIL, or INCONCLUSIVE results.`,
-  qa: `Exercise the actual user experience when UI impact requires it. Cover critical flows first, then medium and cosmetic issues according to project policy. Capture reproducible evidence, verify each fix, and distinguish report-only from edit mode. Do not apply universal viewport or performance thresholds unless the project defines them.`,
-  ship: `Assess delivery readiness without replacing the organization's deployment system. Check evidence, independent review, approvals, rollout strategy, rollback or forward-fix capability, activation, and post-release signals. Return READY, CONCERNS, or BLOCKED.`,
-  release: `Legacy delivery capability. Promote a verified artifact using the repository's delivery contract. Separate deployment from release and activation. Check approvals, rollout strategy, rollback capabilities, and post-release verification before progressing traffic.`,
-  canary: `Observe the released change over a bounded window using technical and business signals. Pause or reverse promotion on threshold violations and record evidence for the decision.`,
-  learn: `Capture one durable, evidence-backed learning. State the problem, context, root cause, solution, verification, applicability, limitations, and invalidation conditions. Do not promote temporary observations or unverified guesses.`,
-  archive: `Confirm intent, artifacts, implementation, and evidence agree. Promote only approved durable knowledge, preserve revision history, and mark the change archived without deleting its audit trail.`,
-  reconcile: `Classify the new signal by change level, identify affected artifacts and tasks, preserve the previous revision and baseline, apply selective invalidation, create the smallest required revision, and resume unaffected work.`,
-};
-
-export function capabilityPrompt(capability: Capability, instruction: string, outputContract: string): string {
-  return `${common}\nCapability: ${capability}\n\nInstruction:\n${instruction || 'Follow the active change and scenario profile.'}\n\nMethod:\n${stagePrompts[capability]}\n\nOutput contract:\n${outputContract}\n`;
+export function capabilityPrompt(
+  capability: Capability,
+  instruction: string,
+  outputContract: string,
+  protocols: ProtocolBundle,
+): string {
+  return `${protocols.rendered}\nCapability: ${capability}\n\nInstruction:\n${instruction || 'Follow the active change and scenario profile.'}\n\nOutput contract:\n${outputContract}\n`;
 }

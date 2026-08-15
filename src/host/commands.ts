@@ -7,6 +7,11 @@ import {
   type ProtocolBundle,
 } from '../protocols/index.js';
 import { OMNAI_VERSION } from '../version.js';
+import {
+  loadVisualCompanionDocument,
+  startVisualCompanion,
+  type VisualCompanionServer,
+} from '../visual/index.js';
 import { resolveOmnaiHome } from '../workspace/paths.js';
 import { resolveOmnaiContext, type OmnaiContext } from './context.js';
 import {
@@ -19,7 +24,7 @@ import {
 } from './user-host-skills.js';
 
 export function isUserLevelCommand(value: string | undefined): boolean {
-  return value === 'context' || value === 'host' || value === 'protocol';
+  return value === 'context' || value === 'host' || value === 'protocol' || value === 'visual';
 }
 
 export function createUserLevelProgram(): Command {
@@ -100,7 +105,82 @@ export function createUserLevelProgram(): Command {
       process.stdout.write(bundle.rendered);
     });
 
+  const visual = program
+    .command('visual')
+    .description('Validate and run the built-in loopback OmnAI Visual Companion');
+
+  visual
+    .command('validate')
+    .description('Validate one declarative visual document without starting a server')
+    .argument('<input>', 'Path to a visual companion JSON document')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (input: string, options: { json?: boolean }) => {
+      const document = await loadVisualCompanionDocument(resolve(input));
+      const result = {
+        valid: true,
+        schemaVersion: document.schemaVersion,
+        kind: document.kind,
+        title: document.title,
+      };
+      if (options.json) {
+        printJson(result);
+        return;
+      }
+      console.log(`VALID ${document.kind}: ${document.title}`);
+    });
+
+  visual
+    .command('companion')
+    .description('Serve one live visual document on a token-scoped loopback URL')
+    .argument('<input>', 'Path to a visual companion JSON document')
+    .option('--port <port>', 'Loopback port; 0 selects an available port', parsePort, 0)
+    .option('--json', 'Print one machine-readable ready event')
+    .action(async (input: string, options: { port: number; json?: boolean }) => {
+      const companion = await startVisualCompanion(resolve(input), { port: options.port });
+      const result = {
+        schemaVersion: 1,
+        status: 'ready',
+        url: companion.url,
+        inputPath: companion.inputPath,
+        readOnly: true,
+      } as const;
+      if (options.json) printJson(result);
+      else {
+        console.log(`OmnAI Visual Companion: ${result.url}`);
+        console.log('Read-only loopback session. Press Ctrl+C to stop.');
+      }
+      await waitForVisualCompanionShutdown(companion);
+    });
+
   return program;
+}
+
+function parsePort(value: string): number {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    throw new Error(`Invalid visual companion port '${value}'. Expected 0 through 65535.`);
+  }
+  return port;
+}
+
+function waitForVisualCompanionShutdown(companion: VisualCompanionServer): Promise<void> {
+  return new Promise((resolveShutdown, rejectShutdown) => {
+    let stopping = false;
+    const cleanup = () => {
+      process.off('SIGINT', stop);
+      process.off('SIGTERM', stop);
+    };
+    const stop = () => {
+      if (stopping) return;
+      stopping = true;
+      companion.close().then(
+        () => { cleanup(); resolveShutdown(); },
+        (error) => { cleanup(); rejectShutdown(error); },
+      );
+    };
+    process.once('SIGINT', stop);
+    process.once('SIGTERM', stop);
+  });
 }
 
 function parseHostSelection(value: string | undefined): UserHost[] {

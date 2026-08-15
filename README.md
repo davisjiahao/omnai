@@ -2,7 +2,7 @@
 
 OmnAI is a lightweight, local-first AI engineering workflow for Claude Code, Codex, OpenCode, and other coding agents.
 
-v0.1 provides repository-local workflow truth under `.omnai/`. v0.2 adds a personal multi-project layer for one engineer coordinating one engineering objective across several repositories without introducing a Web app, server, database, daemon, or built-in LLM API.
+v0.1 provides repository-local workflow truth under `.omnai/`. v0.2 adds a personal multi-project layer for one engineer coordinating one engineering objective across several repositories without introducing a persistent Web app, remote server, database, daemon, or built-in LLM API. Its optional Visual Companion is a process-scoped loopback presentation surface, not a control plane.
 
 ```text
 Reality      current code / config / Git / runtime evidence
@@ -28,7 +28,8 @@ The core rule is: **conversation history and agent confidence are context, not p
 - deterministic Readiness/Task closure calculation and frozen per-project Reconcile plans;
 - explicit stale-precondition application replan with immutable failed-attempt history;
 - thin host skills for Claude Code, Codex, and OpenCode;
-- no backend service, database, daemon, Web UI, or built-in LLM API.
+- an explicit Show-me protocol and OmnAI-owned local Visual Companion for explanations that are materially clearer visually;
+- no persistent backend service, remote Web UI, database, daemon, or built-in LLM API.
 
 ## Install from this repository
 
@@ -40,6 +41,17 @@ npm link
 ```
 
 Node.js 20 or newer is required.
+
+### Built-in Visual Companion
+
+Show-me normally uses the smallest useful representation: prose, a table, or a static diagram. With just-in-time user consent, richer UI directions, flows, and step-through explanations can use OmnAI's own loopback-only Visual Companion:
+
+```bash
+omnai visual validate /tmp/omnai-visual.json --json
+omnai visual companion /tmp/omnai-visual.json --json
+```
+
+The companion accepts only OmnAI's closed declarative JSON formats (`directions`, `flow`, and `step-through`), binds to `127.0.0.1` behind a random token URL, and exposes no HTTP write API. It does not execute Agent-provided HTML or JavaScript, open the browser automatically, or write workflow state. Superpowers may inform the visual method or be separately integrated, but is not required to render the built-in companion.
 
 ## v0.2: personal multi-project Worksets
 

@@ -100,7 +100,7 @@ test('Show-me does not expand workflow state or the four-Skill Host surface', as
   );
 });
 
-test('Show-me contains presentation choices, optional richer visuals, and hard read-only boundaries', async () => {
+test('Show-me contains presentation choices, the built-in companion, and hard read-only boundaries', async () => {
   const content = (await loadProtocol('interaction.show-me')).content;
   for (const pattern of [
     /explicitly asks for an explanation, comparison, visualization, “show me”/i,
@@ -114,7 +114,13 @@ test('Show-me contains presentation choices, optional richer visuals, and hard r
     /UI mockups, wireframes, layouts, navigation/i,
     /first adequate level/i,
     /just-in-time consent/i,
-    /optional adapters, never runtime dependencies/i,
+    /built-in OmnAI Visual Companion/i,
+    /omnai visual validate.*--json/i,
+    /omnai visual companion.*--json/i,
+    /127\.0\.0\.1.*random, unguessable token/i,
+    /never executes Agent-provided HTML or JavaScript/i,
+    /no writable HTTP route/i,
+    /Superpowers.*behavioral influence.*not.*runtime dependency/i,
     /two to four visual directions.*same frame and fidelity/i,
     /overview.*one changing dominant visual/i,
     /keyboard-accessible.*accessible text alternative/i,

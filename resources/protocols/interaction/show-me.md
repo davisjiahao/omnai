@@ -26,7 +26,7 @@ Use a representation only when it materially reduces the effort needed to unders
 - one fact or a short explanation: prose or a short list;
 - exact alternatives, mappings, repeated fields, or structured comparisons: a Markdown table;
 - static flow, hierarchy, state transition, dependency, or multi-project relationship: Mermaid when the Host renders it, otherwise a compact labeled-text flow;
-- visual appearance, spatial structure, changing behavior, or adjustable scenarios: an available Host-native visual or interactive explainer, but only when it is materially clearer and technically accurate.
+- visual appearance, spatial structure, changing behavior, or adjustable scenarios: the built-in OmnAI Visual Companion, but only when it is materially clearer and technically accurate.
 
 Every non-text representation needs a concise textual takeaway and must identify important assumptions or exceptions. Do not add decorative visuals, and do not present generated imagery as technical evidence.
 
@@ -45,10 +45,29 @@ prose or list
   -> table
   -> Mermaid or labeled-text flow
   -> inline Host-native visual or interactive explainer
-  -> external browser visual companion
+  -> built-in OmnAI Visual Companion in a local browser
 ```
 
-An explicit Show-me request authorizes an inline Host-native visual. Before opening an external browser, starting a companion server, or creating a persistent presentation artifact, ask for just-in-time consent and state the expected cost or limitation. Superpowers Visual Companion and other renderers are optional adapters, never runtime dependencies. If an adapter is unavailable or declined, fall back to the preceding level without weakening the explanation.
+An explicit Show-me request authorizes an inline Host-native visual. Before starting the built-in companion or opening its local browser URL, ask for just-in-time consent and state that a temporary loopback server will run until stopped. If consent is declined or a browser is unavailable, fall back to the preceding level without weakening the explanation.
+
+## Built-in OmnAI Visual Companion
+
+For a richer visual, create a temporary declarative JSON document outside repository and OmnAI state. Never place executable HTML or JavaScript in the document. Choose one closed presentation kind:
+
+- `directions`: compare two to four visual directions with equal fidelity, including name, emphasis, user impact, main trade-off, and optional details;
+- `flow`: show two to twelve labeled nodes and their explicit relationships;
+- `step-through`: start with one overview and reveal one changing step at a time.
+
+Validate before serving:
+
+```bash
+omnai visual validate <temporary-document.json> --json
+omnai visual companion <temporary-document.json> --json
+```
+
+The companion is an OmnAI-owned renderer. It binds only to `127.0.0.1`, returns a random, unguessable token-scoped URL, exposes no writable HTTP route, and renders document values as text. It never executes Agent-provided HTML or JavaScript. Open the returned URL only after consent. Updating the same temporary JSON document refreshes the open presentation. Stop the companion process when the explanation ends.
+
+Superpowers Visual Companion remains a behavioral influence and possible separately authorized integration, not the default renderer or an OmnAI runtime dependency.
 
 Match fidelity to the decision: use a wireframe for structure and higher polish only for a polish question. Normally compare two to four visual directions at once in the same frame and fidelity. Give each direction a short name, its emphasis, the user-visible consequence, and its main trade-off. Use realistic content when placeholder content would hide the issue.
 

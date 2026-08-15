@@ -44,7 +44,7 @@ For schema-v2 WRE records, B2a supersedes B1's older direct `reentry resolve` co
 
 A stale-precondition replan is project-scoped and explicit. Preview is read-only, confirm recalculates from current repository truth, already APPLIED/NOT_REQUIRED siblings are unchanged, and existing `<WRE>/<project>` correlation Revision lineage blocks replan.
 
-The common protocol defines only a minimum product-level accessibility floor. Show-me is the richer explicit, read-only interaction protocol, including a consent-aware Superpowers-compatible visual-companion direction with text/static fallback. It is not a fifth Host Skill, a persisted personal preference, a lifecycle stage, a canonical artifact, or a readiness state. Configurable interaction preferences remain a future user-level concern.
+The common protocol defines only a minimum product-level accessibility floor. Show-me is the richer explicit, read-only interaction protocol and includes OmnAI's own consent-aware, loopback-only Visual Companion with text/static fallback. Superpowers may influence its visual method but is not its renderer or runtime dependency. Show-me is not a fifth Host Skill, a persisted personal preference, a lifecycle stage, a canonical artifact, or a readiness state. Configurable interaction preferences remain a future user-level concern.
 
 Current execution plans:
 

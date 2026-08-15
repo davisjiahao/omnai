@@ -2,18 +2,19 @@
 
 ## v0.2 authoritative reading order
 
-For OmnAI v0.2, read these documents in this order:
+Read the v0.2 design in this order:
 
-1. `omnai-v0.2-personal-workspace.md` — base v0.2 product/workflow design.
-2. `omnai-v0.2-aggregate-execution-workspace.md` — **authoritative amendment for workspace execution and VS Code integration**.
-3. `omnai-v0.2-selective-reentry.md` — Milestone B1 contract for mid-flight change detection, interaction routing, and candidate-project research.
-4. `omnai-v0.2-b2a-project-reconcile.md` — **authoritative B2a amendment for Project Change binding and end-to-end Re-entry reconciliation**.
-5. `omnai-v0.2-b2a-failed-application-replan.md` — **authoritative B2a recovery amendment for stale-precondition FAILED applications, explicit replan confirmation, and attempt history**.
-6. `../superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md` — **approved B2b amendment separating four public Entry Skills from packaged internal Protocol Resources, including the explicit Show-me interaction**.
+1. `omnai-v0.2-personal-workspace.md` — base personal multi-project product and workflow model.
+2. `omnai-v0.2-aggregate-execution-workspace.md` — **authoritative workspace and VS Code amendment**.
+3. `omnai-v0.2-selective-reentry.md` — Milestone B1 mid-flight change detection and interaction routing.
+4. `omnai-v0.2-b2a-project-reconcile.md` — **authoritative Project Change binding and end-to-end Re-entry reconciliation amendment**.
+5. `omnai-v0.2-b2a-failed-application-replan.md` — **authoritative stale-precondition FAILED application recovery amendment**.
+6. `omnai-v0.2-b2b-user-host-skills.md` — user-level Codex, Claude Code, and OpenCode integration.
+7. `../superpowers/specs/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md` — **authoritative B2b amendment separating four public Entry Skills from packaged internal Protocol Resources**.
 
-The aggregate-execution-workspace amendment supersedes every earlier v0.2 statement that requires generated `.code-workspace` files, VS Code multi-root projection, workspace-folder synchronization, `workset sync-workspace`, or hiding an inactive project's Worktree.
+The later amendment wins whenever an earlier document conflicts with it.
 
-Current workspace invariant:
+## Current workspace invariant
 
 ```text
 one Workset
@@ -22,31 +23,94 @@ one Workset
   -> VS Code and the main Agent open the aggregate directory itself
 ```
 
-`ACTIVE -> INACTIVE` retains the child Worktree in place. Visibility does not grant write permission.
+OmnAI does not generate `.code-workspace` files, use VS Code multi-root projection, synchronize workspace folders, or hide inactive project Worktrees.
 
-Current selective Re-entry invariant after B2a:
+`ACTIVE -> INACTIVE` retains the child Worktree. Visibility does not grant write permission.
+
+## Current Project Change and Re-entry invariant
+
+```text
+registered repository
+  -> CANDIDATE
+  -> read-only research
+  -> explicit impact decision
+  -> explicit one-project / one-Project-Change binding
+  -> ACTIVE real Git worktree
+```
 
 ```text
 mid-flight change
-  -> structured WRE
-  -> new candidate Research first when needed
-  -> re-enter only the affected capability
-  -> Agent proposes semantic reopen roots
-  -> OmnAI Core calculates deterministic closures
-  -> human-approved frozen DECIDED plan
+  -> one structured WRE reason
+  -> newly suspected projects become read-only candidates
+  -> Core routes only the affected capability and interaction
+  -> Agent proposes semantic Readiness roots and Task roots
+  -> Core calculates deterministic downstream closures
+  -> user reviews and explicitly freezes a DECIDED plan
   -> per-project repository Reconcile applications
-  -> stale-precondition FAILED application may be explicitly replanned
-     while preserving the old frozen attempt in attemptHistory
-  -> RESOLVED only after every required application is APPLIED / NOT_REQUIRED
+  -> stale frozen precondition uses explicit project-scoped Replan
+  -> RESOLVED only when every application is APPLIED / NOT_REQUIRED
 ```
 
-For schema-v2 WRE records, B2a supersedes B1's older direct `reentry resolve` coordination semantics. Historical schema-v1 records remain readable as historical coordination records; they are not retroactive proof of project Revision/Baseline reconciliation.
+For schema-v2 WRE records, direct `reentry resolve` is not a valid completion path. Historical schema-v1 coordination records may remain readable, but they are not proof that project Revisions and Baselines advanced.
 
-A stale-precondition replan is project-scoped and explicit. Preview is read-only, confirm recalculates from current repository truth, already APPLIED/NOT_REQUIRED siblings are unchanged, and existing `<WRE>/<project>` correlation Revision lineage blocks replan.
+A stale-precondition Replan is project-scoped and explicit:
 
-The common protocol defines only a minimum product-level accessibility floor. Show-me is the richer explicit, read-only interaction protocol and includes OmnAI's own consent-aware, loopback-only Visual Companion with text/static fallback. Superpowers may influence its visual method but is not its renderer or runtime dependency. Show-me is not a fifth Host Skill, a persisted personal preference, a lifecycle stage, a canonical artifact, or a readiness state. Configurable interaction preferences remain a future user-level concern.
+- preview is read-only;
+- confirm recalculates from current repository truth;
+- the replaced FAILED attempt is retained in `attemptHistory`;
+- APPLIED and NOT_REQUIRED siblings are unchanged;
+- existing `<WRE>/<project>` correlation lineage blocks Replan when repository state may already have been written.
 
-Current execution plans:
+## Current B2b Host and protocol invariant
+
+```text
+Codex / Claude Code / OpenCode
+              ↓
+      four shared Entry Skills
+              ↓
+       omnai context --json
+              ↓
+Core-selected next action + protocolIds
+              ↓
+   omnai protocol show ... --json
+              ↓
+versioned packaged Protocol Resources
+              ↓
+ deterministic OmnAI state commands
+```
+
+The public Host Skill surface is exactly:
+
+```text
+omnai
+omnai-grill
+omnai-brainstorm
+omnai-reconcile
+```
+
+Detailed `research`, `model`, `spec`, `design`, `plan`, `debug`, `work`, `review`, `verify`, Grill, Brainstorm, Show-me, candidate, binding, and Re-entry methods live under `resources/protocols/` and are not installed as Host Skills.
+
+Core owns legal routing, schemas, state transitions, closures, Revision/Baseline advancement, evidence validity, and guards. The Agent Host interprets language and authors artifacts using the Core-selected protocol bundle.
+
+Protocol loading is preflighted before a repository run mutates state. A missing, invalid, unknown, or unmapped protocol is a hard failure, not a fallback to generic prompts or conversation memory.
+
+## Show-me and visual presentation
+
+Show-me is an internal read-only interaction protocol, not a fifth Skill, lifecycle stage, canonical artifact, or Readiness state.
+
+The `omnai` Entry Skill obtains a fresh Core route and composes:
+
+```text
+interaction.show-me
++
+current action protocols
+```
+
+Show-me uses the smallest useful representation. With just-in-time user consent, richer flows or step-through explanations may use OmnAI's loopback-only Visual Companion. The companion is read-only, token-scoped, and does not execute Agent-provided HTML or JavaScript.
+
+Superpowers informs parts of the interaction method but is not an OmnAI runtime dependency or renderer.
+
+## Current implementation plans
 
 - `../superpowers/plans/2026-08-14-omnai-v0.2-milestone-a-aggregate-workspace.md`
 - `../superpowers/plans/2026-08-14-omnai-v0.2-milestone-b1-selective-reentry.md`
@@ -55,10 +119,8 @@ Current execution plans:
 - `../superpowers/plans/2026-08-15-omnai-v0.2-b2b-user-host-skills.md`
 - `../superpowers/plans/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources.md`
 
-The earlier `2026-08-14-omnai-v0.2-milestone-a-personal-workset-core.md` plan is historical for the superseded multi-root implementation and must not be used for new implementation work.
+The earlier `2026-08-14-omnai-v0.2-milestone-a-personal-workset-core.md` plan describes a superseded multi-root workspace experiment and must not be used for new implementation work.
 
-B2b user-level Codex / Claude Code / OpenCode skill installation is intentionally separate from B2a.
+## v0.1 foundation
 
-## v0.1
-
-`omnai-v0.1-native-workflow.md` remains the repository-local workflow design inherited by v0.2.
+`omnai-v0.1-native-workflow.md` documents the repository-local workflow foundation inherited by v0.2. Pre-release implementation details that conflict with the v0.2 clean-break documents are not compatibility requirements.

@@ -1,30 +1,45 @@
-# OmnAI v0.2 B2b User-level Host Skills Design
+# OmnAI v0.2 B2b User-level Host Skills
 
 ## 1. Status
 
-This document is the authoritative B2b contract for local Codex, Claude Code, and OpenCode integration.
+This document is the authoritative B2b contract for user-level Codex, Claude Code, and OpenCode integration.
 
-B2b is a clean pre-release design. OmnAI has not shipped a public release, so this milestone does not preserve the earlier repository-local Host installation experiment, `.codex/skills`, `.opencode/skills`, `omnai init --host`, or `ProjectConfig.installedHosts`.
+It is a clean pre-release design. OmnAI has not published a stable release, so B2b does not retain compatibility with the earlier repository-local Skill installation experiment, `.codex/skills`, `.opencode/skills`, `omnai init --host`, the repository `install` command, or `ProjectConfig.installedHosts`.
+
+The detailed internal Protocol Resource architecture is defined by:
+
+```text
+docs/superpowers/specs/
+2026-08-15-omnai-v0.2-b2b-internal-protocol-resources-design.md
+```
+
+That amendment is authoritative for protocol identity, loading, routing, prompt audit, packaging, and Show-me behavior.
 
 ## 2. Goal
 
-B2b makes the existing deterministic OmnAI Core usable from the user's normal Agent host without adding another chat surface, server, database, daemon, background scheduler, or embedded LLM API.
+B2b makes deterministic OmnAI Core behavior available in the user's normal Agent host without adding another chat surface or control plane.
 
 ```text
 Codex / Claude Code / OpenCode
               ↓
-      four canonical Skills
+      four shared Entry Skills
               ↓
        omnai context --json
               ↓
- deterministic OmnAI CLI/Core
+Core-selected route and protocolIds
+              ↓
+   omnai protocol show ... --json
+              ↓
+ deterministic OmnAI commands
 ```
 
-The Host performs language understanding and user interaction. Core owns context discovery, Workset routing, Project Change state, closure calculation, Revision/Baseline advancement, guards, and persistence.
+The Host performs language understanding, questions the user, compares options, and authors artifacts. Core owns context discovery, legal routing, Project Change and Workset state, closures, Revision/Baseline advancement, evidence validity, guards, and persistence.
 
-## 3. Scope
+Core never calls an LLM.
 
-B2b delivers exactly four canonical user-level Skills:
+## 3. Public Entry Skill surface
+
+B2b installs exactly four Skills:
 
 ```text
 omnai
@@ -33,21 +48,9 @@ omnai-brainstorm
 omnai-reconcile
 ```
 
-`omnai-run` is not part of B2b. It will be introduced only after Milestone C implements Wave planning, writer claims, Run packets, and bounded parallel execution.
+`omnai-run` is not part of B2b. It will be added only after Milestone C provides real Wave planning, writer claims, Run packets, and bounded parallel execution.
 
-B2b also delivers:
-
-- one shared Skill source for all three Hosts;
-- native user-level installation targets for each Host;
-- `omnai context --json` as the common context contract;
-- `omnai host install` and `omnai host status`;
-- a user-local ownership/integrity manifest under the OmnAI home;
-- removal of the unreleased project-local Host installation path;
-- exact Skill inventory and contract tests.
-
-## 4. Canonical Skill model
-
-The repository contains one canonical definition per Skill:
+The canonical source is shared across all supported Hosts:
 
 ```text
 skills/
@@ -57,173 +60,63 @@ skills/
 └── omnai-reconcile/SKILL.md
 ```
 
-The same content is installed for all Hosts. Host-specific behavior may be represented only by a thin metadata/adapter file when a Host requires it. B2b does not maintain separate Claude, Codex, and OpenCode workflow prompts.
+B2b does not maintain separate Claude, Codex, and OpenCode workflow prompts.
 
-The canonical Skill directory is package content, not project truth and not a user customization surface.
+## 4. Internal Protocol Resources
 
-Personal preferences belong in future user-level OmnAI preferences. Company/team/project rules remain repository-managed under `.omnai/project/` and related project artifacts.
+Detailed engineering methods are package-internal resources, not Host Skills:
 
-## 5. Native user-level installation targets
+```text
+resources/protocols/
+├── common/
+├── repository/
+├── interaction/
+└── workset/
+```
+
+Examples:
+
+```text
+repository.research
+repository.model
+repository.design
+repository.debug
+repository.review
+repository.verify
+
+interaction.grill
+interaction.brainstorm
+interaction.show-me
+
+workset.candidate-research
+workset.project-impact-decision
+workset.project-change-binding
+workset.reentry-plan
+workset.reentry-apply
+workset.reentry-replan
+```
+
+Core returns ordered protocol IDs. Entry Skills load them through:
+
+```bash
+omnai protocol show <protocolIds...> --json
+```
+
+Entry Skills never read a physical package path and never recreate the routing table in Markdown.
+
+## 5. Native user-level installation
 
 The installation targets are:
 
-| Host | User-level destination |
+| Host | Destination |
 | --- | --- |
 | Claude Code | `~/.claude/skills` |
 | Codex | `~/.agents/skills` |
 | OpenCode | `~/.config/opencode/skills` |
 
-Only the four B2b entry Skills are copied to these directories.
-
-OpenCode can also discover Claude-compatible and Agent-compatible locations, but OmnAI installs to OpenCode's own native global directory to keep ownership and status unambiguous.
-
-## 6. Context contract
-
-Every B2b Skill begins by obtaining machine context through:
+Commands:
 
 ```bash
-omnai context --json
-```
-
-Skills must not infer context by independently probing marker files, Git state, or a sequence of failing CLI commands.
-
-The result is a discriminated union.
-
-### 6.1 Workset root
-
-```json
-{
-  "scope": "workset",
-  "cwd": "/Users/me/.omnai/worksets/WKS-0001/workspace",
-  "worksetId": "WKS-0001",
-  "workspaceRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace",
-  "project": null
-}
-```
-
-### 6.2 Workset project
-
-```json
-{
-  "scope": "workset-project",
-  "cwd": "/Users/me/.omnai/worksets/WKS-0001/workspace/quote/src",
-  "worksetId": "WKS-0001",
-  "workspaceRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace",
-  "project": "quote",
-  "memberStatus": "ACTIVE",
-  "repoRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace/quote",
-  "changeId": "CHG-0018"
-}
-```
-
-### 6.3 Ordinary Git repository
-
-```json
-{
-  "scope": "repository",
-  "cwd": "/Users/me/code/user-center/src",
-  "repoRoot": "/Users/me/code/user-center",
-  "initialized": true,
-  "changeId": "CHG-0027"
-}
-```
-
-An uninitialized Git repository still returns `scope: repository`, with `initialized: false` and `changeId: null`. Context discovery never initializes the repository.
-
-### 6.4 No OmnAI-capable filesystem context
-
-```json
-{
-  "scope": "none",
-  "cwd": "/Users/me/Downloads"
-}
-```
-
-### 6.5 Precedence
-
-```text
-Workset marker/context
-    outranks
-ordinary Git repository context
-    outranks
-none
-```
-
-This is required because every Workset child is itself a Git worktree.
-
-## 7. Skill responsibilities
-
-### 7.1 `omnai`
-
-The default entry/router.
-
-It must:
-
-1. call `omnai context --json`;
-2. in Workset scope, call `omnai workset next --json` and follow the returned action;
-3. in repository scope, use repository-local `status`/`next` truth;
-4. route a Workset `grill` interaction to `omnai-grill` behavior;
-5. route a Workset `brainstorm` interaction to `omnai-brainstorm` behavior;
-6. route change/reconcile/apply/replan/finalize work to `omnai-reconcile` behavior;
-7. avoid creating a Workset, project state, or Project Change without an explicit user decision;
-8. avoid completion claims without fresh verification evidence.
-
-It must not implement Wave/Run behavior before Milestone C.
-
-### 7.2 `omnai-grill`
-
-Use when a blocking product, domain, scope, ownership, lifecycle, invariant, or acceptance decision is unresolved.
-
-It must:
-
-- ground questions in current research and authoritative artifacts;
-- identify the smallest Decision Frontier;
-- ask one high-leverage question at a time;
-- make options and consequences concrete;
-- preserve decisions already settled by the active Revision;
-- stop once the active capability has enough decisions to continue;
-- return control to the deterministic Router after recording the decision in the relevant artifact/context.
-
-It must not compare technical implementation options merely because multiple implementations exist; that belongs to Brainstorm after outcome/meaning is clear.
-
-### 7.3 `omnai-brainstorm`
-
-Use when the desired outcome is sufficiently clear and two or more materially different technical, migration, UX, or delivery approaches remain viable.
-
-It must:
-
-- state constraints and evaluation criteria;
-- compare a small set of genuinely distinct options;
-- recommend one option with explicit tradeoffs;
-- route to `experiment` when evidence, rather than reasoning, is required;
-- record the selected decision in the appropriate design/delivery artifact;
-- return control to the deterministic Router.
-
-It must not reopen product/domain meaning unless the comparison exposes a genuine upstream ambiguity; in that case it stops and routes to Grill/Reconcile.
-
-### 7.4 `omnai-reconcile`
-
-Use when the user, research, runtime evidence, or a worker introduces a fact that may invalidate the active Workset or Project Change baseline.
-
-In Workset scope it must:
-
-- classify the change into one structured WRE kind;
-- identify existing affected projects and newly suspected candidate projects;
-- record the WRE through `omnai workset change`;
-- repeatedly follow `omnai workset next --json` precedence;
-- research candidate projects read-only before activation;
-- use Grill/Brainstorm only when the Router requests it;
-- propose semantic `reopenFrom` and Task roots, never a manually expanded closure;
-- run `reentry plan` and show Core-calculated closures;
-- obtain explicit user approval before `reentry decide`;
-- use `apply`, `replan`, and finalization exactly as routed;
-- never use legacy direct `reentry resolve` for schema-v2 WRE records.
-
-In repository scope it uses repository-local `omnai reconcile` and the existing deterministic Reconcile engine.
-
-## 8. User-level Host commands
-
-```text
 omnai host install claude
 omnai host install codex
 omnai host install opencode
@@ -238,11 +131,11 @@ omnai host status all
 
 `status` defaults to all Hosts.
 
-`omnai init` only initializes repository-local `.omnai` state. It has no `--host` option.
+Installation copies only the four Entry Skills. It never copies `resources/protocols/` into a Host Skill directory.
 
-## 9. Installation ownership and integrity
+## 6. Ownership and integrity
 
-Personal Host installation state is stored under:
+Host installation state is personal OmnAI state:
 
 ```text
 ~/.omnai/hosts/
@@ -251,7 +144,7 @@ Personal Host installation state is stored under:
 └── opencode.yaml
 ```
 
-Conceptual manifest:
+Each manifest records:
 
 ```yaml
 schemaVersion: 1
@@ -271,24 +164,19 @@ installedAt: 2026-08-15T00:00:00.000Z
 updatedAt: 2026-08-15T00:00:00.000Z
 ```
 
-The hash covers canonical `SKILL.md` bytes.
+The hash covers exact installed `SKILL.md` bytes.
 
-### 9.1 Install preflight
+Before writing any requested Host, OmnAI preflights the complete selection:
 
-Before changing any destination, OmnAI validates every requested Host/Skill target.
+- missing target and no manifest: installable;
+- clean OmnAI-owned installation: idempotent or safely upgradeable;
+- same-name directory without OmnAI ownership: hard failure;
+- OmnAI-owned file missing: hard failure;
+- OmnAI-owned file changed from its recorded hash: hard failure.
 
-- target absent: installable;
-- target exists and is owned by the Host manifest and still matches its recorded hash: safely upgradeable;
-- target exists without OmnAI ownership: hard failure;
-- target is OmnAI-owned but missing or differs from its recorded hash: hard failure with `MISSING` or `DRIFTED` status.
+`host install all` preflights all three Hosts before writing any of them.
 
-`install all` preflights all three Hosts before writing any Host.
-
-The installer never silently overwrites a third-party same-name Skill or a drifted managed Skill.
-
-### 9.2 Status
-
-Each Host reports one of:
+Host status values are:
 
 ```text
 READY
@@ -299,84 +187,222 @@ MISSING
 DRIFTED
 ```
 
-- `READY`: installed files equal the current packaged canonical Skills;
-- `OUTDATED`: installed files still match their manifest but packaged canonical hashes/version have advanced;
-- `NOT_INSTALLED`: no manifest and no conflicting entry Skill directories;
-- `FOREIGN`: an entry Skill directory exists without OmnAI ownership;
-- `MISSING`: a manifest-owned Skill file is missing;
-- `DRIFTED`: a manifest-owned Skill file no longer matches its recorded hash.
+## 7. Context contract
 
-B2b does not add an automatic repair command. A later explicit repair/uninstall design may be added after the first public release requirements are known.
+Every Entry Skill begins with:
 
-## 10. Clean break removals
+```bash
+omnai context --json
+```
+
+The result is a discriminated union.
+
+### Workset root
+
+```json
+{
+  "scope": "workset",
+  "cwd": "/Users/me/.omnai/worksets/WKS-0001/workspace",
+  "worksetId": "WKS-0001",
+  "workspaceRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace",
+  "project": null
+}
+```
+
+### Workset project
+
+```json
+{
+  "scope": "workset-project",
+  "cwd": "/Users/me/.omnai/worksets/WKS-0001/workspace/quote/src",
+  "worksetId": "WKS-0001",
+  "workspaceRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace",
+  "project": "quote",
+  "memberStatus": "ACTIVE",
+  "repoRoot": "/Users/me/.omnai/worksets/WKS-0001/workspace/quote",
+  "changeId": "CHG-0018"
+}
+```
+
+### Ordinary repository
+
+```json
+{
+  "scope": "repository",
+  "cwd": "/Users/me/code/user-center/src",
+  "repoRoot": "/Users/me/code/user-center",
+  "initialized": true,
+  "changeId": "CHG-0027"
+}
+```
+
+An uninitialized Git repository still returns `scope: repository`, with `initialized: false` and `changeId: null`. Discovery never initializes it.
+
+### None
+
+```json
+{
+  "scope": "none",
+  "cwd": "/Users/me/Downloads"
+}
+```
+
+Precedence is:
+
+```text
+Workset marker/context
+    outranks
+ordinary Git repository context
+    outranks
+none
+```
+
+This is required because a Workset child is also a Git worktree.
+
+## 8. Entry Skill responsibilities
+
+### `omnai`
+
+The default router:
+
+1. runs `omnai context --json`;
+2. in Workset scope, runs `omnai workset next --json`;
+3. in repository scope, runs `omnai next --json`;
+4. loads Core-selected `protocolIds`;
+5. executes only the current legal action;
+6. returns to the deterministic router;
+7. requires fresh verification evidence for completion claims.
+
+For explanation, comparison, visualization, “show me,” or unclear-explanation requests, it obtains a fresh Core route and composes `interaction.show-me` with the current action protocols. The path is read-only.
+
+### `omnai-grill`
+
+A thin explicit entry for unresolved product, domain, scope, ownership, lifecycle, invariant, or acceptance decisions.
+
+It loads:
+
+```text
+interaction.grill
++
+active repository capability protocol
++
+any Workset action protocols selected by Core
+```
+
+The full Decision Frontier and questioning method live in the internal protocol.
+
+### `omnai-brainstorm`
+
+A thin explicit entry when the desired outcome is clear but multiple materially different approaches remain viable.
+
+It loads:
+
+```text
+interaction.brainstorm
++
+active repository capability protocol
++
+any Workset action protocols selected by Core
+```
+
+The full option-comparison and Experiment escalation method live in the internal protocol.
+
+### `omnai-reconcile`
+
+A thin explicit entry when a new fact or changed requirement may invalidate the active baseline.
+
+Before recording a new Workset Re-entry, it loads `workset.reentry-classification`. After the WRE exists, `omnai workset next --json` supplies the authoritative protocols for interaction, plan, decision, apply, replan, and finalization.
+
+It must preserve these safety rules:
+
+- unaffected work remains intact;
+- no silent Project Change bind or rebind;
+- no writable candidate before read-only research and explicit confirmation;
+- no manually expanded closure;
+- explicit user approval before DECIDED;
+- no direct resolve for schema-v2 WRE records;
+- stale preconditions use explicit project-scoped Replan.
+
+## 9. Repository run integration
+
+Repository `omnai <capability>` commands load the same canonical protocol source used by Host interactions.
+
+```text
+omnai next --json
+  -> repository.<capability>
+  -> prepareStage()
+  -> validate protocol bundle
+  -> build complete prompt in memory
+  -> hash prompt and protocol files
+  -> create bounded Run
+```
+
+Run manifests use schema version 2:
+
+```yaml
+schemaVersion: 2
+protocols:
+  - id: common.authoritative-work
+    version: 1
+    hash: sha256:...
+  - id: repository.design
+    version: 1
+    hash: sha256:...
+promptHash: sha256:...
+```
+
+Protocol failure is preflighted before run directories, prompts, progress events, or Readiness changes are written.
+
+## 10. Read-only protocol and visual commands
+
+Read protocols:
+
+```bash
+omnai protocol show repository.design
+omnai protocol show repository.design --json
+```
+
+Validate a Visual Companion document:
+
+```bash
+omnai visual validate /tmp/omnai-visual.json --json
+```
+
+Run the loopback-only companion:
+
+```bash
+omnai visual companion /tmp/omnai-visual.json --json
+```
+
+The Visual Companion is a process-scoped read-only presentation surface, not a control plane. It requires just-in-time consent, binds to loopback with a random token URL, executes no Agent-provided HTML or JavaScript, and writes no workflow state.
+
+## 11. Clean-break removals
 
 B2b removes:
 
-- `src/core/host-skills.ts` repository-local installer;
+- `src/core/host-skills.ts`;
 - `omnai init --host`;
+- the repository-local `omnai install --host` command;
 - `ProjectConfig.installedHosts`;
-- `.codex/skills` and `.opencode/skills` installation mappings;
-- all canonical fine-grained Host Skill files other than the four B2b entry Skills;
-- tests and documentation that claim the full fine-grained Skill inventory is a public Host surface.
+- `.codex/skills` and `.opencode/skills` mappings;
+- fine-grained Host Skills for individual repository capabilities;
+- embedded `stagePrompts` as the canonical method source;
+- the unused `workflow.lock.yaml.promptVersions` field.
 
-Repository-local workflow commands and deterministic capability implementations remain. Removing fine-grained Host Skill files does not remove Core capabilities.
+Repository capabilities and deterministic state machines remain. Removing fine-grained Host Skills does not remove `research`, `model`, `spec`, `design`, `plan`, `work`, `review`, `verify`, or other Core capabilities.
 
-## 11. CLI and Core boundaries
+## 12. Invariants
 
-The Host and context modules expose stable Core APIs; Commander remains a thin adapter.
-
-Core performs:
-
-- path derivation;
-- context discovery;
-- manifest validation;
-- ownership/integrity checks;
-- copy/update operations;
-- status calculation.
-
-Skills/Hosts perform:
-
-- natural-language interpretation;
-- user questioning;
-- semantic WRE classification/proposals;
-- artifact authoring through the existing workflow.
-
-## 12. Test contract
-
-Tests must prove:
-
-1. Workset context outranks Git repository context;
-2. aggregate root and project descendants return the exact discriminated context shape;
-3. initialized and uninitialized ordinary repositories are distinguished without mutation;
-4. non-Git paths return `scope: none`;
-5. `omnai context --json` emits exactly one JSON object;
-6. each Host destination uses its current native user-level path;
-7. only the four canonical entry Skills are installed;
-8. first install writes Skills and one Host manifest;
-9. repeated install is idempotent;
-10. a clean old OmnAI installation upgrades safely;
-11. foreign same-name directories are never overwritten;
-12. missing/drifted managed files are reported and installation refuses to overwrite them;
-13. `install all` performs global preflight before any write;
-14. `host status` reports all six statuses deterministically;
-15. `omnai init --host` is rejected;
-16. project configuration no longer persists `installedHosts`;
-17. the package canonical Skill inventory is exactly four;
-18. each Skill has valid matching frontmatter and required routing/guard statements;
-19. `omnai-run` is absent from the B2b packaged/installable surface;
-20. Node 20 and Node 22 pass typecheck, tests, build, package dry-run, and whitespace checks.
-
-## 13. Invariants
-
-1. Four canonical Skills, not three Host-specific workflow forks.
-2. Every Skill starts from `omnai context --json`.
-3. Workset routing truth comes from `omnai workset next --json`.
-4. OmnAI Core never calls an LLM.
-5. Skills never replace Workset/Project Change state with chat memory.
-6. User-level Skill installation is independent of repository initialization.
-7. `omnai init` never installs Host Skills.
-8. No compatibility layer is retained for unreleased project-local Host installation.
-9. Host installation never silently overwrites foreign or drifted files.
+1. Four shared Entry Skills, not three Host-specific workflow forks.
+2. Every Entry Skill starts from `omnai context --json`.
+3. Workset truth comes from `omnai workset next --json`.
+4. Repository truth comes from `omnai next --json` and repository state.
+5. Core selects legal actions and ordered protocol IDs.
+6. Protocols guide judgment; Core enforces mechanics.
+7. User-level installation is independent of repository initialization.
+8. Host installation never copies Protocol Resources.
+9. Foreign, missing, or drifted managed files are never silently overwritten.
 10. Project-specific rules remain project truth, not global Skill forks.
-11. `omnai-run` remains unavailable until Milestone C provides real execution primitives.
-12. No Web UI, server, database, daemon, background scheduler, or embedded LLM API is introduced.
+11. Show-me is read-only and is not a fifth Skill.
+12. `omnai-run` remains unavailable until Milestone C provides real execution primitives.
+13. No Web UI, server, database, daemon, background scheduler, or embedded LLM API is introduced.

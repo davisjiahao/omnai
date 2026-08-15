@@ -1,0 +1,40 @@
+{
+  "name": "ai-workspace",
+  "displayName": "AI Workspace",
+  "description": "Create one VS Code requirement workspace from worktrees across multiple Git repositories.",
+  "version": "0.1.0",
+  "publisher": "ai-workspace-tools",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.102.0",
+    "node": ">=20.19.0"
+  },
+  "categories": ["Other", "SCM Providers"],
+  "extensionKind": ["workspace"],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test",
+    "vscode:prepublish": "npm run build -- --production",
+    "package": "npm run check && npm run build -- --production && vsce package"
+  },
+  "dependencies": {
+    "yaml": "2.9.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/mocha": "10.0.10",
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.102.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.2",
+    "mocha": "11.8.0",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

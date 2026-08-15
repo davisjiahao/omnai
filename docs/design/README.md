@@ -44,7 +44,7 @@ For schema-v2 WRE records, B2a supersedes B1's older direct `reentry resolve` co
 
 A stale-precondition replan is project-scoped and explicit. Preview is read-only, confirm recalculates from current repository truth, already APPLIED/NOT_REQUIRED siblings are unchanged, and existing `<WRE>/<project>` correlation Revision lineage blocks replan.
 
-The common protocol defines only a minimum product-level accessibility floor. Show-me is the richer explicit, read-only interaction protocol. It is not a fifth Host Skill, a persisted personal preference, a lifecycle stage, a canonical artifact, or a readiness state. Configurable interaction preferences remain a future user-level concern.
+The common protocol defines only a minimum product-level accessibility floor. Show-me is the richer explicit, read-only interaction protocol, including a consent-aware Superpowers-compatible visual-companion direction with text/static fallback. It is not a fifth Host Skill, a persisted personal preference, a lifecycle stage, a canonical artifact, or a readiness state. Configurable interaction preferences remain a future user-level concern.
 
 Current execution plans:
 
@@ -53,6 +53,7 @@ Current execution plans:
 - `../superpowers/plans/2026-08-14-omnai-v0.2-b2a-project-reconcile.md`
 - `../superpowers/plans/2026-08-14-omnai-v0.2-b2a-failed-application-replan.md`
 - `../superpowers/plans/2026-08-15-omnai-v0.2-b2b-user-host-skills.md`
+- `../superpowers/plans/2026-08-15-omnai-v0.2-b2b-internal-protocol-resources.md`
 
 The earlier `2026-08-14-omnai-v0.2-milestone-a-personal-workset-core.md` plan is historical for the superseded multi-root implementation and must not be used for new implementation work.
 

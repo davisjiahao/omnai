@@ -56,12 +56,6 @@ The coding agent owns the capability-specific reasoning and code edits, but cann
 
 A capability run receives only the active change's relevant artifacts plus stable project glossary, policies, and learnings. Task executors receive one task, its interfaces, constraints, allowed paths, and evidence contract instead of the entire conversation history.
 
-## Human-readable communication
-
-Every capability context packet carries one host-independent communication contract: conclusion and plain language first, first-use definitions for specialized terms, depth calibrated per domain, and the smallest useful visual only when it improves understanding. Exact comparisons use tables; flows, hierarchy, state, and relationships use Mermaid.
-
-The canonical `omnai` Router exposes the same policy on demand through its read-only Explain/Show-me protocol. It does not create workflow truth, add a fifth user-level Host Skill, or advance readiness. Missing facts still require the read-only capability selected by OmnAI Core, and contradictions still require Reconcile.
-
 ## Extensibility
 
 Scenario profiles and thin host skills are data and Markdown, not hard-coded personas. Future integrations can add runtime adapters, CI/CD evidence providers, import/export formats, or enterprise policy overlays without replacing the canonical artifact model.

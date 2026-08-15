@@ -40,3 +40,11 @@ export function worksetReentriesRoot(home: string, id: string): string {
 export function worksetReentryPath(home: string, id: string, reentryId: string): string {
   return join(worksetReentriesRoot(home, id), `${reentryId}.yaml`);
 }
+
+export function hostsRoot(home: string): string {
+  return join(home, 'hosts');
+}
+
+export function hostManifestPath(home: string, host: string): string {
+  return join(hostsRoot(home), `${host}.yaml`);
+}

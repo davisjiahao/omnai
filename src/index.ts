@@ -1,3 +1,4 @@
+export * from './version.js';
 export * from './domain/types.js';
 export * from './core/store.js';
 export * from './core/scenarios.js';
@@ -21,3 +22,4 @@ export * from './workspace/reconcile-apply.js';
 export * from './workspace/reconcile-replan.js';
 export * from './workspace/workset-router.js';
 export * from './host/context.js';
+export * from './host/user-host-skills.js';

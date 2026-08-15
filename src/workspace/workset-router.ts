@@ -1,12 +1,14 @@
+import type { ProtocolId } from '../protocols/index.js';
 import {
   listWorksetReentries,
   type InteractionMode,
   type ReentryCapability,
   type WorksetReentry,
 } from './reentry.js';
+import { protocolIdsForWorksetRoute } from './workset-protocols.js';
 import { resolveWorkset, worksetNext } from './worksets.js';
 
-export type WorksetRouteAction =
+export type WorksetRouteAction = (
   | { action: 'inspect-project'; project: string; reason: string }
   | { action: 'decide-project-impact'; project: string; reason: string }
   | {
@@ -28,7 +30,8 @@ export type WorksetRouteAction =
   | { action: 'replan-reentry'; reentryId: string; project: string; reason: string }
   | { action: 'finalize-reentry'; reentryId: string; reason: string }
   | { action: 'project-workflow'; project: string; reason: string }
-  | { action: 'none'; reason: string };
+  | { action: 'none'; reason: string }
+) & { protocolIds: ProtocolId[] };
 
 export async function resolveWorksetNext(home: string, worksetRef?: string): Promise<WorksetRouteAction> {
   const workset = await resolveWorkset(home, worksetRef);
@@ -39,6 +42,7 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
       action: 'inspect-project',
       project: membership.project,
       reason: membership.reason,
+      protocolIds: protocolIdsForWorksetRoute('inspect-project'),
     };
   }
 
@@ -47,6 +51,7 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
       action: 'decide-project-impact',
       project: membership.project,
       reason: membership.reason,
+      protocolIds: protocolIdsForWorksetRoute('decide-project-impact'),
     };
   }
 
@@ -61,6 +66,11 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
         interaction: pending.route.interaction,
         affectedProjects: pending.affectedProjects,
         reason: pending.route.reason,
+        protocolIds: protocolIdsForWorksetRoute(
+          'reenter',
+          pending.route.capability,
+          pending.route.interaction,
+        ),
       };
     }
 
@@ -73,6 +83,7 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
       action: 'decide-reentry',
       reentryId: pending.id,
       reason: `Re-entry ${pending.id} has a calculated Project Reconcile proposal ready for explicit decision.`,
+      protocolIds: protocolIdsForWorksetRoute('decide-reentry'),
     };
   }
 
@@ -84,12 +95,14 @@ export async function resolveWorksetNext(home: string, worksetRef?: string): Pro
       action: 'project-workflow',
       project: membership.project,
       reason: membership.reason,
+      protocolIds: protocolIdsForWorksetRoute('project-workflow'),
     };
   }
 
   return {
     action: 'none',
     reason: membership.reason,
+    protocolIds: protocolIdsForWorksetRoute('none'),
   };
 }
 
@@ -101,6 +114,7 @@ function routeDecided(record: WorksetReentry): WorksetRouteAction {
       reentryId: record.id,
       project: application.project,
       reason: `Approved Re-entry ${record.id} has a stale frozen precondition for ${application.project} and requires explicit replan.`,
+      protocolIds: protocolIdsForWorksetRoute('replan-reentry'),
     };
   }
   if (application && ['PENDING', 'APPLYING', 'FAILED'].includes(application.status)) {
@@ -110,11 +124,13 @@ function routeDecided(record: WorksetReentry): WorksetRouteAction {
       project: application.project,
       applicationStatus: application.status as 'PENDING' | 'APPLYING' | 'FAILED',
       reason: `Approved Re-entry ${record.id} has a ${application.status} project reconciliation for ${application.project}.`,
+      protocolIds: protocolIdsForWorksetRoute('apply-reentry'),
     };
   }
   return {
     action: 'finalize-reentry',
     reentryId: record.id,
     reason: `Approved Re-entry ${record.id} has all project applications complete and must be finalized.`,
+    protocolIds: protocolIdsForWorksetRoute('finalize-reentry'),
   };
 }

@@ -20,6 +20,7 @@ export * from './workspace/reconcile-closure.js';
 export * from './workspace/reconcile-plan.js';
 export * from './workspace/reconcile-apply.js';
 export * from './workspace/reconcile-replan.js';
+export * from './workspace/workset-protocols.js';
 export * from './workspace/workset-router.js';
 export * from './host/context.js';
 export * from './host/user-host-skills.js';

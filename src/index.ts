@@ -23,3 +23,4 @@ export * from './workspace/reconcile-replan.js';
 export * from './workspace/workset-router.js';
 export * from './host/context.js';
 export * from './host/user-host-skills.js';
+export * from './protocols/index.js';

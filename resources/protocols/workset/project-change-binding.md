@@ -21,7 +21,7 @@ Bind one explicitly confirmed Project Change to one Workset project, or create a
 
 ## Safety boundary
 
-Never bind `activeChange` automatically. It is a suggestion at most. There is no silent rebind: once this Workset member is bound, changing its Project Change requires an explicit reconcile/rebind decision. Do not create the new Project Change in the original repository; create it only inside the dedicated Worktree.
+Never use activeChange automatically. `activeChange` is a suggestion at most. There is no silent rebind: once this Workset member is bound, changing its Project Change requires an explicit reconcile/rebind decision. Do not create the new Project Change in the original repository; create it only inside the dedicated Worktree.
 
 ## Stop conditions
 

@@ -56,6 +56,7 @@ test('new candidate research and impact decisions outrank pending Grill re-entry
     action: 'inspect-project',
     project: 'pricing',
     reason: 'Candidate project requires read-only research before activation.',
+    protocolIds: ['workset.candidate-research'],
   });
 
   await beginProjectResearch(home.root, workset.id, 'pricing');
@@ -63,6 +64,7 @@ test('new candidate research and impact decisions outrank pending Grill re-entry
     action: 'decide-project-impact',
     project: 'pricing',
     reason: 'Read-only research must decide whether this project needs modification.',
+    protocolIds: ['workset.project-impact-decision'],
   });
 
   await markProjectObservedOnly(home.root, workset.id, 'pricing');
@@ -73,6 +75,12 @@ test('new candidate research and impact decisions outrank pending Grill re-entry
     interaction: 'grill',
     affectedProjects: ['user', 'quote'],
     reason: 'Domain meaning, ownership, lifecycle, or invariant changed.',
+    protocolIds: [
+      'workset.reentry-interaction',
+      'interaction.grill',
+      'repository.model',
+      'workset.reentry-plan',
+    ],
   });
 
   await assert.rejects(
@@ -108,6 +116,12 @@ test('oldest pending Re-entry outranks ordinary active-project work', async () =
     interaction: 'brainstorm',
     affectedProjects: ['user'],
     reason: 'A technical constraint invalidated the selected implementation approach.',
+    protocolIds: [
+      'workset.reentry-interaction',
+      'interaction.brainstorm',
+      'repository.design',
+      'workset.reentry-plan',
+    ],
   });
 
   await assert.rejects(
@@ -138,6 +152,7 @@ test('planned PENDING Re-entry routes to explicit decision instead of repeating 
     action: 'decide-reentry',
     reentryId: reentry.id,
     reason: `Re-entry ${reentry.id} has a calculated Project Reconcile proposal ready for explicit decision.`,
+    protocolIds: ['workset.reentry-decision'],
   });
 });
 
@@ -174,6 +189,7 @@ test('a planned newer PENDING Re-entry yields to an older outstanding DECIDED ap
     project: 'user',
     applicationStatus: 'PENDING',
     reason: `Approved Re-entry ${first.id} has a PENDING project reconciliation for user.`,
+    protocolIds: ['workset.reentry-apply'],
   });
 });
 
@@ -205,6 +221,7 @@ test('stale-precondition FAILED application routes to explicit replan instead of
     reentryId: reentry.id,
     project: 'user',
     reason: `Approved Re-entry ${reentry.id} has a stale frozen precondition for user and requires explicit replan.`,
+    protocolIds: ['workset.reentry-replan'],
   });
 });
 
@@ -237,5 +254,6 @@ test('non-stale FAILED application remains on repair-and-retry apply route', asy
     project: 'user',
     applicationStatus: 'FAILED',
     reason: `Approved Re-entry ${reentry.id} has a FAILED project reconciliation for user.`,
+    protocolIds: ['workset.reentry-apply'],
   });
 });

@@ -40,6 +40,7 @@ test('router surfaces interrupted finalization when every application is final b
     action: 'finalize-reentry',
     reentryId: reentry.id,
     reason: `Approved Re-entry ${reentry.id} has all project applications complete and must be finalized.`,
+    protocolIds: ['workset.reentry-finalize'],
   });
 
   const recovered = await applyWorksetReentry(home.root, workset.id, reentry.id);

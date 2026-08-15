@@ -3,27 +3,21 @@ name: omnai-grill
 description: Use when a blocking product, domain, scope, ownership, lifecycle, invariant, or acceptance decision is unresolved and must be clarified before work can continue.
 ---
 
-# OmnAI Grill
+# OmnAI Grill Entry
 
-Start with `omnai context --json`, then read the current Router action, research evidence, and authoritative artifacts. Grill is an interaction protocol inside the blocked capability; it is not a new universal stage.
+This Skill is a thin entry. The canonical Grill method lives in `interaction.grill`; the active capability method lives in its Core-selected repository capability protocol. Do not recreate either method from memory.
 
-## Decision Frontier
+## Route and load
 
-Identify the smallest Decision Frontier: the minimum unresolved decision set that blocks the current capability. Ground it in concrete evidence and state why downstream work cannot proceed safely without an answer.
+1. Run `omnai context --json`.
+2. In Workset scope, run `omnai workset next --json`. Continue only when the returned action calls for Grill, then load its ordered `protocolIds` with `omnai protocol show <protocolIds...> --json`.
+3. In repository scope, run `omnai next --json`, keep the returned active repository capability protocol, and load it together with `interaction.grill` using `omnai protocol show interaction.grill <protocolIds...> --json`.
+4. Execute the loaded bundle only inside the active capability and its owning artifact.
+5. Record durable decisions in authoritative artifacts rather than chat, then return control to deterministic routing by running the applicable next --json command again.
 
-## Questioning protocol
+## Safety
 
-1. Preserve decisions already settled by the active Revision. Do not reopen settled decisions merely to explore alternatives.
-2. Ask one question at a time.
-3. Prefer a concrete choice with consequences over a broad invitation such as “What do you want?”.
-4. Distinguish decisions that require the user/domain owner from facts that can be recovered through read-only research.
-5. Cover only the relevant dimensions, such as product outcome, domain meaning, scope, ownership, lifecycle, invariant, user role, non-goal, or acceptance rule.
-6. When an answer exposes another blocking decision, explain the dependency before asking it.
-7. Stop when the blocked capability has enough coherent decisions to continue; do not keep questioning for completeness alone.
-
-## Close the interaction
-
-- Summarize the accepted decision, rejected alternatives, constraints, and unresolved follow-ups.
-- Record the result in the artifact owned by the active capability rather than leaving it only in chat.
-- Return control to the deterministic Router by running `omnai workset next --json` in Workset scope or `omnai next` in repository scope.
-- If the outcome is clear but multiple implementation approaches remain, route to OmnAI Brainstorm instead of extending Grill into solution design.
+- Research recoverable facts instead of asking the user to supply repository truth.
+- Do not reopen decisions already settled by the active Revision unless new evidence requires Reconcile.
+- Do not create a separate stage, Project Change, Workset event, or readiness transition merely because Grill was invoked.
+- Do not continue into solution implementation after the blocking decision is resolved.

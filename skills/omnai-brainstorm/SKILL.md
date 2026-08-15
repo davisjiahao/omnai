@@ -3,24 +3,21 @@ name: omnai-brainstorm
 description: Use when the desired outcome is clear but two or more materially distinct viable approaches remain and a consequential solution choice is required.
 ---
 
-# OmnAI Brainstorm
+# OmnAI Brainstorm Entry
 
-Start with `omnai context --json`, then read the current Router action, constraints, research, and authoritative intent. Brainstorm compares solutions after the problem meaning is sufficiently clear; it does not replace Grill.
+This Skill is a thin entry. The canonical Brainstorm method lives in `interaction.brainstorm`; the active capability method lives in its Core-selected repository capability protocol. Do not recreate either method from memory.
 
-## Entry conditions
+## Route and load
 
-Use this protocol only when two or more materially distinct viable approaches remain. State the fixed constraints and evaluation criteria before proposing options.
+1. Run `omnai context --json`.
+2. In Workset scope, run `omnai workset next --json`. Continue only when the returned action calls for Brainstorm, then load its ordered `protocolIds` with `omnai protocol show <protocolIds...> --json`.
+3. In repository scope, run `omnai next --json`, keep the returned active repository capability protocol, and load it together with `interaction.brainstorm` using `omnai protocol show interaction.brainstorm <protocolIds...> --json`.
+4. Execute the loaded bundle only inside the active capability and its owning artifact.
+5. Record the selected approach and consequences in authoritative artifacts, then return control to deterministic routing by running the applicable next --json command again.
 
-## Comparison protocol
+## Safety
 
-1. Keep the option set small and genuinely different; do not present cosmetic variants as alternatives.
-2. For each option, explain architecture or interaction shape, affected projects/contracts/data, migration and rollback behavior, operational cost, verification burden, and important failure modes.
-3. Compare the options against the same constraints and evaluation criteria.
-4. Recommend one option and state why its tradeoffs are preferable in this context.
-5. Record rejected options and the reason for rejection so a later requirement change can reopen the correct decision.
-6. When reasoning cannot choose safely because the answer depends on latency, compatibility, feasibility, UX behavior, or another measurable fact, stop and route to an OmnAI experiment rather than guessing.
-7. If comparison exposes a genuine upstream ambiguity in product outcome, domain meaning, ownership, lifecycle, or scope, stop and route to Grill.
-
-## Close the interaction
-
-Record the selected approach in the artifact owned by the active capability, including assumptions and consequences. Then return control to `omnai workset next --json` in Workset scope or `omnai next` in repository scope.
+- Do not use Brainstorm to bypass unresolved product, domain, ownership, lifecycle, acceptance, or scope decisions.
+- Do not guess when the decision requires measured evidence; let the loaded protocol route to Experiment.
+- Do not create a separate workflow stage, implementation task, or readiness transition merely because Brainstorm was invoked.
+- Do not begin implementation from this entry.

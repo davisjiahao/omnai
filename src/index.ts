@@ -1,7 +1,8 @@
 export * from './domain/types.js';
-export * from './core/scenarios.js';
 export * from './core/store.js';
+export * from './core/scenarios.js';
 export * from './core/tasks.js';
+export * from './core/policy.js';
 export * from './core/readiness.js';
 export * from './core/stages.js';
 export * from './core/reconcile.js';
@@ -19,3 +20,4 @@ export * from './workspace/reconcile-plan.js';
 export * from './workspace/reconcile-apply.js';
 export * from './workspace/reconcile-replan.js';
 export * from './workspace/workset-router.js';
+export * from './host/context.js';

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
+import YAML from 'yaml';
 import { createTestRepository } from './helpers.js';
 import { createChange, initializeProject, listChanges, loadProjectConfig } from '../src/core/store.js';
 import { pathExists, readText } from '../src/core/files.js';
@@ -10,14 +11,19 @@ afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()?.();
 });
 
-test('initializes repository-local OmnAI state', async () => {
+test('initializes repository-local OmnAI state without a false prompt-version lock', async () => {
   const fixture = await createTestRepository();
   cleanups.push(fixture.cleanup);
   const config = await initializeProject(fixture.root);
 
   assert.equal(config.project, fixture.root.split('/').at(-1));
   assert.equal(await pathExists(join(fixture.root, '.omnai/config.yaml')), true);
-  assert.equal(await pathExists(join(fixture.root, '.omnai/workflow.lock.yaml')), true);
+  const lockPath = join(fixture.root, '.omnai/workflow.lock.yaml');
+  assert.equal(await pathExists(lockPath), true);
+  const lock = YAML.parse(await readText(lockPath)) as Record<string, unknown>;
+  assert.equal(Object.hasOwn(lock, 'promptVersions'), false);
+  assert.equal(Object.hasOwn(lock, 'artifactSchemas'), true);
+  assert.equal(Object.hasOwn(lock, 'workflowVersion'), true);
   assert.match(await readText(join(fixture.root, '.omnai/project/policies.md')), /Evidence/);
 });
 

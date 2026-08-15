@@ -2,22 +2,19 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { capabilityPrompt } from '../src/core/prompts.js';
-import { CAPABILITIES } from '../src/domain/types.js';
+import { loadProtocolBundle } from '../src/protocols/index.js';
 
-test('every capability prompt carries the human-readable communication contract', () => {
-  for (const capability of CAPABILITIES) {
-    const prompt = capabilityPrompt(capability, 'Do the work.', 'Produce the canonical output.');
+test('the canonical common protocol carries the human-readable communication contract', async () => {
+  const prompt = (await loadProtocolBundle([])).rendered;
 
-    assert.match(prompt, /lead with the conclusion/i, capability);
-    assert.match(prompt, /first use of a specialized term or acronym/i, capability);
-    assert.match(prompt, /retain the canonical term.*searchable/i, capability);
-    assert.match(prompt, /observable outcomes, trade-offs, and user impact/i, capability);
-    assert.match(prompt, /smallest useful visual/i, capability);
-    assert.match(prompt, /tables for exact comparisons/i, capability);
-    assert.match(prompt, /Mermaid.*flows, hierarchy, state, or relationships/i, capability);
-    assert.match(prompt, /do not ban necessary terminology/i, capability);
-  }
+  assert.match(prompt, /lead with the conclusion/i);
+  assert.match(prompt, /first use of a specialized term or acronym/i);
+  assert.match(prompt, /retain the canonical term.*searchable/i);
+  assert.match(prompt, /observable outcomes, trade-offs, and user impact/i);
+  assert.match(prompt, /smallest useful visual/i);
+  assert.match(prompt, /tables for exact comparisons/i);
+  assert.match(prompt, /Mermaid.*flows, hierarchy, state, or relationships/i);
+  assert.match(prompt, /do not ban necessary terminology/i);
 });
 
 test('the canonical Router exposes read-only Explain mode without expanding the Host Skill surface', async () => {

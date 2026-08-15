@@ -2,9 +2,8 @@ import { cp, readdir, readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ProjectConfig } from '../domain/types.js';
 import { ensureDir } from './files.js';
-import { initializeProject, loadProjectConfig, saveProjectConfig } from './store.js';
+import { initializeProject } from './store.js';
 
 export type SupportedHost = 'claude' | 'codex' | 'opencode';
 
@@ -41,10 +40,6 @@ export async function installHostSkills(repoRoot: string, host: SupportedHost): 
     await cp(source, destination, { recursive: true, force: true });
     installed.push(destination);
   }
-
-  const config = await loadProjectConfig(repoRoot);
-  const installedHosts: ProjectConfig['installedHosts'] = [...new Set([...config.installedHosts, host])];
-  await saveProjectConfig(repoRoot, { ...config, installedHosts });
   return installed;
 }
 

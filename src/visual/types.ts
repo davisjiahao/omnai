@@ -7,11 +7,13 @@ const identifierSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 const titleSchema = z.string().trim().min(1).max(120);
 const sentenceSchema = z.string().trim().min(1).max(500);
 const detailSchema = z.string().trim().min(1).max(240);
+const languageSchema = z.string().trim().regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/).max(35);
 
 const commonShape = {
   schemaVersion: z.literal(1),
   title: titleSchema,
   summary: sentenceSchema,
+  language: languageSchema.optional(),
 };
 
 const directionsDocumentSchema = z.object({

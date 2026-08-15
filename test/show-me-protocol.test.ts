@@ -54,6 +54,13 @@ test('Show-me is one canonical presentation protocol with stable bundle order', 
   ]);
 });
 
+test('the npm package includes canonical protocol resources', async () => {
+  const packageDocument = JSON.parse(await readFile(join(process.cwd(), 'package.json'), 'utf8')) as {
+    files?: string[];
+  };
+  assert.ok(packageDocument.files?.includes('resources'));
+});
+
 test('Show-me does not expand workflow state or the four-Skill Host surface', async () => {
   const protocolInteractionTypeIsClosed: Equal<ProtocolInteraction, 'grill' | 'brainstorm' | 'show-me'> = true;
   const worksetInteractionTypeIsUnchanged: Equal<InteractionMode, 'none' | 'grill' | 'brainstorm'> = true;

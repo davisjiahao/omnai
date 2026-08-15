@@ -8,6 +8,11 @@ import {
   visualCompanionDocumentSchema,
   type VisualCompanionServer,
 } from '../src/visual/index.js';
+import {
+  VISUAL_COMPANION_CSS,
+  VISUAL_COMPANION_HTML,
+  VISUAL_COMPANION_JS,
+} from '../src/visual/page.js';
 import { createTestDirectory } from './helpers.js';
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -53,6 +58,24 @@ test('validates the three closed visual document kinds and their hard limits', (
     edges: [{ from: 'known', to: 'missing' }],
   };
   assert.equal(visualCompanionDocumentSchema.safeParse(danglingEdge).success, false);
+  assert.equal(visualCompanionDocumentSchema.safeParse({
+    ...directionsDocument(),
+    language: 'zh-CN" onload="alert(1)',
+  }).success, false);
+});
+
+test('ships responsive, accessible, multilingual browser presentation contracts', () => {
+  assert.match(VISUAL_COMPANION_HTML, /<meta name="viewport"/);
+  assert.match(VISUAL_COMPANION_HTML, /<main[^>]*aria-live="polite"/);
+  assert.match(VISUAL_COMPANION_CSS, /prefers-color-scheme:\s*dark/);
+  assert.match(VISUAL_COMPANION_CSS, /max-width:\s*560px/);
+  assert.match(VISUAL_COMPANION_CSS, /focus-visible/);
+  assert.match(VISUAL_COMPANION_CSS, /prefers-reduced-motion/);
+  assert.match(VISUAL_COMPANION_JS, /document\.documentElement\.lang/);
+  assert.match(VISUAL_COMPANION_JS, /视觉方向.*用户影响.*主要取舍/s);
+  assert.match(VISUAL_COMPANION_JS, /aria-pressed/);
+  assert.match(VISUAL_COMPANION_JS, /\.classList\.add\('linear'\)/);
+  assert.doesNotMatch(VISUAL_COMPANION_JS, /innerHTML|eval\(|new Function/);
 });
 
 test('serves a token-scoped loopback companion with no writable HTTP surface', async () => {

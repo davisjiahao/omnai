@@ -60,7 +60,7 @@ h2 { font-size: 1.15rem; }
 ul { margin: 8px 0 0; padding-left: 20px; }
 .flow { display: flex; align-items: stretch; gap: 10px; overflow-x: auto; padding-bottom: 8px; }
 .flow-node { flex: 1 0 190px; position: relative; }
-.flow-node:not(:last-child)::after { content: "→"; position: absolute; right: -18px; top: 50%; color: var(--muted); }
+.flow.linear .flow-node:not(:last-child)::after { content: "→"; position: absolute; right: -18px; top: 50%; color: var(--muted); }
 .relationships { margin-top: 18px; }
 .relationship { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .status { display: inline-block; margin-bottom: 10px; padding: 3px 8px; border-radius: 999px; background: var(--soft-accent); }
@@ -77,7 +77,7 @@ ul { margin: 8px 0 0; padding-left: 20px; }
   main { width: min(100% - 24px, 960px); padding-top: 20px; }
   .flow { flex-direction: column; overflow: visible; }
   .flow-node { flex-basis: auto; }
-  .flow-node:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -18px; }
+  .flow.linear .flow-node:not(:last-child)::after { content: "↓"; right: 50%; top: auto; bottom: -18px; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .direction, .step-panel { transition: border-color 160ms ease, box-shadow 160ms ease; }
@@ -89,6 +89,17 @@ const root = document.getElementById('omnai-visual-companion');
 let lastDocument = '';
 let selectedDirection = 0;
 let selectedStep = 0;
+
+function labels(documentValue) {
+  const chinese = /^zh(?:-|$)/i.test(documentValue.language || '');
+  return chinese ? {
+    directions: '视觉方向', emphasis: '重点', impact: '用户影响', tradeoff: '主要取舍',
+    flow: '流程', relationships: '关系', previous: '上一步', next: '下一步', step: '步骤', of: '/',
+  } : {
+    directions: 'Visual directions', emphasis: 'Emphasis', impact: 'User impact', tradeoff: 'Main trade-off',
+    flow: 'Flow', relationships: 'Relationships', previous: 'Previous', next: 'Next', step: 'Step', of: 'of',
+  };
+}
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -109,9 +120,10 @@ function header(documentValue) {
 }
 
 function renderDirections(documentValue) {
+  const copy = labels(documentValue);
   selectedDirection = Math.min(selectedDirection, documentValue.directions.length - 1);
   const grid = element('section', 'directions');
-  grid.setAttribute('aria-label', 'Visual directions');
+  grid.setAttribute('aria-label', copy.directions);
   documentValue.directions.forEach((direction, index) => {
     const card = element('article', 'direction');
     card.setAttribute('aria-current', String(index === selectedDirection));
@@ -121,9 +133,9 @@ function renderDirections(documentValue) {
     button.append(element('h2', '', direction.name));
     button.addEventListener('click', () => { selectedDirection = index; render(documentValue); });
     card.append(button);
-    card.append(labeledField('Emphasis', direction.emphasis));
-    card.append(labeledField('User impact', direction.userImpact));
-    card.append(labeledField('Main trade-off', direction.tradeoff));
+    card.append(labeledField(copy.emphasis, direction.emphasis));
+    card.append(labeledField(copy.impact, direction.userImpact));
+    card.append(labeledField(copy.tradeoff, direction.tradeoff));
     if (direction.details.length > 0) {
       const list = element('ul', '');
       direction.details.forEach((detail) => list.append(element('li', '', detail)));
@@ -135,8 +147,13 @@ function renderDirections(documentValue) {
 }
 
 function renderFlow(documentValue) {
+  const copy = labels(documentValue);
   const flow = element('section', 'flow');
-  flow.setAttribute('aria-label', 'Flow');
+  flow.setAttribute('aria-label', copy.flow);
+  const isLinear = documentValue.edges.length === documentValue.nodes.length - 1
+    && documentValue.edges.every((edge, index) => edge.from === documentValue.nodes[index].id
+      && edge.to === documentValue.nodes[index + 1].id);
+  if (isLinear) flow.classList.add('linear');
   documentValue.nodes.forEach((item) => {
     const node = element('article', 'flow-node');
     if (item.status) node.append(element('span', 'status', item.status));
@@ -145,7 +162,7 @@ function renderFlow(documentValue) {
   });
   root.append(flow);
   const relationships = element('section', 'relationships');
-  relationships.append(element('h2', '', 'Relationships'));
+  relationships.append(element('h2', '', copy.relationships));
   documentValue.edges.forEach((edge) => {
     relationships.append(element('div', 'relationship', edge.from + ' → ' + edge.to + (edge.label ? ' — ' + edge.label : '')));
   });
@@ -153,18 +170,19 @@ function renderFlow(documentValue) {
 }
 
 function renderStepThrough(documentValue) {
+  const copy = labels(documentValue);
   selectedStep = Math.min(selectedStep, documentValue.steps.length - 1);
   root.append(element('p', 'overview', documentValue.overview));
   const controls = element('div', 'controls');
-  const previous = element('button', '', 'Previous');
+  const previous = element('button', '', copy.previous);
   previous.type = 'button';
   previous.disabled = selectedStep === 0;
   previous.addEventListener('click', () => { selectedStep -= 1; render(documentValue); });
-  const next = element('button', '', 'Next');
+  const next = element('button', '', copy.next);
   next.type = 'button';
   next.disabled = selectedStep === documentValue.steps.length - 1;
   next.addEventListener('click', () => { selectedStep += 1; render(documentValue); });
-  controls.append(previous, element('span', 'step-count', 'Step ' + (selectedStep + 1) + ' of ' + documentValue.steps.length), next);
+  controls.append(previous, element('span', 'step-count', copy.step + ' ' + (selectedStep + 1) + ' ' + copy.of + ' ' + documentValue.steps.length), next);
   root.append(controls);
   const step = documentValue.steps[selectedStep];
   const panel = element('section', 'step-panel');
@@ -176,6 +194,7 @@ function renderStepThrough(documentValue) {
 }
 
 function render(documentValue) {
+  document.documentElement.lang = documentValue.language || 'en';
   root.replaceChildren();
   header(documentValue);
   if (documentValue.kind === 'directions') renderDirections(documentValue);

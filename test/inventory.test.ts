@@ -28,7 +28,7 @@ test('ships exactly four canonical user-level Host Skills', async () => {
   }
   actual.sort();
   assert.deepEqual(actual, [...REQUIRED_SKILLS]);
-  assert.equal(actual.includes('omnai-run'), false);
+  assert.equal(new Set<string>(actual).has('omnai-run'), false);
 });
 
 test('ships the authorization migration golden example with revision and evidence', async () => {

@@ -20,44 +20,19 @@ import { createTestDirectory } from './helpers.js';
 
 const EXPECTED_PROTOCOL_IDS = [
   'common.authoritative-work',
-  'repository.frame',
-  'repository.research',
-  'repository.map',
-  'repository.model',
-  'repository.spec',
-  'repository.design',
-  'repository.plan',
-  'repository.triage',
-  'repository.reproduce',
-  'repository.debug',
-  'repository.diagnose',
-  'repository.experiment',
-  'repository.fix',
-  'repository.mitigate',
-  'repository.work',
-  'repository.simplify',
-  'repository.review',
-  'repository.verify',
-  'repository.qa',
-  'repository.ship',
-  'repository.release',
-  'repository.canary',
-  'repository.learn',
-  'repository.archive',
-  'repository.reconcile',
-  'interaction.grill',
-  'interaction.brainstorm',
-  'workset.candidate-research',
-  'workset.project-impact-decision',
-  'workset.project-change-binding',
-  'workset.project-workflow-handoff',
-  'workset.reentry-classification',
-  'workset.reentry-interaction',
-  'workset.reentry-plan',
-  'workset.reentry-decision',
-  'workset.reentry-apply',
-  'workset.reentry-replan',
-  'workset.reentry-finalize',
+  'repository.frame', 'repository.research', 'repository.map', 'repository.model',
+  'repository.spec', 'repository.design', 'repository.plan', 'repository.triage',
+  'repository.reproduce', 'repository.debug', 'repository.diagnose',
+  'repository.experiment', 'repository.fix', 'repository.mitigate', 'repository.work',
+  'repository.simplify', 'repository.review', 'repository.verify', 'repository.qa',
+  'repository.ship', 'repository.release', 'repository.canary', 'repository.learn',
+  'repository.archive', 'repository.reconcile',
+  'interaction.grill', 'interaction.brainstorm',
+  'workset.candidate-research', 'workset.project-impact-decision',
+  'workset.project-change-binding', 'workset.project-workflow-handoff',
+  'workset.reentry-classification', 'workset.reentry-interaction',
+  'workset.reentry-plan', 'workset.reentry-decision', 'workset.reentry-apply',
+  'workset.reentry-replan', 'workset.reentry-finalize',
 ] as const;
 
 const cleanups: Array<() => Promise<void>> = [];
@@ -65,7 +40,7 @@ afterEach(async () => {
   while (cleanups.length > 0) await cleanups.pop()?.();
 });
 
-test('the closed catalog contains one repository protocol for every capability in deterministic order', () => {
+test('the closed catalog covers every capability in deterministic order', () => {
   assert.deepEqual(PROTOCOL_IDS, EXPECTED_PROTOCOL_IDS);
   assert.deepEqual(
     PROTOCOL_IDS.filter((id) => id.startsWith('repository.')),
@@ -91,112 +66,74 @@ test('unknown protocol strings fail with PROTOCOL_UNKNOWN', () => {
   );
 });
 
-test('valid protocol loads body without frontmatter and hashes the exact complete file bytes', async () => {
-  const fixture = await createProtocolRoot(['common.authoritative-work']);
-  const fullText = protocolText('common.authoritative-work', 'Canonical body.\n');
-  await writeProtocolFile(fixture, 'common.authoritative-work', fullText);
-
-  const document = await loadProtocol('common.authoritative-work', fixture);
-  assert.equal(document.id, 'common.authoritative-work');
-  assert.equal(document.kind, 'common');
-  assert.equal(document.version, 1);
-  assert.equal(document.content, 'Canonical body.\n');
-  assert.equal(document.content.includes('schemaVersion'), false);
-  assert.equal(document.hash, `sha256:${createHash('sha256').update(fullText).digest('hex')}`);
-  assert.equal(document.sourcePath, join(fixture, 'common', 'authoritative-work.md'));
+test('valid protocol loads body without frontmatter and hashes exact file bytes', async () => {
+  const root = await createRoot([]);
+  const text = protocolText('common.authoritative-work', 'Canonical body.\n');
+  await writeProtocol(root, 'common.authoritative-work', text);
+  const document = await loadProtocol('common.authoritative-work', root);
+  assert.deepEqual(
+    { id: document.id, kind: document.kind, version: document.version, content: document.content },
+    { id: 'common.authoritative-work', kind: 'common', version: 1, content: 'Canonical body.\n' },
+  );
+  assert.equal(document.hash, `sha256:${createHash('sha256').update(text).digest('hex')}`);
+  assert.equal(document.sourcePath, join(root, 'common', 'authoritative-work.md'));
 });
 
-test('bundle prepends common once, preserves requested order, and removes duplicates', async () => {
-  const fixture = await createProtocolRoot([
-    'common.authoritative-work',
-    'interaction.grill',
-    'repository.model',
-  ]);
-
+test('bundle prepends common once, preserves order, and removes duplicates', async () => {
+  const root = await createRoot(['common.authoritative-work', 'interaction.grill', 'repository.model']);
   const bundle = await loadProtocolBundle(
     ['interaction.grill', 'repository.model', 'interaction.grill', 'common.authoritative-work'],
-    fixture,
+    root,
   );
-
   assert.deepEqual(bundle.protocols.map((item) => item.id), [
-    'common.authoritative-work',
-    'interaction.grill',
-    'repository.model',
+    'common.authoritative-work', 'interaction.grill', 'repository.model',
   ]);
   assert.equal(
     bundle.rendered,
     [
-      '<!-- protocol:common.authoritative-work@1 -->\nBody for common.authoritative-work',
-      '<!-- protocol:interaction.grill@1 -->\nBody for interaction.grill',
-      '<!-- protocol:repository.model@1 -->\nBody for repository.model',
+      '<!-- protocol:common.authoritative-work@1 -->\nBody for common.authoritative-work.',
+      '<!-- protocol:interaction.grill@1 -->\nBody for interaction.grill.',
+      '<!-- protocol:repository.model@1 -->\nBody for repository.model.',
     ].join('\n\n---\n\n') + '\n',
   );
 });
 
 test('known missing resources fail with PROTOCOL_RESOURCE_MISSING', async () => {
-  const directory = await createTestDirectory('protocol-root-');
-  cleanups.push(directory.cleanup);
+  const root = await createRoot([]);
   await assert.rejects(
-    () => loadProtocol('repository.design', directory.root),
+    () => loadProtocol('repository.design', root),
     (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_RESOURCE_MISSING',
   );
 });
 
-test('invalid YAML frontmatter fails with PROTOCOL_METADATA_INVALID', async () => {
-  const directory = await createTestDirectory('protocol-root-');
-  cleanups.push(directory.cleanup);
-  const path = join(directory.root, protocolRelativePath('common.authoritative-work'));
-  await mkdir(join(path, '..'), { recursive: true });
-  await writeFile(path, '---\nschemaVersion: [\n---\nBody\n', 'utf8');
-
+test('invalid YAML and metadata mismatches fail with PROTOCOL_METADATA_INVALID', async () => {
+  const root = await createRoot([]);
+  await writeRaw(root, 'common/authoritative-work.md', '---\nschemaVersion: [\n---\nBody\n');
   await assert.rejects(
-    () => loadProtocol('common.authoritative-work', directory.root),
+    () => loadProtocol('common.authoritative-work', root),
+    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
+  );
+
+  await writeProtocol(root, 'repository.design', protocolText('repository.spec', 'Wrong id.\n'));
+  await assert.rejects(
+    () => loadProtocol('repository.design', root),
+    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
+  );
+
+  await writeRaw(root, 'repository/design.md', [
+    '---', 'schemaVersion: 1', 'id: repository.design', 'version: 1',
+    'kind: repository-capability', 'capability: spec', '---', 'Wrong capability.', '',
+  ].join('\n'));
+  await assert.rejects(
+    () => loadProtocol('repository.design', root),
     (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
   );
 });
 
-test('frontmatter id and path mismatch fails with PROTOCOL_METADATA_INVALID', async () => {
-  const directory = await createTestDirectory('protocol-root-');
-  cleanups.push(directory.cleanup);
-  await writeProtocolFile(
-    directory.root,
-    'repository.design',
-    protocolText('repository.spec', 'Wrong id.\n'),
-  );
-
-  await assert.rejects(
-    () => loadProtocol('repository.design', directory.root),
-    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
-  );
-});
-
-test('repository capability metadata must match the repository protocol id', async () => {
-  const directory = await createTestDirectory('protocol-root-');
-  cleanups.push(directory.cleanup);
-  const text = [
-    '---',
-    'schemaVersion: 1',
-    'id: repository.design',
-    'version: 1',
-    'kind: repository-capability',
-    'capability: spec',
-    '---',
-    'Wrong capability.',
-    '',
-  ].join('\n');
-  await writeProtocolFile(directory.root, 'repository.design', text);
-
-  await assert.rejects(
-    () => loadProtocol('repository.design', directory.root),
-    (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_METADATA_INVALID',
-  );
-});
-
-test('locator fails explicitly when no candidate contains the common protocol', async () => {
+test('locator fails when no candidate contains the common protocol', async () => {
   const first = await createTestDirectory('protocol-root-a-');
   const second = await createTestDirectory('protocol-root-b-');
   cleanups.push(second.cleanup, first.cleanup);
-
   assert.throws(
     () => locateProtocolRoot([first.root, second.root]),
     (error: unknown) => error instanceof ProtocolError && error.code === 'PROTOCOL_PACKAGE_ROOT_NOT_FOUND',
@@ -204,22 +141,26 @@ test('locator fails explicitly when no candidate contains the common protocol', 
 });
 
 test('canonical inventory validation loads every closed protocol', async () => {
-  const fixture = await createProtocolRoot([...PROTOCOL_IDS]);
-  const documents = await validateCanonicalProtocolInventory(fixture);
-  assert.deepEqual(documents.map((item) => item.id), [...PROTOCOL_IDS]);
+  const root = await createRoot([...PROTOCOL_IDS]);
+  assert.deepEqual(
+    (await validateCanonicalProtocolInventory(root)).map((item) => item.id),
+    [...PROTOCOL_IDS],
+  );
 });
 
-async function createProtocolRoot(ids: ProtocolId[]): Promise<string> {
+async function createRoot(ids: ProtocolId[]): Promise<string> {
   const directory = await createTestDirectory('protocol-root-');
   cleanups.push(directory.cleanup);
-  for (const id of ids) {
-    await writeProtocolFile(directory.root, id, protocolText(id, `Body for ${id}.\n`));
-  }
+  for (const id of ids) await writeProtocol(directory.root, id, protocolText(id, `Body for ${id}.\n`));
   return directory.root;
 }
 
-async function writeProtocolFile(root: string, id: ProtocolId, content: string): Promise<void> {
-  const path = join(root, protocolRelativePath(id));
+async function writeProtocol(root: string, id: ProtocolId, content: string): Promise<void> {
+  await writeRaw(root, protocolRelativePath(id), content);
+}
+
+async function writeRaw(root: string, relativePath: string, content: string): Promise<void> {
+  const path = join(root, relativePath);
   await mkdir(join(path, '..'), { recursive: true });
   await writeFile(path, content, 'utf8');
 }
@@ -230,44 +171,18 @@ function protocolText(id: ProtocolId, body: string): string {
   }
   if (id.startsWith('repository.')) {
     const capability = id.slice('repository.'.length) as Capability;
-    return [
-      '---',
-      'schemaVersion: 1',
-      `id: ${id}`,
-      'version: 1',
-      'kind: repository-capability',
-      `capability: ${capability}`,
-      '---',
-      body,
-    ].join('\n');
+    return ['---', 'schemaVersion: 1', `id: ${id}`, 'version: 1',
+      'kind: repository-capability', `capability: ${capability}`, '---', body].join('\n');
   }
   if (id.startsWith('interaction.')) {
-    const interaction = id.slice('interaction.'.length);
-    return [
-      '---',
-      'schemaVersion: 1',
-      `id: ${id}`,
-      'version: 1',
-      'kind: interaction',
-      `interaction: ${interaction}`,
-      '---',
-      body,
-    ].join('\n');
+    return ['---', 'schemaVersion: 1', `id: ${id}`, 'version: 1',
+      'kind: interaction', `interaction: ${id.slice('interaction.'.length)}`, '---', body].join('\n');
   }
-  return [
-    '---',
-    'schemaVersion: 1',
-    `id: ${id}`,
-    'version: 1',
-    'kind: workset-action',
-    'actions:',
-    `  - ${worksetActionFor(id)}`,
-    '---',
-    body,
-  ].join('\n');
+  return ['---', 'schemaVersion: 1', `id: ${id}`, 'version: 1', 'kind: workset-action',
+    'actions:', `  - ${worksetAction(id)}`, '---', body].join('\n');
 }
 
-function worksetActionFor(id: ProtocolId): string {
+function worksetAction(id: ProtocolId): string {
   const mapping: Partial<Record<ProtocolId, string>> = {
     'workset.candidate-research': 'inspect-project',
     'workset.project-impact-decision': 'decide-project-impact',

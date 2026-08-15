@@ -1,6 +1,11 @@
 import { Command } from 'commander';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import {
+  loadProtocolBundle,
+  parseProtocolId,
+  type ProtocolBundle,
+} from '../protocols/index.js';
 import { OMNAI_VERSION } from '../version.js';
 import { resolveOmnaiHome } from '../workspace/paths.js';
 import { resolveOmnaiContext, type OmnaiContext } from './context.js';
@@ -14,14 +19,14 @@ import {
 } from './user-host-skills.js';
 
 export function isUserLevelCommand(value: string | undefined): boolean {
-  return value === 'context' || value === 'host';
+  return value === 'context' || value === 'host' || value === 'protocol';
 }
 
 export function createUserLevelProgram(): Command {
   const program = new Command();
   program
     .name('omnai')
-    .description('OmnAI user-level Agent host and context commands')
+    .description('OmnAI user-level Agent host, context, and protocol commands')
     .version(OMNAI_VERSION)
     .showHelpAfterError();
 
@@ -77,6 +82,24 @@ export function createUserLevelProgram(): Command {
       printStatuses(statuses);
     });
 
+  const protocol = program
+    .command('protocol')
+    .description('Read canonical internal OmnAI protocol resources');
+
+  protocol
+    .command('show')
+    .description('Render one ordered protocol bundle without mutating workflow state')
+    .argument('<protocols...>', 'Canonical protocol IDs')
+    .option('--json', 'Print machine-readable JSON')
+    .action(async (values: string[], options: { json?: boolean }) => {
+      const bundle = await loadProtocolBundle(values.map(parseProtocolId));
+      if (options.json) {
+        printJson(publicProtocolBundle(bundle));
+        return;
+      }
+      process.stdout.write(bundle.rendered);
+    });
+
   return program;
 }
 
@@ -90,6 +113,30 @@ function parseHostSelection(value: string | undefined): UserHost[] {
 
 function resolveUserHome(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(env.HOME ?? env.USERPROFILE ?? homedir());
+}
+
+function publicProtocolBundle(bundle: ProtocolBundle): {
+  schemaVersion: 1;
+  protocols: Array<{
+    id: string;
+    version: number;
+    hash: string;
+    kind: string;
+    content: string;
+  }>;
+  rendered: string;
+} {
+  return {
+    schemaVersion: 1,
+    protocols: bundle.protocols.map(({ id, version, hash, kind, content }) => ({
+      id,
+      version,
+      hash,
+      kind,
+      content,
+    })),
+    rendered: bundle.rendered,
+  };
 }
 
 function printInstallResults(results: UserHostInstallResult[]): void {

@@ -160,7 +160,7 @@ test('user Host installation, Workset routing, Show-me composition, and reposito
   assert.deepEqual(worksetRoute, {
     action: 'project-workflow',
     project: 'user',
-    reason: 'Active project has writable worktree and project-local workflow.',
+    reason: 'Active project is ready for its repository-local OmnAI workflow.',
     protocolIds: ['workset.project-workflow-handoff'],
   });
 
@@ -221,12 +221,25 @@ test('user Host installation, Workset routing, Show-me composition, and reposito
     'interaction.show-me',
   ]);
 
+  assert.deepEqual(
+    {
+      omnai: await treeHash(omnaiHome.root),
+      worktree: await treeHash(activated.member.worktree),
+    },
+    beforeReadOnly,
+    'context, next, and protocol retrieval must not mutate workflow or repository state',
+  );
+
   const emptyWorkset = runJson<{ id: string }>(
     omnaiHome.root,
     userHome.root,
     packageRoot,
     ['workset', 'new', 'Empty Explanation Workset'],
   );
+  const beforeNoPendingReadOnly = {
+    omnai: await treeHash(omnaiHome.root),
+    worktree: await treeHash(activated.member.worktree),
+  };
   const noPendingRoute = runJson<{ action: string; protocolIds: string[] }>(
     omnaiHome.root,
     userHome.root,
@@ -251,8 +264,8 @@ test('user Host installation, Workset routing, Show-me composition, and reposito
       omnai: await treeHash(omnaiHome.root),
       worktree: await treeHash(activated.member.worktree),
     },
-    beforeReadOnly,
-    'context, next, and protocol retrieval must not mutate workflow or repository state',
+    beforeNoPendingReadOnly,
+    'no-pending route and Show-me retrieval must not mutate workflow or repository state',
   );
 
   const prepared = runCli(

@@ -2,7 +2,7 @@
 
 - Date: 2026-08-15
 - Branch: `feat/omnai-v0.2-personal-workspace`
-- Evaluated implementation commit: `bd233620bdfff88528a43df3bd0d20b969766280`
+- Evaluated implementation commit: `11647dfd81db083914957061e19d9618276bdabf`
 - Runtime used locally: Node.js 24.19.0
 - Compiler available in the isolated runner: TypeScript 7.0.2 with Node types 20.19.43
 
@@ -18,7 +18,7 @@ The latest branch includes the Workset protocol mapping and all 40 canonical res
 | --- | --- | --- |
 | Feature-focused tests | PASS | 10 tests passed: protocol packaging, closed schemas, CLI validation, unsafe HTML rejection, responsive/accessibility contracts, loopback server, live reload, and no state write. |
 | Whole-tree TypeScript check | PASS | Strict no-emit compilation passed with no file excluded. |
-| Repository regression suite | PASS | 202 Node test cases passed with `TMPDIR=/dev/shm`; the environment-blocked npm-pack subprocess was reproduced separately through npm's own `libnpmpack` implementation and also passed. |
+| Repository regression suite | PASS | 203 Node test cases passed with `TMPDIR=/dev/shm`, including the protocol end-to-end workflow; the environment-blocked npm-pack subprocess was reproduced separately through npm's own `libnpmpack` implementation and also passed. |
 | Browser script parse | PASS | The exact emitted `VISUAL_COMPANION_JS` parsed successfully. |
 | Package construction | PASS | Local `libnpmpack` construction produced a 219,793-byte tarball with SHA-512 integrity. |
 | Package inventory | PASS | 376 tar entries; 12 emitted Visual Companion files and all 40 canonical protocol resources were included. |

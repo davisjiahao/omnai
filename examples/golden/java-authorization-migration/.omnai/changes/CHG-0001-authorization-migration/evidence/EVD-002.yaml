@@ -1,0 +1,9 @@
+schemaVersion: 1
+id: EVD-002
+changeId: CHG-0001
+revision: REV-0002
+requirementId: data-reconciliation
+type: data
+status: INCONCLUSIVE
+summary: Dry-run proves deterministic mappings; 0.7% ambiguous historical rows remain quarantined pending owner approval.
+createdAt: 2026-08-12T15:05:00.000Z

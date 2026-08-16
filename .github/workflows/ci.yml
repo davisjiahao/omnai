@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/omnai-v0.1
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - run: npm install
+      - run: npm run typecheck
+      - name: Run tests with actionable failure output
+        shell: bash
+        run: |
+          set +e
+          npm test > /tmp/omnai-test.log 2>&1
+          status=$?
+          cat /tmp/omnai-test.log
+          if [[ $status -ne 0 ]]; then
+            tail -n 120 /tmp/omnai-test.log > /tmp/omnai-test-tail.log
+            message=$(node -e "const fs=require('fs'); const s=fs.readFileSync('/tmp/omnai-test-tail.log','utf8'); process.stdout.write(s.replace(/%/g,'%25').replace(/\r/g,'%0D').replace(/\n/g,'%0A'))")
+            echo "::error title=OmnAI test failure::$message"
+          fi
+          exit $status
+      - run: npm run build
+      - run: npm pack --dry-run
+      - run: git diff --check

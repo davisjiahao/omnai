@@ -1,0 +1,54 @@
+schemaVersion: 1
+id: CHG-0001
+slug: authorization-migration
+title: Authorization migration
+scenario: migration-program
+workMode: MIGRATION
+status: IN_PROGRESS
+activeRevision: REV-0002
+baseline: BL-0002
+artifactVersions:
+  research: 1
+  domain: 2
+  spec: 2
+  contract: 2
+  design: 2
+  tasks: 2
+risk:
+  level: P0
+  dimensions:
+    businessCriticality: CRITICAL
+    data: HIGH
+    compatibility: CRITICAL
+    reversibility: HIGH
+    security: HIGH
+    operational: CRITICAL
+impact:
+  frontend: false
+  backend: true
+  apiContract: true
+  database: true
+  mq: true
+  remoteService: true
+  security: true
+  observability: true
+createdAt: 2026-08-12T10:00:00.000Z
+updatedAt: 2026-08-12T15:30:00.000Z
+readiness:
+  frame: READY
+  research: READY
+  triage: NOT_APPLICABLE
+  reproduction: NOT_APPLICABLE
+  diagnosis: NOT_APPLICABLE
+  domain: READY
+  spec: READY
+  design: READY
+  experiment: NOT_APPLICABLE
+  fix: NOT_APPLICABLE
+  plan: READY
+  implementation: IN_PROGRESS
+  review: MISSING
+  verification: MISSING
+  qa: NOT_APPLICABLE
+  release: MISSING
+  learning: MISSING

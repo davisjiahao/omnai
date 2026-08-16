@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ProtocolRef } from '../protocols/catalog.js';
 
 export const CHANGE_STATUSES = [
   'DRAFT', 'READY', 'IN_PROGRESS', 'BLOCKED', 'VERIFYING', 'READY_TO_ARCHIVE', 'ARCHIVED', 'NEEDS_RECONCILE',
@@ -88,7 +89,7 @@ export type ImpactModel = z.infer<typeof impactModelSchema>;
 
 export const projectConfigSchema = z.object({
   schemaVersion: z.literal(1), project: z.string().min(1), activeChange: z.string().nullable().default(null),
-  defaultScenario: z.string().default('small-feature'), installedHosts: z.array(z.enum(['claude', 'codex', 'opencode'])).default([]),
+  defaultScenario: z.string().default('small-feature'),
   verification: z.object({ commands: z.array(z.string()).default([]) }).default({ commands: [] }),
 });
 export type ProjectConfig = z.infer<typeof projectConfigSchema>;
@@ -96,7 +97,6 @@ export type ProjectConfig = z.infer<typeof projectConfigSchema>;
 export const workflowLockSchema = z.object({
   schemaVersion: z.literal(1), workflowVersion: z.string(),
   artifactSchemas: z.record(z.string(), z.number().int().positive()),
-  promptVersions: z.record(z.string(), z.number().int().positive()),
 });
 export type WorkflowLock = z.infer<typeof workflowLockSchema>;
 
@@ -148,14 +148,16 @@ export type EvidenceRecord = z.infer<typeof evidenceRecordSchema>;
 
 export const reconcileSignalSchema = z.object({
   schemaVersion: z.literal(1), id: z.string(), changeId: z.string(), revision: z.string(), level: z.enum(RECONCILE_LEVELS),
-  type: z.string().min(1), reason: z.string().min(1), affectedTasks: z.array(z.string()).default([]), evidence: z.array(z.string()).default([]), createdAt: z.string().datetime(),
+  type: z.string().min(1), reason: z.string().min(1), affectedTasks: z.array(z.string()).default([]), evidence: z.array(z.string()).default([]),
+  correlationId: z.string().min(1).optional(), createdAt: z.string().datetime(),
 });
 export type ReconcileSignal = z.infer<typeof reconcileSignalSchema>;
 
 export const revisionSchema = z.object({
   schemaVersion: z.literal(1), id: z.string().regex(/^REV-\d{4}$/), changeId: z.string(), previousRevision: z.string().nullable(),
   previousBaseline: z.string().regex(/^BL-\d{4}$/).optional(), baseline: z.string().regex(/^BL-\d{4}$/).optional(),
-  reason: z.string(), level: z.enum(RECONCILE_LEVELS), affectedArtifacts: z.array(z.string()), affectedTasks: z.array(z.string()), createdAt: z.string().datetime(),
+  reason: z.string(), level: z.enum(RECONCILE_LEVELS), affectedArtifacts: z.array(z.string()), affectedTasks: z.array(z.string()),
+  correlationId: z.string().min(1).optional(), createdAt: z.string().datetime(),
 });
 export type Revision = z.infer<typeof revisionSchema>;
 
@@ -176,7 +178,7 @@ export interface ScenarioProfile {
 }
 
 export interface StageRunManifest {
-  schemaVersion: 1;
+  schemaVersion: 2;
   id: string;
   changeId: string;
   revision: string;
@@ -184,6 +186,8 @@ export interface StageRunManifest {
   status: 'PREPARED' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   instruction: string;
   promptPath: string;
+  promptHash: string;
+  protocols: ProtocolRef[];
   outputPaths: string[];
   createdAt: string;
   completedAt?: string;

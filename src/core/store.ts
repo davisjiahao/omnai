@@ -17,7 +17,7 @@ import {
 } from './templates.js';
 import { appendJsonLine, ensureDir, pathExists, readYaml, writeTextAtomic, writeYaml } from './files.js';
 
-const WORKFLOW_VERSION = '0.1.0';
+const WORKFLOW_VERSION = '0.2.0';
 
 export interface ChangeRef { directoryName: string; metadata: ChangeMetadata; }
 
@@ -32,7 +32,10 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
   if (await pathExists(configPath)) config = await readYaml(configPath, projectConfigSchema);
   else {
     config = projectConfigSchema.parse({
-      schemaVersion: 1, project: basename(repoRoot), activeChange: null, defaultScenario: 'small-feature', installedHosts: [],
+      schemaVersion: 1,
+      project: basename(repoRoot),
+      activeChange: null,
+      defaultScenario: 'small-feature',
       verification: { commands: discoverVerificationCommands(repoRoot) },
     });
     await writeYaml(configPath, config);
@@ -44,11 +47,6 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
       schemaVersion: 1,
       workflowVersion: WORKFLOW_VERSION,
       artifactSchemas: { project: 1, change: 1, task: 1, evidence: 1, revision: 1, issue: 1 },
-      promptVersions: {
-        frame: 1, research: 2, map: 1, model: 1, spec: 1, design: 1, plan: 1,
-        triage: 1, reproduce: 1, debug: 1, diagnose: 1, experiment: 1, fix: 1,
-        work: 1, review: 2, verify: 2, qa: 1, ship: 1, release: 2, learn: 1, reconcile: 1,
-      },
     });
     await writeYaml(lockPath, lock);
   }

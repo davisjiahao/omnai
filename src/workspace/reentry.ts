@@ -1,0 +1,333 @@
+import { readdir } from 'node:fs/promises';
+import { z } from 'zod';
+import { pathExists, readYaml, writeYaml } from '../core/files.js';
+import { readinessSchema, RECONCILE_LEVELS } from '../domain/types.js';
+import { requireRegisteredProject } from './project-registry.js';
+import { worksetReentryPath, worksetReentriesRoot } from './paths.js';
+import { addWorksetCandidate, resolveWorkset } from './worksets.js';
+
+export const REENTRY_KINDS = [
+  'REALITY_CHANGED',
+  'PRODUCT_CHANGED',
+  'DOMAIN_CHANGED',
+  'SCOPE_CHANGED',
+  'TECHNICAL_CONSTRAINT_CHANGED',
+  'NEEDS_EXPERIMENT',
+  'PLAN_CHANGED',
+  'IMPLEMENTATION_DETAIL_CHANGED',
+] as const;
+
+export const REENTRY_STATUSES = ['PENDING', 'DECIDED', 'RESOLVED'] as const;
+export const REENTRY_APPLICATION_STATUSES = ['PENDING', 'APPLYING', 'APPLIED', 'FAILED', 'NOT_REQUIRED'] as const;
+export const REENTRY_APPLICATION_FAILURE_KINDS = [
+  'STALE_PRECONDITION',
+  'MEMBER_NOT_WRITABLE',
+  'BOUND_CHANGE_MISMATCH',
+  'MISSING_FROZEN_FIELDS',
+  'CORRELATION_CONFLICT',
+  'APPLY_ERROR',
+] as const;
+
+export type ReentryKind = (typeof REENTRY_KINDS)[number];
+export type ProjectReconcileFailureKind = (typeof REENTRY_APPLICATION_FAILURE_KINDS)[number];
+export type InteractionMode = 'none' | 'grill' | 'brainstorm';
+export type ReentryCapability =
+  | 'research'
+  | 'frame'
+  | 'model'
+  | 'spec'
+  | 'design'
+  | 'experiment'
+  | 'plan'
+  | 'work';
+
+export interface ReentryRoute {
+  capability: ReentryCapability;
+  interaction: InteractionMode;
+  reason: string;
+}
+
+const reentryKindSchema = z.enum(REENTRY_KINDS);
+const routeSchema = z.object({
+  capability: z.enum(['research', 'frame', 'model', 'spec', 'design', 'experiment', 'plan', 'work']),
+  interaction: z.enum(['none', 'grill', 'brainstorm']),
+  reason: z.string().min(1),
+});
+const readinessKeySchema = readinessSchema.keyof();
+const failureKindSchema = z.enum(REENTRY_APPLICATION_FAILURE_KINDS);
+
+export const projectReconcileProposalSchema = z.discriminatedUnion('outcome', [
+  z.object({
+    project: z.string().min(1),
+    outcome: z.literal('REQUIRED'),
+    level: z.enum(RECONCILE_LEVELS),
+    reopenFrom: readinessKeySchema,
+    taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  }),
+  z.object({
+    project: z.string().min(1),
+    outcome: z.literal('NOT_REQUIRED'),
+  }),
+]);
+
+export const projectReconcileAttemptSchema = z.object({
+  status: z.literal('FAILED'),
+  failureKind: failureKindSchema,
+  level: z.enum(RECONCILE_LEVELS),
+  reopenFrom: readinessKeySchema,
+  readinessClosure: z.array(readinessKeySchema),
+  taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)),
+  taskClosure: z.array(z.string().regex(/^TASK-\d{3}$/)),
+  fromRevision: z.string().regex(/^REV-\d{4}$/),
+  fromBaseline: z.string().regex(/^BL-\d{4}$/),
+  toRevision: z.string().regex(/^REV-\d{4}$/).nullable(),
+  toBaseline: z.string().regex(/^BL-\d{4}$/).nullable(),
+  error: z.string().nullable(),
+  appliedAt: z.string().datetime().nullable(),
+  replannedAt: z.string().datetime(),
+});
+
+export const projectReconcileApplicationSchema = z.object({
+  project: z.string().min(1),
+  changeId: z.string().regex(/^CHG-\d{4}$/).optional(),
+  status: z.enum(REENTRY_APPLICATION_STATUSES),
+  failureKind: failureKindSchema.nullable().default(null),
+  level: z.enum(RECONCILE_LEVELS).optional(),
+  reopenFrom: readinessKeySchema.optional(),
+  readinessClosure: z.array(readinessKeySchema).default([]),
+  taskRoots: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  taskClosure: z.array(z.string().regex(/^TASK-\d{3}$/)).default([]),
+  fromRevision: z.string().regex(/^REV-\d{4}$/).optional(),
+  fromBaseline: z.string().regex(/^BL-\d{4}$/).optional(),
+  toRevision: z.string().regex(/^REV-\d{4}$/).nullable().default(null),
+  toBaseline: z.string().regex(/^BL-\d{4}$/).nullable().default(null),
+  error: z.string().nullable().default(null),
+  appliedAt: z.string().datetime().nullable().default(null),
+  attemptHistory: z.array(projectReconcileAttemptSchema).default([]),
+});
+
+export const worksetReentrySchema = z.object({
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
+  id: z.string().regex(/^WRE-\d{4}$/),
+  worksetId: z.string().regex(/^WKS-\d{4}$/),
+  kind: reentryKindSchema,
+  reason: z.string().min(1),
+  route: routeSchema,
+  affectedProjects: z.array(z.string().min(1)).default([]),
+  candidateProjects: z.array(z.string().min(1)).default([]),
+  status: z.enum(REENTRY_STATUSES),
+  proposal: z.array(projectReconcileProposalSchema).default([]),
+  applications: z.array(projectReconcileApplicationSchema).default([]),
+  rulesVersion: z.number().int().positive().nullable().default(null),
+  createdAt: z.string().datetime(),
+  decidedAt: z.string().datetime().nullable().default(null),
+  resolvedAt: z.string().datetime().nullable(),
+});
+
+export type WorksetReentry = z.infer<typeof worksetReentrySchema>;
+export type ProjectReconcileProposal = z.infer<typeof projectReconcileProposalSchema>;
+export type ProjectReconcileApplication = z.infer<typeof projectReconcileApplicationSchema>;
+export type ProjectReconcileAttempt = z.infer<typeof projectReconcileAttemptSchema>;
+
+export interface WorksetReentryInput {
+  kind: ReentryKind;
+  reason: string;
+  affectedProjects?: string[];
+  candidateProjects?: string[];
+}
+
+const ROUTES: Record<ReentryKind, ReentryRoute> = {
+  REALITY_CHANGED: {
+    capability: 'research',
+    interaction: 'none',
+    reason: 'Current-system reality changed or is no longer trustworthy.',
+  },
+  PRODUCT_CHANGED: {
+    capability: 'frame',
+    interaction: 'grill',
+    reason: 'Product goal or user outcome changed and requires a new decision.',
+  },
+  DOMAIN_CHANGED: {
+    capability: 'model',
+    interaction: 'grill',
+    reason: 'Domain meaning, ownership, lifecycle, or invariant changed.',
+  },
+  SCOPE_CHANGED: {
+    capability: 'spec',
+    interaction: 'grill',
+    reason: 'Scope, acceptance criteria, or non-goals changed.',
+  },
+  TECHNICAL_CONSTRAINT_CHANGED: {
+    capability: 'design',
+    interaction: 'brainstorm',
+    reason: 'A technical constraint invalidated the selected implementation approach.',
+  },
+  NEEDS_EXPERIMENT: {
+    capability: 'experiment',
+    interaction: 'none',
+    reason: 'The remaining implementation choice requires measured evidence.',
+  },
+  PLAN_CHANGED: {
+    capability: 'plan',
+    interaction: 'none',
+    reason: 'Only task structure, dependency order, or delivery sequencing changed.',
+  },
+  IMPLEMENTATION_DETAIL_CHANGED: {
+    capability: 'work',
+    interaction: 'none',
+    reason: 'The change is bounded to implementation detail and does not reopen upstream decisions.',
+  },
+};
+
+export function parseReentryKind(value: string): ReentryKind {
+  return reentryKindSchema.parse(value);
+}
+
+export function routeWorksetReentry(kind: ReentryKind): ReentryRoute {
+  return ROUTES[kind];
+}
+
+export async function recordWorksetReentry(
+  home: string,
+  worksetRef: string,
+  input: WorksetReentryInput,
+): Promise<WorksetReentry> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const affectedProjects = unique(input.affectedProjects ?? []);
+  const candidateProjects = unique(input.candidateProjects ?? []);
+
+  for (const projectAlias of affectedProjects) {
+    if (!workset.members.some((member) => member.project === projectAlias)) {
+      throw new Error(`Project '${projectAlias}' is not a member of ${workset.id}.`);
+    }
+  }
+  for (const projectAlias of candidateProjects) {
+    await requireRegisteredProject(home, projectAlias);
+  }
+
+  for (const projectAlias of candidateProjects) {
+    if (!workset.members.some((member) => member.project === projectAlias)) {
+      await addWorksetCandidate(home, workset.id, projectAlias);
+    }
+  }
+
+  const id = await nextReentryId(home, workset.id);
+  const record = worksetReentrySchema.parse({
+    schemaVersion: 2,
+    id,
+    worksetId: workset.id,
+    kind: input.kind,
+    reason: input.reason,
+    route: routeWorksetReentry(input.kind),
+    affectedProjects,
+    candidateProjects,
+    status: 'PENDING',
+    proposal: [],
+    applications: [],
+    rulesVersion: null,
+    createdAt: new Date().toISOString(),
+    decidedAt: null,
+    resolvedAt: null,
+  });
+  await saveWorksetReentry(home, record);
+  return record;
+}
+
+export async function loadWorksetReentry(
+  home: string,
+  worksetRef: string,
+  reentryId: string,
+): Promise<WorksetReentry> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const path = worksetReentryPath(home, workset.id, reentryId);
+  if (!(await pathExists(path))) throw new Error(`Re-entry '${reentryId}' was not found in ${workset.id}.`);
+  const record = await readYaml(path, worksetReentrySchema);
+  if (record.worksetId !== workset.id) {
+    throw new Error(`Re-entry '${record.id}' belongs to ${record.worksetId}, not ${workset.id}.`);
+  }
+  return record;
+}
+
+export async function saveWorksetReentry(home: string, record: WorksetReentry): Promise<void> {
+  await writeYaml(worksetReentryPath(home, record.worksetId, record.id), worksetReentrySchema.parse(record));
+}
+
+export async function listWorksetReentries(home: string, worksetRef: string): Promise<WorksetReentry[]> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const root = worksetReentriesRoot(home, workset.id);
+  if (!(await pathExists(root))) return [];
+
+  const entries = await readdir(root, { withFileTypes: true });
+  const records: WorksetReentry[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !/^WRE-\d{4}\.yaml$/.test(entry.name)) continue;
+    const id = entry.name.slice(0, -5);
+    records.push(await loadWorksetReentry(home, workset.id, id));
+  }
+  return records.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export async function pendingWorksetReentry(home: string, worksetRef: string): Promise<WorksetReentry | null> {
+  const records = await listWorksetReentries(home, worksetRef);
+  return records.find((record) => record.status === 'PENDING') ?? null;
+}
+
+export async function resolveWorksetReentry(
+  home: string,
+  worksetRef: string,
+  reentryId: string,
+): Promise<WorksetReentry> {
+  const workset = await resolveWorkset(home, worksetRef);
+  const records = await listWorksetReentries(home, workset.id);
+  const record = records.find((item) => item.id === reentryId);
+  if (!record) throw new Error(`Re-entry '${reentryId}' was not found in ${workset.id}.`);
+  if (record.status === 'RESOLVED') return record;
+
+  if (record.schemaVersion === 2) {
+    throw new Error(
+      `Re-entry '${reentryId}' uses B2a lifecycle and cannot be resolved directly. Freeze a DECIDED plan and apply all required project reconciliations.`,
+    );
+  }
+
+  const oldestPending = records.find((item) => item.status === 'PENDING');
+  if (oldestPending && oldestPending.id !== reentryId) {
+    throw new Error(
+      `Re-entry '${reentryId}' cannot resolve before older pending Re-entry '${oldestPending.id}'.`,
+    );
+  }
+
+  const unresolvedCandidates = unresolvedCandidateProjects(workset.members, record.candidateProjects);
+  if (unresolvedCandidates.length > 0) {
+    throw new Error(
+      `Re-entry '${reentryId}' cannot resolve while candidate project '${unresolvedCandidates.join(', ')}' still requires an impact decision.`,
+    );
+  }
+
+  const resolved = worksetReentrySchema.parse({
+    ...record,
+    status: 'RESOLVED',
+    resolvedAt: new Date().toISOString(),
+  });
+  await saveWorksetReentry(home, resolved);
+  return resolved;
+}
+
+export function unresolvedCandidateProjects(
+  members: Array<{ project: string; status: string }>,
+  candidateProjects: string[],
+): string[] {
+  return candidateProjects.filter((projectAlias) => {
+    const member = members.find((item) => item.project === projectAlias);
+    return !member || member.status === 'CANDIDATE' || member.status === 'RESEARCH_ONLY';
+  });
+}
+
+async function nextReentryId(home: string, worksetId: string): Promise<string> {
+  const records = await listWorksetReentries(home, worksetId);
+  const next = records.reduce((maximum, record) => Math.max(maximum, Number(record.id.slice(4))), 0) + 1;
+  return `WRE-${String(next).padStart(4, '0')}`;
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}

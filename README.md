@@ -1,69 +1,403 @@
 # OmnAI
 
-OmnAI is a lightweight, repository-local, native AI engineering workflow for Claude Code, Codex, OpenCode, and other coding agents.
+OmnAI is a lightweight, local-first AI engineering workflow for Codex, Claude Code, OpenCode, and other coding agents.
 
-It does **not** run HumanLayer, Matt Pocock Skills, OpenSpec, Superpowers, GSD, BMAD, gstack, Compound Engineering, Spec Kit, Trellis, OMC, or ECC at runtime. OmnAI independently reimplements selected engineering mechanisms behind one artifact, state, policy, evidence, and revision model.
+It keeps engineering truth in files, Git, explicit state machines, and fresh evidence instead of relying on one long chat session.
 
 ```text
-Reality      current code / config / Git / runtime evidence
-Meaning      reviewed domain language, ownership, lifecycle, invariants
-Intent       the active Change revision and specification
-Completion   fresh evidence proving the active revision
+Reality      current code, configuration, Git, and runtime evidence
+Meaning      reviewed domain language, ownership, lifecycle, and invariants
+Intent       the active Project Change Revision and specification
+Completion   fresh evidence proving the active Revision
 ```
 
-The core rule is simple: **conversation history and agent confidence are context, not project truth.**
+The core rule is:
 
-## What OmnAI adds
+> Conversation history and Agent confidence are useful context, but they are not workflow state.
 
-- repository-local `.omnai/` state instead of chat-only plans;
-- read-only Investigation separated from implementation Change;
-- 19 canonical scenario profiles with P0-P3 risk and impact-aware routing;
-- explicit `Revision + Baseline` lineage and selective reconciliation;
-- independent readiness for framing, mapping, research, mitigation, bug diagnosis, domain, specification, design, experiments, fixes, implementation, review, verification, QA, delivery, canary, and learning;
-- task DAGs with evidence requirements and bounded executor context;
-- dynamic Evidence Matrix derived from scenario + risk + impact;
-- machine guards for issue-backed edits and high-risk delivery;
-- thin native skills installable for Claude Code, Codex, and OpenCode;
-- no backend service, database, daemon, or built-in LLM API.
+OmnAI v0.2 supports one engineer coordinating one objective across several repositories without adding a persistent Web application, remote server, database, daemon, background scheduler, or built-in LLM API.
+
+## What OmnAI provides
+
+- repository-local `.omnai/` Project Change state;
+- read-only investigations separated from implementation work;
+- 19 scenario profiles with risk- and impact-aware routing;
+- explicit Revision and Baseline lineage;
+- task dependency graphs, evidence requirements, review, and delivery guards;
+- a personal Project Registry;
+- Worksets for one objective spanning multiple repositories;
+- real Git worktrees directly under one aggregate execution directory;
+- one Workset project bound to one explicitly confirmed Project Change;
+- selective mid-flight Re-entry and per-project Reconcile;
+- deterministic Readiness and Task closure calculation;
+- stale-precondition Replan with immutable attempt history;
+- four user-level Agent Skills shared by Codex, Claude Code, and OpenCode;
+- versioned internal Protocol Resources selected by OmnAI Core;
+- a read-only Show-me interaction and optional loopback Visual Companion.
 
 ## Install from this repository
 
 ```bash
-git checkout feat/omnai-v0.1
+git checkout feat/omnai-v0.2-personal-workspace
 npm install
 npm run build
 npm link
+
+omnai host install all
+omnai host status
 ```
 
 Node.js 20 or newer is required.
 
-## Quick start: implementation Change
+The user-level installation targets are:
+
+```text
+Claude Code  ~/.claude/skills
+Codex        ~/.agents/skills
+OpenCode     ~/.config/opencode/skills
+```
+
+Only these four Entry Skills are installed:
+
+```text
+omnai
+omnai-grill
+omnai-brainstorm
+omnai-reconcile
+```
+
+`omnai init` does not install Agent Skills. It only initializes `.omnai/` in the current Git repository.
+
+## Entry Skills and internal protocols
+
+OmnAI deliberately separates the public Agent surface from detailed workflow guidance.
+
+```text
+Agent Host
+   ↓
+four Entry Skills
+   ↓
+omnai context --json
+   ↓
+Core-selected next action + protocolIds
+   ↓
+omnai protocol show <protocolIds...> --json
+   ↓
+versioned internal Protocol Resources
+   ↓
+deterministic OmnAI commands and state
+```
+
+The package contains:
+
+```text
+skills/                       # Host-discoverable
+├── omnai/
+├── omnai-grill/
+├── omnai-brainstorm/
+└── omnai-reconcile/
+
+resources/protocols/          # package-internal, not Host Skills
+├── common/
+├── repository/
+├── interaction/
+└── workset/
+```
+
+There is one canonical repository protocol for every OmnAI capability, including `research`, `model`, `spec`, `design`, `plan`, `debug`, `work`, `review`, and `verify`.
+
+Core chooses the legal action and ordered protocol IDs. Codex, Claude Code, and OpenCode do not maintain separate routing tables or separate workflow prompts.
+
+Inspect a protocol bundle directly:
 
 ```bash
-# Inside an existing Git repository
-omnai init --host claude
+omnai protocol show repository.design --json
 
-# Use a canonical scenario profile
+omnai protocol show \
+  workset.reentry-interaction \
+  interaction.grill \
+  repository.model \
+  workset.reentry-plan \
+  --json
+```
+
+`protocol show` is read-only. It does not initialize a repository, create a Workset, advance Readiness, or change a Revision.
+
+## Context discovery
+
+Every Entry Skill starts with:
+
+```bash
+omnai context --json
+```
+
+The result is one of:
+
+```text
+workset          aggregate Workset root
+workset-project  a project Worktree inside a Workset
+repository       an ordinary Git repository
+none             no OmnAI-capable filesystem context
+```
+
+Workset discovery outranks ordinary Git discovery because every active Workset child is also a Git worktree.
+
+Examples:
+
+```json
+{
+  "scope": "workset",
+  "worksetId": "WKS-0001",
+  "project": null
+}
+```
+
+```json
+{
+  "scope": "workset-project",
+  "worksetId": "WKS-0001",
+  "project": "quote",
+  "memberStatus": "ACTIVE",
+  "changeId": "CHG-0018"
+}
+```
+
+Context discovery is read-only and never calls `omnai init` automatically.
+
+## Quick start: one multi-project Workset
+
+Register repositories once:
+
+```bash
+omnai project register ~/code/user-center --alias user
+omnai project register ~/code/quote-center --alias quote
+omnai project register ~/code/pricing-center --alias pricing
+```
+
+Create one engineering objective:
+
+```bash
+omnai workset new "Authorization Migration"
+omnai workset add-candidate user
+omnai workset inspect-project user
+```
+
+The Agent researches the registered original repository read-only. If no modification is required:
+
+```bash
+omnai workset inspect-project user --result observed-only
+```
+
+If modification is required, existing Project Changes are suggestions only:
+
+```bash
+omnai workset change-bindings user
+omnai workset bind-change user CHG-0027
+omnai workset activate-project user
+```
+
+Or explicitly create a new Project Change inside the dedicated Worktree:
+
+```bash
+omnai workset create-change user \
+  "Build Authorization ownership" \
+  --scenario complex-domain-feature
+```
+
+Open the aggregate directory itself:
+
+```bash
+ROOT=$(omnai workset path)
+code "$ROOT"
+cd "$ROOT"
+codex
+# or: claude
+# or: opencode
+```
+
+The layout is an ordinary directory:
+
+```text
+~/.omnai/worksets/WKS-0001/
+├── workset.yaml
+├── reentries/
+└── workspace/
+    ├── .omnai-workset.yaml
+    ├── user/       # real Git worktree
+    └── quote/      # real Git worktree
+```
+
+OmnAI does not generate a `.code-workspace` file. The main Agent runs at `workspace/`; a project-bounded worker runs at `workspace/<project>`.
+
+### Project lifecycle
+
+```text
+CANDIDATE
+  ↓
+RESEARCH_ONLY
+  ├── no modification needed → OBSERVED_ONLY
+  └── modification required
+          ↓
+      explicit Project Change confirmation
+          ↓
+      ACTIVE → real Git worktree
+
+ACTIVE
+  └── removed from current scope → INACTIVE
+```
+
+`CANDIDATE`, `RESEARCH_ONLY`, and `OBSERVED_ONLY` do not create writable project directories. `ACTIVE` does. `INACTIVE` retains its Worktree for audit and recovery, but visibility does not grant new write permission.
+
+## Deterministic Workset routing
+
+From the aggregate directory, run:
+
+```bash
+omnai workset next --json
+```
+
+An actionable result includes ordered `protocolIds`:
+
+```json
+{
+  "action": "reenter",
+  "reentryId": "WRE-0001",
+  "capability": "model",
+  "interaction": "grill",
+  "protocolIds": [
+    "workset.reentry-interaction",
+    "interaction.grill",
+    "repository.model",
+    "workset.reentry-plan"
+  ]
+}
+```
+
+The Agent loads exactly that bundle, performs the bounded action, records durable results in authoritative artifacts, and asks Core for the next action again.
+
+Candidate research and impact decisions outrank ordinary implementation. Older PENDING or DECIDED Re-entry records also outrank normal project work.
+
+## Mid-flight requirement and reality changes
+
+The Agent interprets natural language and records one structured Workset Re-entry kind. OmnAI Core does not call an LLM.
+
+```text
+REALITY_CHANGED                research              minimum L4
+PRODUCT_CHANGED                frame / grill         minimum L4
+DOMAIN_CHANGED                 model / grill         minimum L3
+SCOPE_CHANGED                  spec / grill          minimum L3
+TECHNICAL_CONSTRAINT_CHANGED   design / brainstorm   minimum L2
+NEEDS_EXPERIMENT               experiment            minimum L2
+PLAN_CHANGED                   plan                  minimum L1
+IMPLEMENTATION_DETAIL_CHANGED  work                  minimum L0
+```
+
+Example:
+
+```bash
+omnai workset change \
+  --kind DOMAIN_CHANGED \
+  --reason "Historical quotes must preserve authorization at quote time" \
+  --project user \
+  --project quote \
+  --candidate pricing
+```
+
+After research and the required interaction, the Agent proposes semantic roots only:
+
+```yaml
+- project: user
+  outcome: REQUIRED
+  level: L3
+  reopenFrom: domain
+  taskRoots:
+    - TASK-003
+
+- project: quote
+  outcome: REQUIRED
+  level: L3
+  reopenFrom: spec
+  taskRoots: []
+
+- project: pricing
+  outcome: NOT_REQUIRED
+```
+
+Core calculates the complete downstream closures:
+
+```bash
+omnai workset reentry plan WRE-0001 --file proposal.yaml --json
+```
+
+The user explicitly approves the frozen plan:
+
+```bash
+omnai workset reentry decide WRE-0001 --json
+```
+
+Then Core routes each project application:
+
+```bash
+omnai workset reentry apply WRE-0001 --project user --json
+omnai workset reentry apply WRE-0001 --json
+```
+
+A schema-v2 WRE reaches `RESOLVED` only when every application is `APPLIED` or `NOT_REQUIRED`.
+
+### Stale frozen preconditions
+
+If a Project Change advances after DECIDED but before apply, OmnAI records `FAILED + STALE_PRECONDITION` and routes to explicit Replan:
+
+```bash
+# read-only preview
+omnai workset reentry replan WRE-0001 --project quote --json
+
+# explicit replacement of only the stale frozen application
+omnai workset reentry replan WRE-0001 --project quote --confirm --json
+
+# normal apply resumes
+omnai workset reentry apply WRE-0001 --project quote --json
+```
+
+The old failed attempt is retained in `attemptHistory`. Already APPLIED or NOT_REQUIRED siblings remain unchanged.
+
+## Repository-local Project Change workflow
+
+Inside an ordinary repository or an active Workset child:
+
+```bash
+omnai init
 omnai new "Move authorization to user center" --scenario complex-domain-feature
 
 omnai status
-omnai next
+omnai next --json
 
-# Recover reality and domain meaning before changing a legacy system
-omnai research "Map authorization code, data, callers, and historical behavior"
-omnai model "Separate durable Authorization from per-quote AuthorizationUsage"
+omnai research "Recover current authorization behavior and callers"
+omnai model "Separate durable authorization from per-quote usage"
 omnai spec
 omnai design
 omnai plan
+```
 
-# Execute one ready task at a time
-omnai work
-omnai work TASK-001 --done
-omnai verify --matrix
-omnai verify --command "npm test"
-omnai work TASK-001 --verified
+Each preparation creates a bounded run prompt. The run manifest records the exact protocol versions and hashes, plus a hash of the complete rendered prompt.
 
-# New facts create a revision/baseline instead of silently rewriting history
+```yaml
+schemaVersion: 2
+protocols:
+  - id: common.authoritative-work
+    version: 1
+    hash: sha256:...
+  - id: repository.design
+    version: 1
+    hash: sha256:...
+promptHash: sha256:...
+```
+
+Protocol loading and complete prompt construction happen before OmnAI creates a run directory, appends progress, or changes Readiness. A missing or invalid protocol therefore fails without leaving half-written workflow state.
+
+Repository-local Reconcile remains available:
+
+```bash
 omnai reconcile \
   --level L3 \
   --type DOMAIN_ASSUMPTION_INVALIDATED \
@@ -71,152 +405,119 @@ omnai reconcile \
   --task TASK-002
 ```
 
-Each capability prepares a bounded prompt under the active Change's `runs/` directory. The coding agent reads authoritative artifacts, performs the bounded capability, writes canonical outputs, and completes the stage through the CLI gate.
+## Read-only investigation
 
-## Quick start: read-only investigation
-
-Do not create a Change just to answer a question about the current system:
+Do not create a Project Change merely to answer a question about the current system:
 
 ```bash
-omnai investigate create field-lineage "Trace premiumAmount from API request to database and downstream events"
+omnai investigate create field-lineage \
+  "Trace premiumAmount from API request to persistence and downstream events"
 ```
 
-`system-query`, `field-lineage`, and `business-flow` live under `.omnai/investigations/` and are read-only. Implementation intent exists only after explicit promotion:
+Read-only investigations can be promoted explicitly when implementation is actually required:
 
 ```bash
-omnai investigate promote INV-0001 "Correct premium amount ownership" --scenario complex-domain-feature
+omnai investigate promote INV-0001 \
+  "Correct premium amount ownership" \
+  --scenario complex-domain-feature
 ```
 
-## Canonical repository state
+## Show-me and Visual Companion
+
+Show-me is an internal read-only interaction protocol, not a fifth Host Skill.
+
+For explanations, comparisons, flows, state machines, or “show me” requests, the `omnai` Entry Skill obtains a fresh Core route and composes:
 
 ```text
-.omnai/
-├── config.yaml
-├── workflow.lock.yaml
-├── investigations/
-├── project/
-│   ├── glossary.md
-│   ├── policies.md
-│   ├── learnings.md
-│   └── decisions/
-└── changes/
-    └── CHG-0001-authorization-migration/
-        ├── change.yaml
-        ├── intent.md
-        ├── research.md
-        ├── domain.md
-        ├── spec.md
-        ├── contract.md          # conditional
-        ├── design.md
-        ├── issue.md             # issue-backed scenarios
-        ├── issue.yaml           # machine bug/incident state
-        ├── fix.md               # correction scenarios
-        ├── tasks.yaml
-        ├── delivery.md          # delivery scenarios
-        ├── progress.jsonl
-        ├── decisions/
-        ├── experiments/
-        ├── evidence/
-        ├── revisions/
-        └── runs/
+interaction.show-me
++
+current Core-selected action protocols
 ```
 
-Markdown is human-readable engineering context. YAML and JSONL carry machine state, task status, risk/impact, evidence, revisions, and baselines.
+It chooses the smallest useful representation: prose, a table, a static diagram, or—with just-in-time user consent—the built-in Visual Companion.
 
-## Canonical 19 scenarios
-
-| Scenario | Purpose | Default risk |
-| --- | --- | --- |
-| `system-query` | Read-only code/system question | P3 |
-| `field-lineage` | Trace one field end to end | P3 |
-| `business-flow` | Recover an end-to-end business flow | P2 |
-| `bug-fix` | Triage → reproduce → RCA → focused correction | P2 |
-| `small-feature` | Focused, well-understood feature | P3 |
-| `complex-domain-feature` | Domain-heavy business capability | P1 |
-| `cross-service-change` | Contract/ownership/rollout across services | P1 |
-| `migration-program` | Long-running capability/system migration | P0 |
-| `data-migration` | Schema/data/backfill migration | P0 |
-| `architecture-governance` | Architecture and boundary evolution | P1 |
-| `performance-investigation` | Measured diagnosis and optimization | P1 |
-| `product-discovery` | Product idea to measurable wedge | P2 |
-| `ui-ux-feature` | User-facing interaction/UI change | P2 |
-| `quality-hardening` | Strengthen an existing implementation | P2 |
-| `shared-library` | SDK/library/public API evolution | P1 |
-| `emergency-hotfix` | Minimal high-pressure production correction | P0 |
-| `incident-response` | Mitigate and resolve live production impact | P0 |
-| `release-failure` | Diagnose failed release/deployment | P0 |
-| `technical-experiment` | Compare uncertain technical options | P2 |
-
-Legacy IDs remain aliases for compatibility but are not canonical profiles. See [`docs/scenarios/README.md`](docs/scenarios/README.md).
+Validate a declarative visual document:
 
 ```bash
-omnai scenario list
-omnai scenario show complex-domain-feature
-omnai scenario detect "migrate historical data with dual writes"
+omnai visual validate /tmp/omnai-visual.json --json
 ```
 
-## Risk, impact and evidence
-
-Every Change stores a P0-P3 risk level plus dimensions for business criticality, data, compatibility, reversibility, security, and operations. Impact tracks frontend, backend, API contract, database, MQ, remote service, security, and observability.
-
-Those values change the required review lenses and Evidence Matrix. Examples include tests/build, contract checks, data reconciliation, browser QA, security review, runtime health, rollback evidence, explicit approval, and P0 rehearsal when applicable.
-
-Evidence is keyed by stable requirement ID. A requirement is satisfied only by matching **PASS** evidence for the active Change lineage.
+Start a read-only loopback companion:
 
 ```bash
-omnai verify --matrix
-omnai verify --record contract --requirement contract-test --status PASS --summary "Consumer contract suite passed"
+omnai visual companion /tmp/omnai-visual.json --json
 ```
 
-## Issue-backed correction safety
+The companion:
 
-`bug-fix`, `emergency-hotfix`, `incident-response`, and `release-failure` use `issue.yaml`. Production edits are blocked until machine state confirms:
+- accepts only closed OmnAI JSON document formats;
+- binds to `127.0.0.1` with a random token URL;
+- exposes no HTTP write API;
+- does not execute Agent-provided HTML or JavaScript;
+- does not modify workflow state;
+- does not open the browser without consent.
+
+Superpowers influences parts of the interaction method but is not a runtime dependency or renderer.
+
+## Important commands
 
 ```text
-reproduction = confirmed
-rootCause    = confirmed
-fixStrategy  = ready
-triageState  = ready-for-fix
+omnai context [--path <path>] [--json]
+
+omnai host install <claude|codex|opencode|all> [--json]
+omnai host status [claude|codex|opencode|all] [--json]
+
+omnai protocol show <protocols...> [--json]
+
+omnai project register <path> [--alias <alias>] [--json]
+omnai project list [--json]
+omnai project inspect <alias> [--json]
+
+omnai workset new <title> [--json]
+omnai workset status [workset] [--json]
+omnai workset next [workset] [--json]
+omnai workset path [workset] [--json]
+omnai workset add-candidate <project> [--workset <id>] [--json]
+omnai workset inspect-project <project> [--workset <id>] [--result observed-only] [--json]
+omnai workset change-bindings <project> [--workset <id>] [--json]
+omnai workset bind-change <project> <CHG-id> [--workset <id>] [--json]
+omnai workset create-change <project> <title> --scenario <scenario> [--workset <id>] [--json]
+omnai workset activate-project <project> [--workset <id>] [--json]
+omnai workset mark-inactive <project> [--workset <id>] [--json]
+
+omnai workset change --kind <kind> --reason <text> \
+  [--project <alias>]... [--candidate <alias>]... [--workset <id>] [--json]
+omnai workset reentry list [workset] [--json]
+omnai workset reentry plan <WRE-id> --file <proposal.yaml> [--workset <id>] [--json]
+omnai workset reentry decide <WRE-id> [--workset <id>] [--json]
+omnai workset reentry apply <WRE-id> [--project <alias>] [--workset <id>] [--json]
+omnai workset reentry replan <WRE-id> --project <alias> [--workset <id>] [--confirm] [--json]
+omnai workset reentry status <WRE-id> [--workset <id>] [--json]
+
+omnai visual validate <document.json> [--json]
+omnai visual companion <document.json> [--port <port>] [--json]
+
+omnai doctor
 ```
 
-Incident mitigation is intentionally separate from root-cause correction. `reconcile` is an event-driven loop when new facts invalidate the active baseline, not a mandatory ceremony in every correction.
+## Safety invariants
 
-## Native commands
+1. Original registered repositories are read-only during candidate research.
+2. Writable Workset projects are real isolated Git worktrees.
+3. A Workset project is never silently bound or rebound to a Project Change.
+4. An inactive Worktree is retained but is not eligible for new Workset writes.
+5. Agent-proposed Reconcile roots are semantic; Core calculates complete closures.
+6. DECIDED freezes exact closures and Revision/Baseline preconditions.
+7. Evidence remains attached to the Revision it actually proves.
+8. Protocols guide judgment; TypeScript and schemas enforce mechanics.
+9. Host installation copies only four Entry Skills, never Protocol Resources.
+10. Missing, invalid, unknown, or unmapped protocols are hard failures.
+11. Show-me and the Visual Companion are read-only presentation paths.
+12. `omnai-run` remains unavailable until Milestone C implements real Wave, Claim, and Run Packet primitives.
 
-| Command | Purpose |
-| --- | --- |
-| `omnai init` | Initialize project-local state and optional host skills |
-| `omnai investigate` | Create/promote read-only investigations |
-| `omnai new` / `use` / `list` | Manage Change workspaces |
-| `omnai status` / `next` | Inspect readiness and deterministic next action |
-| `omnai frame` / `map` / `research` / `model` | Product, program, reality and domain work |
-| `omnai spec` / `design` / `plan` | Define implementation intent and task graph |
-| `omnai triage` / `reproduce` / `debug` / `experiment` / `fix` | Correction workflow |
-| `omnai work` / `simplify` | Execute bounded implementation tasks |
-| `omnai review` / `verify` / `qa` | Independent review and evidence collection |
-| `omnai mitigate` | Reduce production impact while preserving evidence |
-| `omnai ship` / `canary` | Assess delivery readiness and post-activation evidence |
-| `omnai reconcile` | Advance revision/baseline and selectively invalidate work |
-| `omnai learn` / `archive` | Promote validated knowledge and close lifecycle |
-| `omnai guard` | Evaluate host-independent hard transitions |
-| `omnai doctor` | Validate repository-local OmnAI state |
-
-`ship` assesses readiness; it does **not** deploy. Existing enterprise CI/CD remains the delivery executor.
-
-## Design and implementation references
-
-The current source of truth is:
-
-- [`docs/design/omnai-v0.1-native-workflow.md`](docs/design/omnai-v0.1-native-workflow.md)
-- [`docs/implementation/omnai-v0.1-plan.md`](docs/implementation/omnai-v0.1-plan.md)
-- [`examples/golden/java-authorization-migration/`](examples/golden/java-authorization-migration/)
-
-The older `docs/superpowers/` documents are retained as historical planning material and are not the current v0.1 contract.
-
-## Development
+## Development verification
 
 ```bash
-npm install
 npm run typecheck
 npm test
 npm run build
@@ -224,8 +525,8 @@ npm pack --dry-run
 git diff --check
 ```
 
-CI runs the supported Node matrix and the same release-oriented checks.
+CI runs the full gate on Node.js 20 and Node.js 22.
 
-## License
+## Design documents
 
-MIT
+The authoritative v0.2 reading order is maintained in `docs/design/README.md`.

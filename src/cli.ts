@@ -31,33 +31,27 @@ import { appendJsonLine, pathExists } from './core/files.js';
 import { evidenceSummary, findEvidenceGaps, listEvidence, recordEvidence, recordHumanApproval, runVerificationCommand } from './core/evidence.js';
 import { reconcileChange } from './core/reconcile.js';
 import { reclassifyChange } from './core/reclassify.js';
-import { installHostSkills, type SupportedHost } from './core/host-skills.js';
 import { createInvestigation, promoteInvestigation, type InvestigationKind } from './core/investigations.js';
 import { loadIssueState, saveIssueState, transitionIssue, ISSUE_TRIAGE_STATES } from './core/issues.js';
 import { buildEvidenceMatrix, selectReviewLenses } from './core/policy.js';
 import { evaluateGuard } from './core/guards.js';
+import { repositoryProtocolId, validateCanonicalProtocolInventory } from './protocols/index.js';
+import { OMNAI_VERSION } from './version.js';
 
 const program = new Command();
 program
   .name('omnai')
   .description('Repository-local native AI engineering workflow')
-  .version('0.1.0')
+  .version(OMNAI_VERSION)
   .showHelpAfterError();
 
 program
   .command('init')
   .description('Initialize .omnai state in the current Git repository')
-  .option('-H, --host <hosts...>', 'Install thin skills for claude, codex, or opencode')
-  .action(async (options: { host?: string[] }) => {
+  .action(async () => {
     const repoRoot = findRepositoryRoot();
     const config = await initializeProject(repoRoot);
-    const installed: string[] = [];
-    for (const host of options.host ?? []) {
-      assertHost(host);
-      installed.push(...await installHostSkills(repoRoot, host));
-    }
     console.log(`Initialized OmnAI for ${config.project} at ${relative(repoRoot, omnaiRoot(repoRoot))}`);
-    if (installed.length > 0) console.log(`Installed ${installed.length} host skill directories.`);
   });
 
 program
@@ -123,12 +117,21 @@ program
   .command('next')
   .description('Resolve the next required capability from scenario and readiness')
   .argument('[change]', 'Change ID or slug')
-  .action(async (reference?: string) => {
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (reference: string | undefined, options: { json?: boolean }) => {
     const repoRoot = findRepositoryRoot();
     const change = await resolveChange(repoRoot, reference);
     const next = resolveNextAction(change.metadata, getScenario(change.metadata.scenario));
-    console.log(next.capability ?? 'none');
-    console.log(next.reason);
+    const result = {
+      ...next,
+      protocolIds: next.capability ? [repositoryProtocolId(next.capability)] : [],
+    };
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(next.capability ?? 'none');
+      console.log(next.reason);
+    }
     if (next.blocked) process.exitCode = 2;
   });
 
@@ -486,21 +489,11 @@ program
   });
 
 program
-  .command('install')
-  .description('Install project-local thin skills for an agent host')
-  .requiredOption('-H, --host <host>', 'claude, codex, or opencode')
-  .action(async (options: { host: string }) => {
-    assertHost(options.host);
-    const repoRoot = findRepositoryRoot();
-    await initializeProject(repoRoot);
-    const paths = await installHostSkills(repoRoot, options.host);
-    console.log(`Installed ${paths.length} OmnAI skills for ${options.host}`);
-  });
-
-program
   .command('doctor')
-  .description('Validate repository-local OmnAI configuration and canonical artifacts')
+  .description('Validate packaged protocols, repository-local OmnAI configuration, and canonical artifacts')
   .action(async () => {
+    const protocols = await validateCanonicalProtocolInventory(process.env.OMNAI_PROTOCOL_ROOT);
+    console.log(`PASS protocols: ${protocols.length}`);
     const repoRoot = findRepositoryRoot();
     await initializeProject(repoRoot);
     const config = await loadProjectConfig(repoRoot);
@@ -524,10 +517,6 @@ program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(`OmnAI error: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });
-
-function assertHost(value: string): asserts value is SupportedHost {
-  if (!['claude', 'codex', 'opencode'].includes(value)) throw new Error(`Unsupported host '${value}'`);
-}
 
 function assertInvestigationKind(value: string): asserts value is InvestigationKind {
   if (!['system-query', 'field-lineage', 'business-flow'].includes(value)) throw new Error(`Unsupported investigation kind '${value}'`);

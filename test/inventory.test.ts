@@ -1,14 +1,15 @@
 import assert from 'node:assert/strict';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { pathExists } from '../src/core/files.js';
 import { listScenarios } from '../src/core/scenarios.js';
 
 const REQUIRED_SKILLS = [
-  'omnai', 'omnai-investigate', 'omnai-frame', 'omnai-research', 'omnai-model', 'omnai-map', 'omnai-spec',
-  'omnai-design', 'omnai-plan', 'omnai-triage', 'omnai-reproduce', 'omnai-debug', 'omnai-experiment', 'omnai-fix',
-  'omnai-work', 'omnai-simplify', 'omnai-review', 'omnai-verify', 'omnai-qa', 'omnai-mitigate', 'omnai-ship',
-  'omnai-canary', 'omnai-learn', 'omnai-reconcile', 'omnai-archive',
+  'omnai',
+  'omnai-brainstorm',
+  'omnai-grill',
+  'omnai-reconcile',
 ] as const;
 
 test('ships a scenario page for every canonical scenario', async () => {
@@ -17,10 +18,17 @@ test('ships a scenario page for every canonical scenario', async () => {
   }
 });
 
-test('ships the required native host skill surface', async () => {
-  for (const skill of REQUIRED_SKILLS) {
-    assert.equal(await pathExists(join(process.cwd(), 'skills', skill, 'SKILL.md')), true, skill);
+test('ships exactly four canonical user-level Host Skills', async () => {
+  const root = join(process.cwd(), 'skills');
+  const entries = await readdir(root, { withFileTypes: true });
+  const actual: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (await pathExists(join(root, entry.name, 'SKILL.md'))) actual.push(entry.name);
   }
+  actual.sort();
+  assert.deepEqual(actual, [...REQUIRED_SKILLS]);
+  assert.equal(new Set<string>(actual).has('omnai-run'), false);
 });
 
 test('ships the authorization migration golden example with revision and evidence', async () => {

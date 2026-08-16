@@ -1,13 +1,14 @@
 {
   "name": "omnai",
-  "version": "0.1.0",
-  "description": "A lightweight, repository-local, native AI engineering workflow",
+  "version": "0.2.0",
+  "description": "A lightweight local-first AI engineering workflow for repository and personal multi-project work",
   "type": "module",
   "bin": {
-    "omnai": "dist/cli.js"
+    "omnai": "dist/src/main.js"
   },
   "files": [
     "dist",
+    "resources",
     "skills",
     "templates",
     "LICENSE",

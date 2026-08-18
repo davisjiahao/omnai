@@ -24,7 +24,9 @@
     "check": "npm run typecheck && npm test"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^1.0.0",
     "commander": "^14.0.0",
+    "xstate": "^5.19.0",
     "yaml": "^2.8.1",
     "zod": "^4.1.5"
   },

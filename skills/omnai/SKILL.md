@@ -1,6 +1,6 @@
 ---
 name: omnai
-description: Use when starting, resuming, inspecting, changing, explaining, comparing, or visualizing non-trivial engineering work in an OmnAI Workset or repository, including “show me” and unclear-explanation requests.
+description: Use when starting, resuming, inspecting, changing, explaining, comparing, or visualizing non-trivial engineering work in an OmnAI Workset or repository, including “show me,” “wait what,” or when a prior explanation did not land.
 ---
 
 # OmnAI Router
@@ -31,6 +31,8 @@ Do not invent a repository, Workset, registration, Project Change, or path. Expl
 ## Explain and Show-me
 
 For an explanation, comparison, visualization, “show me,” or unclear-explanation request, first obtain a fresh Core route with `omnai workset next --json` or `omnai next --json`. A route remembered from chat is not authoritative.
+
+Treat “I do not understand,” “wait what,” “say it plainly,” “too much jargon,” “start again,” or equivalent wording that points to a prior explanation as explicit Show-me intent.
 
 Load `interaction.show-me` before the fresh action protocols:
 

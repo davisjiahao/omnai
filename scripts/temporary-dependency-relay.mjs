@@ -2,8 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
-import { DefaultArtifactClient } from '@actions/artifact';
+import { join } from 'node:path';
 
 if (process.env.GITHUB_ACTIONS !== 'true') {
   console.log('Temporary dependency relay only runs inside GitHub Actions.');
@@ -14,21 +13,19 @@ const repository = 'davisjiahao/omnai';
 const baselineSha = '14479f4d02f49ca132f76774791552fc59bc6037';
 const rawBase = `https://raw.githubusercontent.com/${repository}/${baselineSha}`;
 const relayRoot = await mkdtemp(join(tmpdir(), 'omnai-dependency-relay-'));
-const baselineDir = join(relayRoot, 'baseline');
 const executionDir = join(relayRoot, 'execution');
-const nodeMajor = process.versions.node.split('.')[0];
 const npmExecPath = process.env.npm_execpath;
 
 if (!npmExecPath) {
   throw new Error('npm_execpath is unavailable inside npm postinstall');
 }
 
-async function restoreManifest(directory, fileName) {
+async function restoreManifest(fileName) {
   const response = await fetch(`${rawBase}/${fileName}`);
   if (!response.ok) {
     throw new Error(`Failed to fetch ${fileName} from ${baselineSha}: ${response.status}`);
   }
-  await writeFile(join(directory, fileName), await response.text());
+  await writeFile(join(executionDir, fileName), await response.text());
 }
 
 function run(command, args, cwd) {
@@ -49,59 +46,41 @@ function run(command, args, cwd) {
   }
 }
 
-function runNpm(args, cwd) {
-  run(process.execPath, [npmExecPath, ...args], cwd);
-}
-
-async function writeChecksum(archivePath, checksumPath) {
-  const digest = createHash('sha256')
-    .update(await readFile(archivePath))
-    .digest('hex');
-  await writeFile(checksumPath, `${digest}  ${basename(archivePath)}\n`);
-}
-
+await mkdir(executionDir, { recursive: true });
 await Promise.all([
-  mkdir(baselineDir, { recursive: true }),
-  mkdir(executionDir, { recursive: true }),
-]);
-await Promise.all([
-  restoreManifest(baselineDir, 'package.json'),
-  restoreManifest(baselineDir, 'package-lock.json'),
-  restoreManifest(executionDir, 'package.json'),
-  restoreManifest(executionDir, 'package-lock.json'),
+  restoreManifest('package.json'),
+  restoreManifest('package-lock.json'),
 ]);
 
-const artifact = new DefaultArtifactClient();
-
-runNpm(['ci'], baselineDir);
-const baselineArchive = join(relayRoot, 'omnai-baseline-dependencies.tgz');
-const baselineChecksum = join(relayRoot, 'omnai-baseline-dependencies.sha256');
-run('tar', ['-czf', baselineArchive, 'node_modules'], baselineDir);
-await writeChecksum(baselineArchive, baselineChecksum);
-const baselineUpload = await artifact.uploadArtifact(
-  `omnai-baseline-node-${nodeMajor}`,
-  [baselineArchive, baselineChecksum],
-  relayRoot,
-  { retentionDays: 1 },
-);
-console.log(`Uploaded baseline artifact ${baselineUpload.id} (${baselineUpload.size} bytes)`);
-
-runNpm(
-  ['install', 'xstate@^5.19.0', '@agentclientprotocol/sdk@^1.0.0'],
+run(
+  process.execPath,
+  [
+    npmExecPath,
+    'install',
+    'xstate@^5.19.0',
+    '@agentclientprotocol/sdk@^1.0.0',
+  ],
   executionDir,
 );
-const executionArchive = join(relayRoot, 'omnai-execution-dependencies.tgz');
-const executionChecksum = join(relayRoot, 'omnai-execution-dependencies.sha256');
+
+const archivePath = join(relayRoot, 'omnai-execution-dependencies.tgz');
 run(
   'tar',
-  ['-czf', executionArchive, 'package.json', 'package-lock.json', 'node_modules'],
+  ['-czf', archivePath, 'package.json', 'package-lock.json', 'node_modules'],
   executionDir,
 );
-await writeChecksum(executionArchive, executionChecksum);
-const executionUpload = await artifact.uploadArtifact(
-  `omnai-execution-node-${nodeMajor}`,
-  [executionArchive, executionChecksum],
-  relayRoot,
-  { retentionDays: 1 },
+
+const archive = await readFile(archivePath);
+const digest = createHash('sha256').update(archive).digest('hex');
+const encoded = archive.toString('base64');
+const chunkSize = 32 * 1024;
+const chunkCount = Math.ceil(encoded.length / chunkSize);
+
+console.log(
+  `OMNAI_RELAY_BEGIN bytes=${archive.length} sha256=${digest} base64=${encoded.length} chunks=${chunkCount}`,
 );
-console.log(`Uploaded execution artifact ${executionUpload.id} (${executionUpload.size} bytes)`);
+for (let index = 0; index < chunkCount; index += 1) {
+  const chunk = encoded.slice(index * chunkSize, (index + 1) * chunkSize);
+  console.log(`OMNAI_RELAY_CHUNK index=${index + 1}/${chunkCount} data=${chunk}`);
+}
+console.log(`OMNAI_RELAY_END chunks=${chunkCount} sha256=${digest}`);

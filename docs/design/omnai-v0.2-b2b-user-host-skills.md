@@ -273,7 +273,7 @@ The default router:
 6. returns to the deterministic router;
 7. requires fresh verification evidence for completion claims.
 
-For explanation, comparison, visualization, “show me,” or unclear-explanation requests, it obtains a fresh Core route and composes `interaction.show-me` with the current action protocols. The path is read-only.
+For explanation, comparison, visualization, “show me,” or unclear-explanation requests, it obtains a fresh Core route and composes `interaction.show-me` with the current action protocols. When a prior explanation did not land, the protocol restores the missing premise and escalates repeated failures by stepping back or changing representation. The path is read-only, and the recovery branch is not persisted as user or workflow state.
 
 ### `omnai-grill`
 

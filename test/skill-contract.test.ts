@@ -51,13 +51,14 @@ test('omnai is the thin Core-routed default entry including read-only Show-me co
   const skill = await loadSkill('omnai');
   assert.equal(
     skill.description,
-    'Use when starting, resuming, inspecting, changing, explaining, comparing, or visualizing non-trivial engineering work in an OmnAI Workset or repository, including “show me” and unclear-explanation requests.',
+    'Use when starting, resuming, inspecting, changing, explaining, comparing, or visualizing non-trivial engineering work in an OmnAI Workset or repository, including “show me,” “wait what,” or when a prior explanation did not land.',
   );
   assert.match(skill.body, /`omnai workset next --json`/);
   assert.match(skill.body, /`omnai next --json`/);
   assert.match(skill.body, /protocolIds/);
   assert.match(skill.body, /`omnai protocol show <protocolIds\.\.\.> --json`/);
   assert.match(skill.body, /interaction\.show-me/);
+  assert.match(skill.body, /I do not understand.*wait what.*too much jargon.*prior explanation/is);
   assert.match(skill.body, /fresh .*next --json|run .*next --json.*again/i);
   assert.match(skill.body, /route remembered from (chat|conversation).*not authoritative|never use .*remembered.*route/i);
   assert.match(skill.body, /read-only|creates? no .*state|must not mutate/i);

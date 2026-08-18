@@ -139,3 +139,23 @@ test('Show-me contains presentation choices, the built-in companion, and hard re
     assert.match(content, pattern);
   }
 });
+
+test('Show-me re-pitches an explicitly failed explanation and escalates repeated failures', async () => {
+  const content = (await loadProtocol('interaction.show-me')).content;
+  for (const pattern of [
+    /Re-pitch after comprehension failure/i,
+    /only when the user explicitly indicates that the current or previous explanation did not land/i,
+    /Do not use this branch for a first explanation.*shorter summary/i,
+    /where the conversation is now and why the subject matters/i,
+    /restore the nearest missing premise.*merely deleting words/i,
+    /one causal step at a time.*explicit referents/i,
+    /plain-language gloss.*canonical term stable/i,
+    /one small concrete example.*smallest adequate representation/i,
+    /another comprehension failure.*step back farther or change the representation/i,
+    /must not degrade into terse fragments/i,
+    /does not infer or persist.*comprehension state/i,
+  ]) {
+    assert.match(content, pattern);
+  }
+  assert.doesNotMatch(content, /ASD-STE100|CONTEXT\.md/i);
+});

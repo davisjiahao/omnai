@@ -108,6 +108,8 @@ current action protocols
 
 Show-me uses the smallest useful representation. With just-in-time user consent, richer flows or step-through explanations may use OmnAI's loopback-only Visual Companion. The companion is read-only, token-scoped, and does not execute Agent-provided HTML or JavaScript.
 
+When the user explicitly says that a current or previous explanation did not land, Show-me enters a transient Re-pitch branch. It restores the nearest missing premise and rebuilds the explanation; a repeated failure steps back farther or changes representation instead of merely shortening the same answer. This branch is not persisted as user or workflow state.
+
 Superpowers informs parts of the interaction method but is not an OmnAI runtime dependency or renderer.
 
 ## Current implementation plans

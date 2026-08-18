@@ -8,7 +8,7 @@ interaction: show-me
 
 # Show me
 
-Use this presentation protocol only when the user explicitly asks for an explanation, comparison, visualization, “show me”, or says the current explanation is unclear.
+Use this presentation protocol only when the user explicitly asks for an explanation, comparison, visualization, “show me”, or says the current explanation is unclear or did not land.
 
 ## Explain for understanding
 
@@ -18,6 +18,23 @@ Use this presentation protocol only when the user explicitly asks for an explana
 - Use short sentences, concrete nouns, observable outcomes, trade-offs, and user impact.
 - Calibrate depth from familiarity demonstrated in the current domain. Do not infer or persist a user profile from one conversation.
 - Preserve exact constraints, evidence references, assumptions, exceptions, edge cases, and unknowns. Never replace them with a vague analogy or a guess.
+
+## Re-pitch after comprehension failure
+
+Use this branch only when the user explicitly indicates that the current or previous explanation did not land, such as “I do not understand”, “wait what”, “say that plainly”, “too much jargon”, “start again”, or an equivalent expression in the user's language. Do not use this branch for a first explanation, an ordinary comparison, or a request for a shorter summary that does not report a comprehension failure.
+
+For the first recovery response:
+
+1. State where the conversation is now and why the subject matters.
+2. Restore the nearest missing premise instead of merely deleting words from the failed explanation.
+3. Rebuild the explanation one causal step at a time with short sentences and explicit referents.
+4. Pair each necessary formal term with a plain-language gloss on first use, then keep the canonical term stable.
+5. Add one small concrete example or the smallest adequate representation when it materially improves understanding.
+6. Preserve exact constraints, evidence, assumptions, exceptions, edge cases, and unknowns.
+
+If the user reports another comprehension failure, step back farther or change the representation. Prefer a more concrete example before escalating through the existing table, labeled-flow, or Visual Companion levels. Repeated recovery must not degrade into terse fragments or remove necessary precision.
+
+This branch changes only the current response. It does not infer or persist a user profile, comprehension state, preferred depth, or preferred representation.
 
 ## Choose the smallest adequate representation
 

@@ -20,10 +20,15 @@ const STAGE_READINESS: Partial<Record<Capability, keyof ChangeMetadata['readines
   verify: 'verification',
   qa: 'qa',
   ship: 'release',
-  release: 'release',
   canary: 'canary',
   learn: 'learning',
 };
+
+export function readinessKeyForCapability(
+  capability: Capability,
+): keyof ChangeMetadata['readiness'] | undefined {
+  return STAGE_READINESS[capability];
+}
 
 export interface NextAction {
   capability: Capability | null;
@@ -43,7 +48,7 @@ export function resolveNextAction(metadata: ChangeMetadata, scenario: ScenarioPr
   }
 
   for (const capability of scenario.stages) {
-    const key = STAGE_READINESS[capability];
+    const key = readinessKeyForCapability(capability);
     if (!key) continue;
     const readiness = metadata.readiness[key];
     if (['MISSING', 'STALE', 'INVALIDATED', 'NEEDS_REVALIDATION', 'CONCERNS'].includes(readiness)) {

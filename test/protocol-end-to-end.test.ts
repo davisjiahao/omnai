@@ -189,14 +189,42 @@ test('user Host installation, Workset routing, Show-me composition, and reposito
     'workset.project-workflow-handoff',
   ]);
 
-  const repositoryRoute = runJson<{ capability: string; protocolIds: string[] }>(
+  const repositoryRoute = runJson<{
+    capability: string;
+    reason: string;
+    blocked: boolean;
+    protocolIds: string[];
+    decisionIds: string[];
+    revision: string;
+    baseline: string;
+    flowHash: string;
+  }>(
     omnaiHome.root,
     userHome.root,
     activated.member.worktree,
     ['next'],
   );
-  assert.equal(repositoryRoute.capability, 'spec');
-  assert.deepEqual(repositoryRoute.protocolIds, ['repository.spec']);
+  assert.deepEqual(
+    {
+      capability: repositoryRoute.capability,
+      reason: repositoryRoute.reason,
+      blocked: repositoryRoute.blocked,
+      protocolIds: repositoryRoute.protocolIds,
+      decisionIds: repositoryRoute.decisionIds,
+      revision: repositoryRoute.revision,
+      baseline: repositoryRoute.baseline,
+    },
+    {
+      capability: 'spec',
+      reason: 'spec has not been completed.',
+      blocked: false,
+      protocolIds: ['repository.spec'],
+      decisionIds: [],
+      revision: 'REV-0001',
+      baseline: 'BL-0001',
+    },
+  );
+  assert.match(repositoryRoute.flowHash, /^sha256:[0-9a-f]{64}$/);
 
   const repositoryShowMe = runJson<{ protocols: Array<{ id: string }> }>(
     omnaiHome.root,

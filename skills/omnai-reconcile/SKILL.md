@@ -10,10 +10,16 @@ OmnAI Core is the authoritative Reconcile state machine. This Skill detects the 
 ## Route and load
 
 1. Run `omnai context --json`.
-2. Before recording a new Workset Re-entry, load the classification guidance with `omnai protocol show workset.reentry-classification --json`.
-3. After the event is recorded, repeatedly run `omnai workset next --json`, read its ordered `protocolIds`, and load them with `omnai protocol show <protocolIds...> --json`. The Core-selected route is authoritative.
-4. In ordinary repository scope, load `repository.reconcile` with `omnai protocol show repository.reconcile --json`, then use the deterministic repository Reconcile command and inspect its resulting Revision, Baseline, affected readiness, tasks, and evidence needs.
-5. Return to the applicable Core router after every bounded action.
+2. In Workset scope, run a fresh `omnai workset next --json`. When it returns an existing `reentryId`, load exactly and only that route's ordered `protocolIds`. When a new signal needs a new WRE and no current routed `reentryId` represents it, load `workset.reentry-classification` immediately before the Core `omnai workset change` record action, then return to fresh Workset routing.
+3. In repository scope, run a fresh `omnai next --json`. Retain its `decisionIds`, ordered `protocolIds`, Revision, Baseline, and `flowHash` as one exact route snapshot. Continue only when the loaded bundle contains `repository.reconcile`.
+4. Load only the current ordered bundle with `omnai protocol show <protocolIds...> --json`, then prepare the one Core mutation authorized by it.
+
+## Mutation slot
+
+1. Before the mutating response, obtain a fresh route with the same applicable `next --json` command.
+2. For a repository route, exactly compare Revision, Baseline, `flowHash`, `decisionIds`, and ordered `protocolIds` with the retained snapshot. For a Workset route, exactly compare its action identity, project or Re-entry ID, and ordered `protocolIds`. If any field differs, discard the pending mutation and load the new route.
+3. Apply one Core mutation selected by the loaded bundle. For a repository `repository.reconcile` route carrying `decisionIds`, run `omnai decision resolve <decision> <resolution-file> ... --json` as the entry to Core's guarded Decision-Reconcile transaction; Core must create the new Revision/Baseline and legal invalidation closure before it records the resolution, never as a standalone same-Revision resolve. Use `omnai flow assess` for an assessment change, or the deterministic repository/Workset Reconcile command selected by the bundle.
+4. After one bounded action, return to the applicable `next --json` command and consume only its current ordered protocols.
 
 ## Safety
 

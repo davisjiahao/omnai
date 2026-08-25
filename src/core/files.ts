@@ -1,4 +1,4 @@
-import { access, appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, appendFile, mkdir, open, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import YAML from 'yaml';
@@ -41,6 +41,17 @@ export async function writeTextAtomic(path: string, content: string): Promise<vo
 export async function appendJsonLine(path: string, value: unknown): Promise<void> {
   await ensureDir(dirname(path));
   await appendFile(path, `${JSON.stringify(value)}\n`, 'utf8');
+}
+
+export async function appendJsonLineDurable(path: string, value: unknown): Promise<void> {
+  await ensureDir(dirname(path));
+  const handle = await open(path, 'a');
+  try {
+    await handle.writeFile(`${JSON.stringify(value)}\n`, 'utf8');
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
 }
 
 export async function readYaml<T>(path: string, schema: ZodType<T>): Promise<T> {

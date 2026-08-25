@@ -1,4 +1,4 @@
-import { taskFileSchema, type Task, type TaskFile, type TaskStatus } from '../domain/types.js';
+import { taskFileSchema, taskIdSchema, type Task, type TaskFile, type TaskId, type TaskStatus } from '../domain/types.js';
 import { readYaml, writeYaml } from './files.js';
 
 const ALLOWED_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
@@ -17,6 +17,8 @@ const ALLOWED_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   CANCELLED: ['READY', 'SUPERSEDED'],
 };
 
+const LOCAL_TASK_ID = /^TASK-\d{3}$/;
+
 export async function loadTasks(path: string): Promise<TaskFile> {
   const taskFile = await readYaml(path, taskFileSchema);
   validateTaskGraph(taskFile);
@@ -29,6 +31,7 @@ export async function saveTasks(path: string, taskFile: TaskFile): Promise<void>
 }
 
 export function validateTaskGraph(taskFile: TaskFile): void {
+  assertProjectLocalDependencies(taskFile);
   const ids = new Set<string>();
   for (const task of taskFile.tasks) {
     if (ids.has(task.id)) throw new Error(`Duplicate task ID ${task.id}`);
@@ -44,11 +47,11 @@ export function validateTaskGraph(taskFile: TaskFile): void {
     }
   }
 
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
+  const visiting = new Set<TaskId>();
+  const visited = new Set<TaskId>();
   const byId = new Map(taskFile.tasks.map((task) => [task.id, task]));
 
-  const visit = (taskId: string): void => {
+  const visit = (taskId: TaskId): void => {
     if (visiting.has(taskId)) throw new Error(`Task dependency cycle detected at ${taskId}`);
     if (visited.has(taskId)) return;
     visiting.add(taskId);
@@ -59,6 +62,21 @@ export function validateTaskGraph(taskFile: TaskFile): void {
   };
 
   for (const task of taskFile.tasks) visit(task.id);
+}
+
+export function assertProjectLocalDependencies(taskFile: TaskFile): void {
+  for (const task of taskFile.tasks) {
+    for (const dependency of task.dependsOn) {
+      if (!LOCAL_TASK_ID.test(dependency)) {
+        throw new Error(
+          `CROSS_PROJECT_TASK_DEPENDENCY: ${task.id} references '${dependency}'. ` +
+          'Repository tasks may depend only on local TASK-* IDs; use contract:<key> in consumes/produces ' +
+          'before a snapshot exists, contractRefs for an immutable baseline, an integration gate for ' +
+          'multi-project verification, or a rollout gate for deployment order.',
+        );
+      }
+    }
+  }
 }
 
 export function taskFrontier(taskFile: TaskFile): Task[] {
@@ -97,8 +115,8 @@ export function requireTask(taskFile: TaskFile, taskId: string): Task {
   return task;
 }
 
-export function dependentTaskIds(taskFile: TaskFile, roots: string[]): string[] {
-  const affected = new Set(roots);
+export function dependentTaskIds(taskFile: TaskFile, roots: readonly string[]): TaskId[] {
+  const affected = new Set<TaskId>(roots.map((root) => taskIdSchema.parse(root)));
   let changed = true;
   while (changed) {
     changed = false;
@@ -117,7 +135,7 @@ export function invalidateTasks(taskFile: TaskFile, taskIds: string[], severe: b
 }
 
 export function invalidateExactTasks(taskFile: TaskFile, taskIds: string[], severe: boolean): void {
-  const uniqueIds = [...new Set(taskIds)];
+  const uniqueIds = [...new Set(taskIds.map((taskId) => taskIdSchema.parse(taskId)))];
   for (const taskId of uniqueIds) requireTask(taskFile, taskId);
   applyTaskInvalidation(taskFile, new Set(uniqueIds), severe);
 }
@@ -128,7 +146,7 @@ export function summarizeTasks(taskFile: TaskFile): Record<string, number> {
   return summary;
 }
 
-function applyTaskInvalidation(taskFile: TaskFile, affected: Set<string>, severe: boolean): void {
+function applyTaskInvalidation(taskFile: TaskFile, affected: ReadonlySet<TaskId>, severe: boolean): void {
   for (const task of taskFile.tasks) {
     if (!affected.has(task.id)) continue;
     if (['DONE', 'VERIFIED', 'IMPLEMENTED'].includes(task.status)) {

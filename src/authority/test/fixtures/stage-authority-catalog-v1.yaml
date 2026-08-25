@@ -1,0 +1,3865 @@
+artifactAuthority:
+  entries:
+    - activation:
+        kind: ALWAYS
+      capability: debug
+      creationMode: "0644"
+      entryId: debug:ISSUE_NARRATIVE
+      kind: FILE
+      path: issue.md
+      role: ISSUE_NARRATIVE
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/issue.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: issue-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: design
+      creationMode: "0644"
+      entryId: design:DESIGN
+      kind: FILE
+      path: design.md
+      role: DESIGN
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/design.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: design-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: diagnose
+      creationMode: "0644"
+      entryId: diagnose:RESEARCH
+      kind: FILE
+      path: research.md
+      role: RESEARCH
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/research.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: research-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: experiment
+      creationMode: "0755"
+      entryId: experiment:EXPERIMENTS
+      kind: DIRECTORY
+      minimumRegularFiles: 1
+      path: experiments/
+      role: EXPERIMENTS
+      scaffold: null
+      schemaIdentity: null
+      sourceRefFiles: RECURSIVE_REGULAR_FILES
+    - activation:
+        kind: ALWAYS
+      capability: fix
+      creationMode: "0644"
+      entryId: fix:FIX
+      kind: FILE
+      path: fix.md
+      role: FIX
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/fix.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: fix-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: frame
+      creationMode: "0644"
+      entryId: frame:INTENT
+      kind: FILE
+      path: intent.md
+      role: INTENT
+      scaffold:
+        renderInputs:
+          fields:
+            - title
+            - scenarioId
+            - workMode
+            - risk
+          kind: CHANGE_TITLE_AND_SCENARIO
+        resourcePath: resources/scaffolds/intent.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: intent-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: learn
+      creationMode: "0644"
+      entryId: learn:LEARNING
+      kind: FILE
+      path: learning.md
+      role: LEARNING
+      scaffold: null
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: map
+      creationMode: "0644"
+      entryId: map:MAP
+      kind: FILE
+      path: map.yaml
+      role: MAP
+      scaffold: null
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: mitigate
+      creationMode: "0644"
+      entryId: mitigate:RESEARCH
+      kind: FILE
+      path: research.md
+      role: RESEARCH
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/research.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: research-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: model
+      creationMode: "0644"
+      entryId: model:DOMAIN
+      kind: FILE
+      path: domain.md
+      role: DOMAIN
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/domain.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: domain-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: reproduce
+      creationMode: "0644"
+      entryId: reproduce:ISSUE_NARRATIVE
+      kind: FILE
+      path: issue.md
+      role: ISSUE_NARRATIVE
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/issue.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: issue-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: research
+      creationMode: "0644"
+      entryId: research:RESEARCH
+      kind: FILE
+      path: research.md
+      role: RESEARCH
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/research.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: research-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: ship
+      creationMode: "0644"
+      entryId: ship:DELIVERY
+      kind: FILE
+      path: delivery.md
+      role: DELIVERY
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/delivery.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: delivery-v1
+      schemaIdentity: null
+    - activation:
+        impactKey: apiContract
+        kind: SCENARIO_REQUIRES_ARTIFACT_OR_IMPACT
+        path: contract.md
+      capability: spec
+      creationMode: "0644"
+      entryId: spec:CONTRACT
+      kind: FILE
+      path: contract.md
+      role: CONTRACT
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/contract.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: contract-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: spec
+      creationMode: "0644"
+      entryId: spec:SPEC
+      kind: FILE
+      path: spec.md
+      role: SPEC
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/spec.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: spec-v1
+      schemaIdentity: null
+    - activation:
+        kind: ALWAYS
+      capability: triage
+      creationMode: "0644"
+      entryId: triage:ISSUE_NARRATIVE
+      kind: FILE
+      path: issue.md
+      role: ISSUE_NARRATIVE
+      scaffold:
+        renderInputs:
+          kind: NONE
+        resourcePath: resources/scaffolds/issue.v1.md
+        templateHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        templateId: issue-v1
+      schemaIdentity: null
+  schemaVersion: 1
+canaryPoliciesByScenario:
+  - policy:
+      minimumWindowSeconds: 900
+      schemaVersion: 1
+      signals:
+        - aggregation: EXACT_ONE
+          failureAction: PAUSE
+          measurementRequirementId: canary-consumer-health
+          signalId: consumer-health
+          sourceEvidenceRequirementIds:
+            - consumer-impact
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+        - aggregation: EXACT_ONE
+          failureAction: ROLLBACK
+          measurementRequirementId: canary-technical-health
+          signalId: technical-health
+          sourceEvidenceRequirementIds:
+            - runtime-health
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+    scenarioId: cross-service-change
+  - policy:
+      minimumWindowSeconds: 900
+      schemaVersion: 1
+      signals:
+        - aggregation: EXACT_ONE
+          failureAction: PAUSE
+          measurementRequirementId: canary-data-integrity
+          signalId: data-integrity
+          sourceEvidenceRequirementIds:
+            - data-reconciliation
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+        - aggregation: EXACT_ONE
+          failureAction: ROLLBACK
+          measurementRequirementId: canary-technical-health
+          signalId: technical-health
+          sourceEvidenceRequirementIds:
+            - post-migration-health
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+    scenarioId: data-migration
+  - policy:
+      minimumWindowSeconds: 900
+      schemaVersion: 1
+      signals:
+        - aggregation: EXACT_ONE
+          failureAction: PAUSE
+          measurementRequirementId: canary-migration-integrity
+          signalId: migration-integrity
+          sourceEvidenceRequirementIds:
+            - migration-reconciliation
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+        - aggregation: EXACT_ONE
+          failureAction: ROLLBACK
+          measurementRequirementId: canary-technical-health
+          signalId: technical-health
+          sourceEvidenceRequirementIds:
+            - runtime-health
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+    scenarioId: migration-program
+  - policy:
+      minimumWindowSeconds: 300
+      schemaVersion: 1
+      signals:
+        - aggregation: EXACT_ONE
+          failureAction: PAUSE
+          measurementRequirementId: canary-business-health
+          signalId: business-health
+          sourceEvidenceRequirementIds:
+            - product-acceptance
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+        - aggregation: EXACT_ONE
+          failureAction: ROLLBACK
+          measurementRequirementId: canary-technical-health
+          signalId: technical-health
+          sourceEvidenceRequirementIds:
+            - runtime-signal
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+    scenarioId: product-discovery
+  - policy:
+      minimumWindowSeconds: 300
+      schemaVersion: 1
+      signals:
+        - aggregation: EXACT_ONE
+          failureAction: PAUSE
+          measurementRequirementId: canary-experience-health
+          signalId: experience-health
+          sourceEvidenceRequirementIds:
+            - browser-qa
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+        - aggregation: EXACT_ONE
+          failureAction: ROLLBACK
+          measurementRequirementId: canary-technical-health
+          signalId: technical-health
+          sourceEvidenceRequirementIds:
+            - runtime-signal
+          threshold:
+            kind: GTE
+            limit: 1
+          unit: normalized-pass
+    scenarioId: ui-ux-feature
+capabilityTemplates:
+  - authoredOutputs: []
+    baseEvidenceRequirementIds: []
+    capability: archive
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+      - spec.md
+      - contract.md
+      - design.md
+      - tasks.yaml
+      - delivery.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: &a1
+      kind: NONE
+    readinessKey: null
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARCHIVE_STAGE
+  - authoredOutputs:
+      - kind: CANARY_DRAFT
+        pathTemplate: stage-outputs/<RunId>/canary.draft.json
+        role: CANARY_DRAFT
+        schemaIdentity: omnai.canary-result-draft.v1
+    baseEvidenceRequirementIds:
+      - canary-result
+    capability: canary
+    contextPaths:
+      - spec.md
+      - design.md
+      - delivery.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding:
+      compilerId: canary-policy-by-scenario-v1
+      kind: CANARY_POLICY_BY_SCENARIO_V1
+    readinessKey: canary
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: CANARY_STAGE
+  - authoredOutputs:
+      - &a2
+        kind: ARTIFACT_AUTHORITY_SET
+        selectionFormula: CAPABILITY_AND_ACTIVE_SCENARIO
+    baseEvidenceRequirementIds:
+      - root-cause
+    capability: debug
+    contextPaths:
+      - issue.md
+      - issue.yaml
+      - research.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates:
+      - kind: FIX_STRATEGY_IN
+        values:
+          - needs-experiment
+          - ready
+      - kind: ROOT_CAUSE_IS
+        value: confirmed
+    policyBinding: *a1
+    readinessKey: diagnosis
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ISSUE_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: design
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+      - spec.md
+      - contract.md
+      - design.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: design
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: diagnose
+    contextPaths:
+      - research.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: diagnosis
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: experiment
+    contextPaths:
+      - issue.md
+      - issue.yaml
+      - research.md
+      - domain.md
+      - spec.md
+      - design.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: experiment
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: fix
+    contextPaths:
+      - issue.md
+      - issue.yaml
+      - research.md
+      - experiments/
+      - fix.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: fix
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: frame
+    contextPaths:
+      - intent.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: frame
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: learn
+    contextPaths:
+      - research.md
+      - domain.md
+      - spec.md
+      - design.md
+      - fix.md
+      - learning.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: learning
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: map
+    contextPaths:
+      - intent.md
+      - research.md
+      - map.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: map
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: mitigate
+    contextPaths:
+      - intent.md
+      - research.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: mitigation
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: model
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: domain
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - kind: TASKFILE_DRAFT
+        pathTemplate: stage-outputs/<RunId>/tasks.draft.yaml
+        role: TASKFILE_DRAFT
+    baseEvidenceRequirementIds: []
+    capability: plan
+    contextPaths:
+      - research.md
+      - domain.md
+      - spec.md
+      - contract.md
+      - design.md
+      - fix.md
+      - tasks.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: plan
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: PLAN_STAGE
+  - authoredOutputs:
+      - kind: QA_DRAFT
+        pathTemplate: stage-outputs/<RunId>/qa.draft.json
+        role: QA_DRAFT
+        schemaIdentity: omnai.qa-result-draft.v1
+    baseEvidenceRequirementIds:
+      - qa-result
+    capability: qa
+    contextPaths:
+      - spec.md
+      - design.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding:
+      compilerId: qa-policy-by-scenario-v1
+      kind: QA_POLICY_BY_SCENARIO_V1
+    readinessKey: qa
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: QA_STAGE
+  - authoredOutputs: []
+    baseEvidenceRequirementIds: []
+    capability: reconcile
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+      - spec.md
+      - contract.md
+      - design.md
+      - fix.md
+      - tasks.yaml
+      - delivery.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: null
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: RECONCILE_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds:
+      - reproduction
+    capability: reproduce
+    contextPaths:
+      - intent.md
+      - issue.md
+      - issue.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates:
+      - kind: REPRODUCTION_IN
+        values:
+          - confirmed
+          - instrumentation-required
+    policyBinding: *a1
+    readinessKey: reproduction
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ISSUE_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: research
+    contextPaths:
+      - intent.md
+      - research.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: research
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - kind: REVIEW_DRAFT
+        pathTemplate: stage-outputs/<RunId>/review.draft.json
+        role: REVIEW_DRAFT
+        schemaIdentity: omnai.review-draft.v2
+    baseEvidenceRequirementIds:
+      - repository-review
+    capability: review
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+      - spec.md
+      - contract.md
+      - design.md
+      - fix.md
+      - tasks.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding:
+      compilerId: review-policy-v1
+      kind: REVIEW_POLICY_COMPILER_V1
+    readinessKey: review
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: REVIEW_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds:
+      - delivery-contract
+      - delivery-rollback
+      - delivery-runtime
+    capability: ship
+    contextPaths:
+      - spec.md
+      - contract.md
+      - design.md
+      - tasks.yaml
+      - delivery.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds:
+      - delivery-approval
+    issuePredicates: []
+    policyBinding:
+      compilerId: delivery-policy-v1
+      kind: DELIVERY_POLICY_V1
+    readinessKey: release
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: DELIVERY_STAGE
+  - authoredOutputs:
+      - basisFormula: PREPARED_REPOSITORY_BASIS
+        kind: REPOSITORY_DIFF
+        role: SIMPLIFICATION_DIFF
+        taskIdFormula: NONE
+    baseEvidenceRequirementIds:
+      - simplify-regression
+    capability: simplify
+    contextPaths:
+      - design.md
+      - tasks.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: simplification
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: SIMPLIFY_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: spec
+    contextPaths:
+      - intent.md
+      - research.md
+      - domain.md
+      - contract.md
+      - spec.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: spec
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ARTIFACT_STAGE
+  - authoredOutputs:
+      - *a2
+    baseEvidenceRequirementIds: []
+    capability: triage
+    contextPaths:
+      - intent.md
+      - research.md
+      - issue.md
+      - issue.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates:
+      - kind: TRIAGE_STATE_IN
+        values:
+          - needs-experiment
+          - ready-for-debug
+          - ready-for-fix
+          - ready-for-human
+          - wontfix
+    policyBinding: *a1
+    readinessKey: triage
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: ISSUE_STAGE
+  - authoredOutputs: []
+    baseEvidenceRequirementIds: []
+    capability: verify
+    contextPaths:
+      - spec.md
+      - contract.md
+      - design.md
+      - fix.md
+      - tasks.yaml
+      - delivery.md
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding:
+      compilerId: verify-scenario-task-evidence-v1
+      kind: VERIFY_SCENARIO_AND_TASK_EVIDENCE_V1
+    readinessKey: verification
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: VERIFY_STAGE
+  - authoredOutputs:
+      - basisFormula: PREPARED_REPOSITORY_BASIS
+        kind: REPOSITORY_DIFF
+        role: IMPLEMENTATION_DIFF
+        taskIdFormula: SELECTED_TASK
+    baseEvidenceRequirementIds:
+      - work-check
+    capability: work
+    contextPaths:
+      - spec.md
+      - contract.md
+      - design.md
+      - fix.md
+      - tasks.yaml
+    descendantCompilerId: run-descendants-v1
+    humanGateIds: []
+    issuePredicates: []
+    policyBinding: *a1
+    readinessKey: implementation
+    terminalCompilerId: stage-terminal-v1
+    terminalKind: WORK_STAGE
+catalogId: omnai.stage-authority.v1
+commonPromptContext:
+  includeDecisionSnapshots: true
+  includeFlowSnapshot: true
+  projectKnowledgePaths:
+    - glossary.md
+    - policies.md
+    - learnings.md
+compilerArtifacts:
+  - compilerId: canary-policy-by-scenario-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/canary-policy-by-scenario-v1.fn.js
+  - compilerId: delivery-policy-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/delivery-policy-v1.fn.js
+  - compilerId: prompt-render-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/prompt-render-v1.fn.js
+  - compilerId: qa-policy-by-scenario-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/qa-policy-by-scenario-v1.fn.js
+  - compilerId: review-policy-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/review-policy-v1.fn.js
+  - compilerId: run-descendants-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/run-descendants-v1.fn.js
+  - compilerId: scenario-detection-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/scenario-detection-v1.fn.js
+  - compilerId: stage-completion-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/stage-completion-v1.fn.js
+  - compilerId: stage-terminal-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/stage-terminal-v1.fn.js
+  - compilerId: verify-scenario-task-evidence-v1
+    contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    entryName: compile
+    format: VM_FUNCTION_EXPRESSION_V1
+    resourcePath: resources/authority/compilers/verify-scenario-task-evidence-v1.fn.js
+compilerRuntime:
+  allowedStaticImports:
+    - node:vm
+  contentHash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  exportName: invoke
+  format: HASH_VERIFIED_VM_RUNTIME_ESM
+  resourcePath: resources/authority/compilers/compiler-runtime-v1.mjs
+  runtimeId: compiler-runtime-v1
+evidenceTemplates:
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - qa
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: accessibility-check
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: after-benchmark
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: api-compatibility
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: architecture-review
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: baseline-benchmark
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: behavior-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - qa
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: browser-qa
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - build
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: build
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-business-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-consumer-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-data-integrity
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-experience-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-migration-integrity
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_RESULT_IMPORT
+    requirementId: canary-result
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: CANARY_MEASUREMENT_IMPORT
+    requirementId: canary-technical-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: characterization-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: code-references
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: comparison
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: compatibility-checks
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: component-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: consumer-impact
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: consumer-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: contract-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - data
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: data-reconciliation
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: decision-rationale
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: delivery-contract
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - rollback
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: delivery-rollback
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: delivery-runtime
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: dependency-map
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: deployment-logs
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: domain-decisions
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: environment-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: experiment-results
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: field-lineage
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: flow-trace
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: focused-regression
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: full-test-suite
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: historical-lineage
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: incident-timeline
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: integration-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - migration
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: migration-dry-run
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - data
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: migration-reconciliation
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: operability-check
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - build
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: package-build
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: post-migration-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: postmortem
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - qa
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: product-acceptance
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: production-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: profile-or-trace
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - qa
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: QA_RESULT_IMPORT
+    requirementId: qa-result
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: recovery-check
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: regression-test
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: regression-tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - review
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: REVIEW_RESULT_IMPORT
+    requirementId: repository-review
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: REVIEW_SCOPE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - reproduction
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: reproduction
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: retirement-proof
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - review
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: review
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - rollback
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: rollback-or-forward-fix-result
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: rollback-or-forward-fix-test
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - reproduction
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: root-cause
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: runtime-health
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: runtime-signal
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: simplify-regression
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: smoke-test
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-behavior
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-characterization
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-contract
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-deletion
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-integration
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - migration
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-migration
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - runtime
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: task-operability
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: TASK_DECLARED
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: tests
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - contract
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: GENERIC_IMPORT
+    requirementId: user-or-market-evidence
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: NONE
+  - allowedStatuses:
+      - FAIL
+      - INCONCLUSIVE
+      - PASS
+    allowedTypes:
+      - test
+    minimumRecords: 1
+    outputPolicy: OWNED_OUTPUT_REQUIRED
+    producer: VERIFICATION_COMMAND
+    requirementId: work-check
+    satisfyingStatus: PASS
+    sourceScope: RUN_BOUND
+    subjectPolicy: EXACT_RUN_SUBJECT
+    taskScopeFormula: SELECTED_TASK
+humanGateTemplates:
+  - approvedArtifactRole: DELIVERY
+    gateId: delivery-approval
+    sourceScope: RUN_BOUND
+machineAuthority:
+  authoredRules:
+    - nodeKind: DIRECTORY
+      pathSegments:
+        - kind: LITERAL
+          value: stage-outputs
+        - kind: TOKEN
+          token: <RunId>
+      policy: HISTORICAL_CAPTURE_ONLY
+      ruleId: change-stage-output-run-v1
+      scope: CHANGE
+    - nodeKind: FILE
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: investigations
+        - kind: TOKEN
+          token: <InvestigationDirectoryName>
+        - kind: LITERAL
+          value: research.md
+      policy: HISTORICAL_CAPTURE_ONLY
+      ruleId: project-investigation-research-v1
+      scope: PROJECT
+    - nodeKind: FILE
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: project
+        - kind: LITERAL
+          value: glossary.md
+      policy: HISTORICAL_CAPTURE_ONLY
+      ruleId: project-knowledge-glossary-v1
+      scope: PROJECT
+    - nodeKind: FILE
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: project
+        - kind: LITERAL
+          value: learnings.md
+      policy: HISTORICAL_CAPTURE_ONLY
+      ruleId: project-knowledge-learnings-v1
+      scope: PROJECT
+    - nodeKind: FILE
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: project
+        - kind: LITERAL
+          value: policies.md
+      policy: HISTORICAL_CAPTURE_ONLY
+      ruleId: project-knowledge-policies-v1
+      scope: PROJECT
+  files:
+    - mode: "0644"
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: investigations
+        - kind: TOKEN
+          token: <InvestigationDirectoryName>
+        - kind: LITERAL
+          value: investigation.yaml
+      ruleId: project-investigation-metadata-v1
+      schemaIdentity: omnai.investigation-metadata.v1
+      scope: PROJECT
+      seal: RAW_BYTES
+  ownedDirectories:
+    - entryPolicy: EXACT_REGISTERED_CHILDREN
+      mode: "0755"
+      pathSegments:
+        - kind: LITERAL
+          value: stage-outputs
+      ruleId: change-stage-outputs-root-v1
+      scope: CHANGE
+      seal: ENTRY_NAMES_AND_NODE_TYPES
+    - entryPolicy: EXACT_REGISTERED_CHILDREN
+      mode: "0755"
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: investigations
+        - kind: TOKEN
+          token: <InvestigationDirectoryName>
+      ruleId: project-investigation-root-v1
+      scope: PROJECT
+      seal: ENTRY_NAMES_AND_NODE_TYPES
+    - entryPolicy: EXACT_REGISTERED_CHILDREN
+      mode: "0755"
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: investigations
+      ruleId: project-investigations-root-v1
+      scope: PROJECT
+      seal: ENTRY_NAMES_AND_NODE_TYPES
+    - entryPolicy: EXACT_REGISTERED_CHILDREN
+      mode: "0755"
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: project
+      ruleId: project-knowledge-root-v1
+      scope: PROJECT
+      seal: ENTRY_NAMES_AND_NODE_TYPES
+  schemaVersion: 1
+  transientExclusions:
+    - childGrammar:
+        allowedTokens:
+          - <TargetOrdinal>
+        kind: ATOMIC_TARGETS_V1
+        relativePathPattern: <TargetOrdinal>/target.tmp
+      directoryMode: "0700"
+      kind: OWNED_DIRECTORY
+      ownerIdentity: CHANGE_AUTHORITY_OWNER
+      pathSegments:
+        - kind: LITERAL
+          value: runtime
+        - kind: LITERAL
+          value: transient
+        - kind: TOKEN
+          token: <AuthoritySequence>
+        - kind: TOKEN
+          token: <OwnerId>
+      policy: OWNER_SCOPED_NO_DURABLE_REMAINS
+      ruleId: change-atomic-targets-v1
+      scope: CHANGE
+    - childGrammar:
+        allowedRelativePaths:
+          - owner.json
+          - stage/owner.json
+        kind: CHANGE_LOCK_V1
+      directoryMode: "0700"
+      kind: OWNED_DIRECTORY
+      ownerIdentity: CHANGE_LOCK
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: runtime
+        - kind: LITERAL
+          value: change-locks
+        - kind: TOKEN
+          token: <ChangeId>
+      policy: OWNER_SCOPED_NO_DURABLE_REMAINS
+      ruleId: change-lock-v1
+      scope: PROJECT
+    - childGrammar:
+        allowedTokens:
+          - <TargetOrdinal>
+        kind: ATOMIC_TARGETS_V1
+        relativePathPattern: <TargetOrdinal>/target.tmp
+      directoryMode: "0700"
+      kind: OWNED_DIRECTORY
+      ownerIdentity: PROJECT_TRANSACTION_OWNER
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: runtime
+        - kind: LITERAL
+          value: project-atomic
+        - kind: TOKEN
+          token: <ProjectTransactionId>
+      policy: OWNER_SCOPED_NO_DURABLE_REMAINS
+      ruleId: project-atomic-targets-v1
+      scope: PROJECT
+    - childGrammar:
+        allowedFixedNodes:
+          - owner.pending
+          - owner.json
+          - tree
+        kind: PROJECT_INITIALIZATION_STAGE_V1
+        treePolicy: EXACT_NATIVE_PROJECT_PUBLICATION
+      directoryMode: "0700"
+      kind: OWNED_DIRECTORY
+      ownerIdentity: PROJECT_BOOTSTRAP_OWNER
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai-bootstrap
+        - kind: LITERAL
+          value: v0.3.0
+      policy: OWNER_SCOPED_NO_DURABLE_REMAINS
+      ruleId: project-bootstrap-v0.3
+      scope: PROJECT
+    - childGrammar:
+        allowedFixedNodes:
+          - owner.json
+          - tree
+        kind: PROJECT_CHANGE_STAGE_V1
+        treePolicy: EXACT_TARGET_CHANGE_PUBLICATION
+      directoryMode: "0700"
+      kind: OWNED_DIRECTORY
+      ownerIdentity: PROJECT_TRANSACTION_OWNER
+      pathSegments:
+        - kind: LITERAL
+          value: .omnai
+        - kind: LITERAL
+          value: changes
+        - kind: LITERAL
+          value: .omnai-staging
+        - kind: TOKEN
+          token: <ProjectTransactionId>
+        - kind: TOKEN
+          token: <StageNonce>
+      policy: OWNER_SCOPED_NO_DURABLE_REMAINS
+      ruleId: project-change-stage-v1
+      scope: PROJECT
+promptRendererId: prompt-render-v1
+protocolManifests:
+  - id: common.authoritative-work
+    kind: common
+    rawBytesHash: sha256:91498cd988cbce7e477a21609d2ffaeb9ccfb1774a6f07e4a0b514bacad3b783
+    relativePath: resources/protocols/common/authoritative-work.md
+    schemaVersion: 1
+    version: 1
+  - id: interaction.brainstorm
+    interaction: brainstorm
+    kind: interaction
+    rawBytesHash: sha256:2031947d234418ace186f5a017469a73ec4132bc2567a11688337716a3fc11dd
+    relativePath: resources/protocols/interaction/brainstorm.md
+    schemaVersion: 1
+    version: 2
+  - id: interaction.grill
+    interaction: grill
+    kind: interaction
+    rawBytesHash: sha256:48bdfb8f6d2d95e9902cba0fffe75c0f47dc4d252e0109ab815776d37789ed4d
+    relativePath: resources/protocols/interaction/grill.md
+    schemaVersion: 1
+    version: 2
+  - id: interaction.show-me
+    interaction: show-me
+    kind: interaction
+    rawBytesHash: sha256:a36455ba9b9f1e9813297f48e3c27b760027ce43c86995960fd5a3762c00764a
+    relativePath: resources/protocols/interaction/show-me.md
+    schemaVersion: 1
+    version: 1
+  - capability: archive
+    id: repository.archive
+    kind: repository-capability
+    rawBytesHash: sha256:5a8450039fdc74239a425714612c50376240b8a3a2422dd44cff7b4d6187b074
+    relativePath: resources/protocols/repository/archive.md
+    schemaVersion: 1
+    version: 1
+  - capability: canary
+    id: repository.canary
+    kind: repository-capability
+    rawBytesHash: sha256:77945a83e5107b13303dd2972ad43f508060a76b38e024db62d8abef05b1c979
+    relativePath: resources/protocols/repository/canary.md
+    schemaVersion: 1
+    version: 1
+  - capability: debug
+    id: repository.debug
+    kind: repository-capability
+    rawBytesHash: sha256:d321c53b5bd1b8f7a47d361849f9424f99010ba40721d7ebcdd3f3f97cd50586
+    relativePath: resources/protocols/repository/debug.md
+    schemaVersion: 1
+    version: 1
+  - capability: design
+    id: repository.design
+    kind: repository-capability
+    rawBytesHash: sha256:f8faae21bcc0d10d7944b1802b9e9c6886541a11587346896d45eb0631d38857
+    relativePath: resources/protocols/repository/design.md
+    schemaVersion: 1
+    version: 3
+  - capability: diagnose
+    id: repository.diagnose
+    kind: repository-capability
+    rawBytesHash: sha256:3c86276a4c0598f21ae25b223b31cfcc81ec34921df3ce4510fa43cb798fd7f2
+    relativePath: resources/protocols/repository/diagnose.md
+    schemaVersion: 1
+    version: 1
+  - capability: experiment
+    id: repository.experiment
+    kind: repository-capability
+    rawBytesHash: sha256:7ec62bb76f107557983c83e027587f22f7b68a92657afd5c00d6b4a3bc8dfa04
+    relativePath: resources/protocols/repository/experiment.md
+    schemaVersion: 1
+    version: 1
+  - capability: fix
+    id: repository.fix
+    kind: repository-capability
+    rawBytesHash: sha256:1a0a95024ea3da9a700f623fb76dc5713f3c1a82bc60143e41b69662669148fc
+    relativePath: resources/protocols/repository/fix.md
+    schemaVersion: 1
+    version: 1
+  - capability: frame
+    id: repository.frame
+    kind: repository-capability
+    rawBytesHash: sha256:6fc2bf4134bd25ed2885a2440f2e7bd9b52c3e11ebd614878b62c56a248f7afc
+    relativePath: resources/protocols/repository/frame.md
+    schemaVersion: 1
+    version: 1
+  - capability: learn
+    id: repository.learn
+    kind: repository-capability
+    rawBytesHash: sha256:e9f5f57be930ef936dbfa1c3a3b8286e8de3a596beadd48108492b219b4c91ab
+    relativePath: resources/protocols/repository/learn.md
+    schemaVersion: 1
+    version: 1
+  - capability: map
+    id: repository.map
+    kind: repository-capability
+    rawBytesHash: sha256:45cb4927ddedcc8958fad7d9be061cda8f4f850bc26d113bf0bf76ecdf8653a2
+    relativePath: resources/protocols/repository/map.md
+    schemaVersion: 1
+    version: 2
+  - capability: mitigate
+    id: repository.mitigate
+    kind: repository-capability
+    rawBytesHash: sha256:497f7bc67bd95d97259f65e1bd16a574260f4e6c35f1d982ca27ae2a1453853b
+    relativePath: resources/protocols/repository/mitigate.md
+    schemaVersion: 1
+    version: 1
+  - capability: model
+    id: repository.model
+    kind: repository-capability
+    rawBytesHash: sha256:b7063d5f3c31b8b9eb183efe0e0d61da455d37f0a734888aa56815acfa7411d6
+    relativePath: resources/protocols/repository/model.md
+    schemaVersion: 1
+    version: 2
+  - capability: plan
+    id: repository.plan
+    kind: repository-capability
+    rawBytesHash: sha256:8934ad78637bc9d2d8ab353fce9792e1f9d0a3cfd0d989d5b26ce7ae1d43f198
+    relativePath: resources/protocols/repository/plan.md
+    schemaVersion: 1
+    version: 3
+  - capability: qa
+    id: repository.qa
+    kind: repository-capability
+    rawBytesHash: sha256:dc92a4c23ddc0df55df9092fe11d6272faf95188cb83e089cf85cdaa881f1bc3
+    relativePath: resources/protocols/repository/qa.md
+    schemaVersion: 1
+    version: 1
+  - capability: reconcile
+    id: repository.reconcile
+    kind: repository-capability
+    rawBytesHash: sha256:5c50b9bbe9a1b4ef14797fe18e60e15527c692a935041b34aade4be9dcdd4186
+    relativePath: resources/protocols/repository/reconcile.md
+    schemaVersion: 1
+    version: 3
+  - capability: reproduce
+    id: repository.reproduce
+    kind: repository-capability
+    rawBytesHash: sha256:0ca2ad1464f80798d8c59c902acf21392930f8fc4f59e6568fca4c75506699a6
+    relativePath: resources/protocols/repository/reproduce.md
+    schemaVersion: 1
+    version: 1
+  - capability: research
+    id: repository.research
+    kind: repository-capability
+    rawBytesHash: sha256:f4a2b5fcda77201004e3079702eac99d8b04c76655bf2bb50d81951babb6a82f
+    relativePath: resources/protocols/repository/research.md
+    schemaVersion: 1
+    version: 2
+  - capability: review
+    id: repository.review
+    kind: repository-capability
+    rawBytesHash: sha256:2faff7976b4bb439202e9e1db1c091d1049808cdcf5064f4356a0f9f244b8deb
+    relativePath: resources/protocols/repository/review.md
+    schemaVersion: 1
+    version: 2
+  - capability: ship
+    id: repository.ship
+    kind: repository-capability
+    rawBytesHash: sha256:f70e50a9885670b19a95510133be353c391a8ba0605f0d021fbe5dd6832be39f
+    relativePath: resources/protocols/repository/ship.md
+    schemaVersion: 1
+    version: 1
+  - capability: simplify
+    id: repository.simplify
+    kind: repository-capability
+    rawBytesHash: sha256:6b2e5a14418318379e90accc95005c943e4877d34f86bcd8092208fb0b5c1b33
+    relativePath: resources/protocols/repository/simplify.md
+    schemaVersion: 1
+    version: 1
+  - capability: spec
+    id: repository.spec
+    kind: repository-capability
+    rawBytesHash: sha256:5c40b9ebbe354857596dbb0ef3f0c36485affa29439062a3c3bbe52ddadf7d64
+    relativePath: resources/protocols/repository/spec.md
+    schemaVersion: 1
+    version: 2
+  - capability: triage
+    id: repository.triage
+    kind: repository-capability
+    rawBytesHash: sha256:452feccd398c3fda6e1cd7acc94f0d4ca03531b92b541c8ba8ba2f7cd7748172
+    relativePath: resources/protocols/repository/triage.md
+    schemaVersion: 1
+    version: 1
+  - capability: verify
+    id: repository.verify
+    kind: repository-capability
+    rawBytesHash: sha256:65002f39d9f3eb10cfed6a24b71c8c3e8cbde6655fcb76747aa17640f80886da
+    relativePath: resources/protocols/repository/verify.md
+    schemaVersion: 1
+    version: 2
+  - capability: work
+    id: repository.work
+    kind: repository-capability
+    rawBytesHash: sha256:5440d7349ca88e40a5ae5d4930900f5038ec324aae8c4f1720fe79e8a7508e84
+    relativePath: resources/protocols/repository/work.md
+    schemaVersion: 1
+    version: 2
+  - actions:
+      - inspect-project
+    id: workset.candidate-research
+    kind: workset-action
+    rawBytesHash: sha256:70049f1178189d74d23854f5107faed6c86e89a2a316ec2f3339050178cb6df0
+    relativePath: resources/protocols/workset/candidate-research.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - bind-project-change
+    id: workset.project-change-binding
+    kind: workset-action
+    rawBytesHash: sha256:4f69ee8c58abd9342cb1f1930cedeed36fc7c69ebe8ac38761b2bd37609769f4
+    relativePath: resources/protocols/workset/project-change-binding.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - decide-project-impact
+    id: workset.project-impact-decision
+    kind: workset-action
+    rawBytesHash: sha256:a14fccd2261bd84aafb606091176a9b4ae8aa5cf4a3a17d5b8e5910bb636fe1b
+    relativePath: resources/protocols/workset/project-impact-decision.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - project-workflow
+    id: workset.project-workflow-handoff
+    kind: workset-action
+    rawBytesHash: sha256:8622f1c4b3c176f6547368e3f163211f83fa4909ea299a4840d777ef36533301
+    relativePath: resources/protocols/workset/project-workflow-handoff.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - apply-reentry
+    id: workset.reentry-apply
+    kind: workset-action
+    rawBytesHash: sha256:45b8fec4d05c0ee0bb3b48c559b8e1d648745c11e3c96e5debff3fb6cb8ff53d
+    relativePath: resources/protocols/workset/reentry-apply.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - record-reentry
+    id: workset.reentry-classification
+    kind: workset-action
+    rawBytesHash: sha256:4e59ba59f786a70ed853ccef112d40de60ecf0983f17bd491c1a8ed46e33b76a
+    relativePath: resources/protocols/workset/reentry-classification.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - decide-reentry
+    id: workset.reentry-decision
+    kind: workset-action
+    rawBytesHash: sha256:3946ec5078a290c0fc439503ed7fe25f685bbe75cdfa21b579685344295d6816
+    relativePath: resources/protocols/workset/reentry-decision.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - reenter
+    id: workset.reentry-interaction
+    kind: workset-action
+    rawBytesHash: sha256:be77ff4d1da25ee6f69a5b3de53107bc95e64bcabd69e1b54fd4de72c40711d3
+    relativePath: resources/protocols/workset/reentry-interaction.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - reenter
+    id: workset.reentry-plan
+    kind: workset-action
+    rawBytesHash: sha256:04f9f6519fa2e1da2a699ce55ab3e7c05c9dd472386feb789352aceff605ea15
+    relativePath: resources/protocols/workset/reentry-plan.md
+    schemaVersion: 1
+    version: 1
+  - actions:
+      - replan-reentry
+    id: workset.reentry-replan
+    kind: workset-action
+    rawBytesHash: sha256:da3b138828c691abbce8721c77cca1de5069b92e892df6447fa5be14d8a51102
+    relativePath: resources/protocols/workset/reentry-replan.md
+    schemaVersion: 1
+    version: 1
+qaPoliciesByScenario:
+  - policy:
+      checks:
+        - checkId: product-acceptance
+          evidenceRequirementIds:
+            - product-acceptance
+        - checkId: runtime-readiness
+          evidenceRequirementIds:
+            - runtime-signal
+      findingVerdicts:
+        CRITICAL: FAIL
+        IMPORTANT: CONCERNS
+        MINOR: PASS
+      schemaVersion: 1
+    scenarioId: product-discovery
+  - policy:
+      checks:
+        - checkId: independent-quality
+          evidenceRequirementIds:
+            - review
+        - checkId: regression-confidence
+          evidenceRequirementIds:
+            - tests
+      findingVerdicts:
+        CRITICAL: FAIL
+        IMPORTANT: CONCERNS
+        MINOR: PASS
+      schemaVersion: 1
+    scenarioId: quality-hardening
+  - policy:
+      checks:
+        - checkId: accessibility
+          evidenceRequirementIds:
+            - accessibility-check
+        - checkId: browser-critical-flow
+          evidenceRequirementIds:
+            - browser-qa
+      findingVerdicts:
+        CRITICAL: FAIL
+        IMPORTANT: CONCERNS
+        MINOR: PASS
+      schemaVersion: 1
+    scenarioId: ui-ux-feature
+scenarioDetectionCompilerId: scenario-detection-v1
+scenarioDetectionPolicy:
+  fallbackScenarioId: small-feature
+  normalization: JAVASCRIPT_TO_LOWER_CASE
+  overrides:
+    - candidates:
+        - cross-service-change
+        - shared-library
+      select: HIGHEST_POSITIVE_SCORE_THEN_LOWER_DETECTION_PRIORITY
+      whenBestScenarioId: architecture-governance
+  primaryOrder: SCORE_DESC_THEN_LOWER_DETECTION_PRIORITY
+  scoring: SUM_EACH_MATCHED_SIGNAL_UTF16_LENGTH_ONCE
+scenarioProfiles:
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Research current seams and lineage, model boundaries, challenge the proposal, and evolve through reversible increments.
+    detectionPriority: 9
+    gates:
+      - Alternatives and trade-offs are documented
+      - Historical lineage is checked
+      - Non-trivial claims receive adversarial review
+    id: architecture-governance
+    label: Architecture governance and evolution
+    optionalStages:
+      - map
+      - reconcile
+      - simplify
+      - spec
+    requiredArtifacts:
+      - design.md
+      - domain.md
+      - research.md
+    requiredEvidence:
+      - architecture-review
+      - characterization-tests
+      - historical-lineage
+      - operability-check
+    requiredMachineState:
+      - TASKFILE
+    risk: P1
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: HIGH
+      data: LOW
+      operational: LOW
+      reversibility: HIGH
+      security: LOW
+    routeOrder:
+      - map
+      - research
+      - model
+      - spec
+      - design
+      - review
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - architecture governance
+      - architecture review
+      - bounded context
+      - ddd
+      - decouple
+      - dependency cycle
+      - dependency direction
+      - layering violation
+      - module boundaries
+      - refactor architecture
+      - replace framework
+      - security change
+    stages:
+      - research
+      - model
+      - design
+      - review
+      - plan
+      - work
+      - verify
+      - learn
+      - archive
+    workMode: ARCHITECTURE_CHANGE
+  - defaultImpact:
+      apiContract: false
+      backend: true
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Triage a defect, reproduce it, confirm root cause, optionally experiment, make one focused fix, and add a regression guard.
+    detectionPriority: 3
+    gates:
+      - No production fix before root-cause evidence
+      - Regression evidence required
+      - Uncertain fix strategies are tested one variable at a time
+    id: bug-fix
+    label: Bug fix
+    optionalStages:
+      - design
+      - experiment
+      - reconcile
+      - research
+      - simplify
+    requiredArtifacts:
+      - fix.md
+      - issue.md
+    requiredEvidence:
+      - full-test-suite
+      - regression-test
+      - reproduction
+      - root-cause
+    requiredMachineState:
+      - ISSUE_STATE
+      - TASKFILE
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - triage
+      - reproduce
+      - debug
+      - experiment
+      - fix
+      - design
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - review
+      - learn
+    schemaVersion: 1
+    signals:
+      - bug
+      - defect
+      - exception
+      - failing test
+      - regression
+      - unexpected
+    stages:
+      - triage
+      - reproduce
+      - debug
+      - fix
+      - plan
+      - work
+      - verify
+      - review
+      - learn
+    workMode: BUG_FIX
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Recover an end-to-end business path including entry points, branches, persistence, events, remote calls, and failure paths.
+    detectionPriority: 2
+    gates:
+      - Read-only by default
+      - Happy path and meaningful failure branches are traced
+      - Business terms are not inferred from names alone
+    id: business-flow
+    label: Business flow investigation
+    optionalStages:
+      - learn
+      - model
+    requiredArtifacts:
+      - research.md
+    requiredEvidence:
+      - code-references
+      - flow-trace
+    requiredMachineState: []
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - model
+      - learn
+    schemaVersion: 1
+    signals:
+      - business flow
+      - end to end flow
+      - from api to database
+      - full flow
+      - process flow
+      - 业务流程
+      - 调用链
+    stages:
+      - research
+    workMode: READ_ONLY_QUERY
+  - defaultImpact:
+      apiContract: false
+      backend: true
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Recover current behavior and domain meaning before specifying and implementing a business capability.
+    detectionPriority: 5
+    gates:
+      - Blocking domain questions are resolved
+      - Domain ownership or lifecycle changes require approval
+    id: complex-domain-feature
+    label: Complex domain feature
+    optionalStages:
+      - frame
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - design.md
+      - domain.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - behavior-tests
+      - domain-decisions
+      - integration-tests
+    requiredMachineState:
+      - TASKFILE
+    risk: P1
+    riskDimensions:
+      businessCriticality: HIGH
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - frame
+      - research
+      - model
+      - spec
+      - design
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - authorization
+      - business rule
+      - domain model
+      - insurance rule
+      - lifecycle
+      - order state
+    stages:
+      - research
+      - model
+      - spec
+      - design
+      - plan
+      - work
+      - review
+      - verify
+      - learn
+      - archive
+    workMode: FEATURE
+  - defaultImpact:
+      apiContract: true
+      backend: true
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: true
+      security: false
+    description: Coordinate contracts, ownership, rollout, compatibility, and verification across multiple services.
+    detectionPriority: 6
+    gates:
+      - Consumer impact is known
+      - Contracts are versioned or backward compatible
+      - Rollout order is explicit
+    id: cross-service-change
+    label: Cross-service change
+    optionalStages:
+      - canary
+      - map
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - contract.md
+      - delivery.md
+      - design.md
+      - domain.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - consumer-impact
+      - contract-tests
+      - integration-tests
+      - runtime-health
+    requiredMachineState:
+      - TASKFILE
+    risk: P1
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: HIGH
+      data: LOW
+      operational: HIGH
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - map
+      - research
+      - model
+      - spec
+      - design
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - ship
+      - canary
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - api consumer
+      - cross service
+      - distributed transaction
+      - event schema
+      - multiple services
+    stages:
+      - research
+      - model
+      - spec
+      - design
+      - plan
+      - work
+      - review
+      - verify
+      - ship
+      - learn
+      - archive
+    workMode: ARCHITECTURE_CHANGE
+  - defaultImpact:
+      apiContract: false
+      backend: true
+      database: true
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: false
+      security: false
+    description: Design expand-migrate-contract phases, checkpoints, reconciliation, rollback or forward-fix, and retirement.
+    detectionPriority: 8
+    gates:
+      - Compatibility window is explicit
+      - Checkpoint and compensation strategy exist
+      - Irreversible operations require approval
+    id: data-migration
+    label: Data migration
+    optionalStages:
+      - canary
+      - map
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - delivery.md
+      - design.md
+      - domain.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - data-reconciliation
+      - migration-dry-run
+      - post-migration-health
+      - rollback-or-forward-fix-test
+    requiredMachineState:
+      - TASKFILE
+    risk: P0
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: CRITICAL
+      operational: HIGH
+      reversibility: CRITICAL
+      security: LOW
+    routeOrder:
+      - map
+      - research
+      - model
+      - spec
+      - design
+      - review
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - ship
+      - canary
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - backfill
+      - data move
+      - database migration
+      - dual write
+      - historical rows
+      - schema migration
+    stages:
+      - research
+      - model
+      - spec
+      - design
+      - review
+      - plan
+      - work
+      - verify
+      - ship
+      - learn
+      - archive
+    workMode: MIGRATION
+  - defaultImpact:
+      apiContract: false
+      backend: true
+      database: false
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: false
+      security: false
+    description: "Use a reduced but explicit gate: triage, reproduce, confirm root cause, make the smallest reversible fix, verify, review waivers, and assess delivery readiness."
+    detectionPriority: 15
+    gates:
+      - Scope is minimal
+      - Waived checks are recorded
+      - Post-release follow-up is mandatory
+    id: emergency-hotfix
+    label: Emergency hotfix
+    optionalStages:
+      - experiment
+      - reconcile
+      - research
+      - simplify
+    requiredArtifacts:
+      - delivery.md
+      - fix.md
+      - issue.md
+    requiredEvidence:
+      - focused-regression
+      - production-health
+      - reproduction
+      - smoke-test
+    requiredMachineState:
+      - ISSUE_STATE
+      - TASKFILE
+    risk: P0
+    riskDimensions:
+      businessCriticality: CRITICAL
+      compatibility: LOW
+      data: LOW
+      operational: CRITICAL
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - triage
+      - reproduce
+      - debug
+      - experiment
+      - fix
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - review
+      - ship
+      - learn
+    schemaVersion: 1
+    signals:
+      - emergency patch
+      - hotfix
+      - production bug now
+      - urgent fix
+    stages:
+      - triage
+      - reproduce
+      - debug
+      - fix
+      - plan
+      - work
+      - verify
+      - review
+      - ship
+      - learn
+    workMode: INCIDENT
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Trace a field across UI, API, DTOs, transforms, persistence, events, and remote calls without changing behavior.
+    detectionPriority: 1
+    gates:
+      - Read-only by default
+      - Trace both producers and consumers
+      - Unknown hops are reported rather than guessed
+    id: field-lineage
+    label: Field lineage investigation
+    optionalStages:
+      - learn
+    requiredArtifacts:
+      - research.md
+    requiredEvidence:
+      - code-references
+      - field-lineage
+    requiredMachineState: []
+    risk: P3
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - learn
+    schemaVersion: 1
+    signals:
+      - column mapping
+      - field lineage
+      - field read
+      - field usage
+      - field written
+      - premiumamount
+      - where does
+    stages:
+      - research
+    workMode: READ_ONLY_QUERY
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: false
+      security: false
+    description: Mitigate customer impact first, preserve evidence, find root cause, apply a bounded correction, verify recovery, and require a postmortem.
+    detectionPriority: 16
+    gates:
+      - Mitigation and root-cause correction are recorded separately
+      - Emergency changes require explicit delivery approval
+    id: incident-response
+    label: Production incident response
+    optionalStages:
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - delivery.md
+      - fix.md
+      - issue.md
+      - research.md
+    requiredEvidence:
+      - incident-timeline
+      - postmortem
+      - production-health
+      - recovery-check
+    requiredMachineState:
+      - ISSUE_STATE
+      - TASKFILE
+    risk: P0
+    riskDimensions:
+      businessCriticality: CRITICAL
+      compatibility: LOW
+      data: LOW
+      operational: CRITICAL
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - mitigate
+      - research
+      - debug
+      - fix
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - review
+      - ship
+      - learn
+    schemaVersion: 1
+    signals:
+      - customer impact
+      - incident
+      - outage
+      - production down
+      - production outage
+      - sev
+    stages:
+      - mitigate
+      - research
+      - debug
+      - fix
+      - plan
+      - work
+      - verify
+      - review
+      - ship
+      - learn
+    workMode: INCIDENT
+  - defaultImpact:
+      apiContract: true
+      backend: true
+      database: true
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: true
+      security: false
+    description: Map a destination through decision frontiers, execute multiple bounded changes, preserve lineage, and retire old paths safely.
+    detectionPriority: 7
+    gates:
+      - Destination and out-of-scope are explicit
+      - Unknowns remain fog until specifiable
+      - Historical lineage and retirement criteria exist
+    id: migration-program
+    label: Long-running migration program
+    optionalStages:
+      - canary
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - contract.md
+      - delivery.md
+      - design.md
+      - domain.md
+      - intent.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - compatibility-checks
+      - dependency-map
+      - historical-lineage
+      - migration-reconciliation
+      - retirement-proof
+    requiredMachineState:
+      - TASKFILE
+    risk: P0
+    riskDimensions:
+      businessCriticality: CRITICAL
+      compatibility: CRITICAL
+      data: LOW
+      operational: CRITICAL
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - frame
+      - map
+      - research
+      - model
+      - spec
+      - design
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - ship
+      - canary
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - decommission
+      - migration program
+      - move capability
+      - multi-month
+      - split monolith
+      - sunset
+    stages:
+      - frame
+      - map
+      - research
+      - model
+      - spec
+      - design
+      - plan
+      - work
+      - review
+      - verify
+      - ship
+      - learn
+      - archive
+    workMode: MIGRATION
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: false
+      security: false
+    description: Establish a measurable baseline, instrument boundaries, test one hypothesis at a time, and prove the improvement.
+    detectionPriority: 10
+    gates:
+      - No optimization without a baseline
+      - One hypothesis per experiment
+      - Correctness must remain intact
+    id: performance-investigation
+    label: Performance investigation
+    optionalStages:
+      - experiment
+      - reconcile
+      - ship
+      - simplify
+    requiredArtifacts:
+      - design.md
+      - research.md
+    requiredEvidence:
+      - after-benchmark
+      - baseline-benchmark
+      - profile-or-trace
+      - regression-tests
+    requiredMachineState:
+      - TASKFILE
+    risk: P1
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: HIGH
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - diagnose
+      - design
+      - experiment
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - ship
+      - learn
+    schemaVersion: 1
+    signals:
+      - cpu
+      - memory
+      - p95 latency
+      - performance regression
+      - slow
+      - throughput
+      - timeout
+    stages:
+      - research
+      - diagnose
+      - design
+      - plan
+      - work
+      - review
+      - verify
+      - learn
+    workMode: PERFORMANCE
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Challenge demand, identify the narrowest valuable wedge, define success, then move into product and engineering design.
+    detectionPriority: 11
+    gates:
+      - Target user and status quo are concrete
+      - Narrowest valuable wedge is explicit
+      - Success signal is measurable
+    id: product-discovery
+    label: Product discovery
+    optionalStages:
+      - model
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - delivery.md
+      - design.md
+      - intent.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - product-acceptance
+      - runtime-signal
+      - user-or-market-evidence
+    requiredMachineState:
+      - TASKFILE
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - frame
+      - research
+      - model
+      - spec
+      - design
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - qa
+      - review
+      - verify
+      - ship
+      - canary
+      - learn
+    schemaVersion: 1
+    signals:
+      - is this worth building
+      - mvp
+      - new product
+      - product discovery
+      - product idea
+      - startup
+    stages:
+      - frame
+      - research
+      - spec
+      - design
+      - plan
+      - work
+      - qa
+      - review
+      - verify
+      - ship
+      - canary
+      - learn
+    workMode: PRODUCT_DISCOVERY
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Strengthen an existing implementation through targeted review, tests, QA, and evidence without inventing new product scope.
+    detectionPriority: 13
+    gates:
+      - Quality findings are tied to an explicit contract or observed behavior
+      - Fixes remain within the hardening scope
+    id: quality-hardening
+    label: Quality hardening
+    optionalStages:
+      - plan
+      - qa
+      - reconcile
+      - simplify
+      - work
+    requiredArtifacts:
+      - research.md
+    requiredEvidence:
+      - review
+      - tests
+    requiredMachineState: []
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - qa
+      - review
+      - verify
+      - learn
+    schemaVersion: 1
+    signals:
+      - hardening
+      - pre release review
+      - quality hardening
+      - stabilize
+      - test coverage
+    stages:
+      - research
+      - review
+      - verify
+      - learn
+    workMode: QUALITY
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: true
+      remoteService: false
+      security: false
+    description: Pause promotion, inspect delivery evidence, choose rollback or forward-fix, and verify environment health.
+    detectionPriority: 17
+    gates:
+      - Promotion is paused before investigation
+      - Rollback capability is checked instead of assumed
+    id: release-failure
+    label: Release or deployment failure
+    optionalStages:
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - delivery.md
+      - fix.md
+      - issue.md
+      - research.md
+    requiredEvidence:
+      - deployment-logs
+      - environment-health
+      - rollback-or-forward-fix-result
+    requiredMachineState:
+      - ISSUE_STATE
+      - TASKFILE
+    risk: P0
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: CRITICAL
+      reversibility: HIGH
+      security: LOW
+    routeOrder:
+      - mitigate
+      - research
+      - debug
+      - fix
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - review
+      - ship
+      - learn
+    schemaVersion: 1
+    signals:
+      - canary failed
+      - ci/cd
+      - deployment failed
+      - release failed
+      - rollback
+    stages:
+      - mitigate
+      - research
+      - debug
+      - fix
+      - plan
+      - work
+      - verify
+      - review
+      - ship
+      - learn
+    workMode: RELEASE
+  - defaultImpact:
+      apiContract: true
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Design public interfaces first, preserve compatibility, verify consumers, and publish a traceable artifact.
+    detectionPriority: 14
+    gates:
+      - Public API is explicit
+      - Compatibility policy is defined
+      - Consumer impact is verified
+    id: shared-library
+    label: Shared SDK or library
+    optionalStages:
+      - model
+      - reconcile
+      - simplify
+    requiredArtifacts:
+      - contract.md
+      - delivery.md
+      - design.md
+      - research.md
+      - spec.md
+    requiredEvidence:
+      - api-compatibility
+      - consumer-tests
+      - package-build
+    requiredMachineState:
+      - TASKFILE
+    risk: P1
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: HIGH
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - model
+      - spec
+      - design
+      - review
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - verify
+      - ship
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - library
+      - package
+      - public api
+      - sdk
+      - shared module
+    stages:
+      - research
+      - spec
+      - design
+      - review
+      - plan
+      - work
+      - verify
+      - ship
+      - learn
+      - archive
+    workMode: FEATURE
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Deliver a focused feature through lightweight specification, design, planning, implementation, and verification.
+    detectionPriority: 4
+    gates:
+      - Acceptance criteria are observable
+      - Each task is independently verifiable
+    id: small-feature
+    label: Small, well-understood feature
+    optionalStages:
+      - learn
+      - research
+      - review
+      - simplify
+    requiredArtifacts:
+      - design.md
+      - spec.md
+    requiredEvidence:
+      - build
+      - tests
+    requiredMachineState:
+      - TASKFILE
+    risk: P3
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - spec
+      - design
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - add endpoint
+      - clear requirement
+      - single module
+      - small feature
+    stages:
+      - spec
+      - design
+      - plan
+      - work
+      - verify
+      - archive
+    workMode: FEATURE
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Answer where code, rules, ownership, or behavior live without creating a change or modifying source.
+    detectionPriority: 0
+    gates:
+      - Read-only by default
+      - Every load-bearing statement cites code or a formal artifact
+    id: system-query
+    label: Read-only system query
+    optionalStages:
+      - learn
+    requiredArtifacts:
+      - research.md
+    requiredEvidence:
+      - code-references
+    requiredMachineState: []
+    risk: P3
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - learn
+    schemaVersion: 1
+    signals:
+      - explain code
+      - system query
+      - where is
+      - which service
+      - who owns
+    stages:
+      - research
+    workMode: READ_ONLY_QUERY
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: false
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Compare uncertain approaches with explicit candidates, one-variable trials, measurable evidence, cleanup, and a bounded conclusion.
+    detectionPriority: 18
+    gates:
+      - Question and success metrics are explicit
+      - Candidates are compared under equivalent conditions
+      - Experiment code does not silently become production code
+    id: technical-experiment
+    label: Technical experiment
+    optionalStages:
+      - plan
+      - reconcile
+      - simplify
+      - work
+    requiredArtifacts:
+      - design.md
+      - research.md
+    requiredEvidence:
+      - comparison
+      - decision-rationale
+      - experiment-results
+    requiredMachineState: []
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - research
+      - design
+      - experiment
+      - reconcile
+      - plan
+      - work
+      - simplify
+      - review
+      - verify
+      - learn
+    schemaVersion: 1
+    signals:
+      - compare approaches
+      - compare queue versus polling
+      - poc
+      - proof of concept
+      - spike
+      - technical experiment
+    stages:
+      - research
+      - design
+      - experiment
+      - review
+      - verify
+      - learn
+    workMode: EXPERIMENT
+  - defaultImpact:
+      apiContract: false
+      backend: false
+      database: false
+      frontend: true
+      mq: false
+      observability: false
+      remoteService: false
+      security: false
+    description: Align user intent and interaction design, implement accessible slices, and verify affected flows in a real browser.
+    detectionPriority: 12
+    gates:
+      - Interaction states are defined
+      - Accessibility expectations are explicit
+      - Browser evidence follows project policy rather than global magic thresholds
+    id: ui-ux-feature
+    label: UI and UX feature
+    optionalStages:
+      - canary
+      - research
+      - ship
+      - simplify
+    requiredArtifacts:
+      - design.md
+      - intent.md
+      - spec.md
+    requiredEvidence:
+      - accessibility-check
+      - browser-qa
+      - component-tests
+    requiredMachineState:
+      - TASKFILE
+    risk: P2
+    riskDimensions:
+      businessCriticality: LOW
+      compatibility: LOW
+      data: LOW
+      operational: LOW
+      reversibility: LOW
+      security: LOW
+    routeOrder:
+      - frame
+      - research
+      - spec
+      - design
+      - plan
+      - work
+      - simplify
+      - qa
+      - review
+      - verify
+      - ship
+      - canary
+      - learn
+      - archive
+    schemaVersion: 1
+    signals:
+      - browser
+      - component
+      - frontend
+      - page
+      - react
+      - ui
+      - ux
+    stages:
+      - frame
+      - spec
+      - design
+      - plan
+      - work
+      - qa
+      - review
+      - verify
+      - learn
+      - archive
+    workMode: FEATURE
+schemaVersion: 1
+taskEvidenceRequirementIds:
+  - task-behavior
+  - task-characterization
+  - task-contract
+  - task-deletion
+  - task-integration
+  - task-migration
+  - task-operability
+verificationCommandExecution:
+  environment: FIXED_MINIMAL
+  filesystemWrites: OVERLAY_ONLY
+  maximumCombinedOutputBytes: 33554432
+  network: DENY
+  repositoryView: DISPOSABLE_BASIS_OVERLAY
+  shell: DISABLED
+  timeoutSeconds: 1800
+worksetReentryPolicies:
+  - kind: DOMAIN_CHANGED
+    minimumReconcileLevel: L3
+    route:
+      capability: model
+      interaction: grill
+      reason: Domain meaning, ownership, lifecycle, or invariant changed.
+    rulesVersion: 1
+  - kind: IMPLEMENTATION_DETAIL_CHANGED
+    minimumReconcileLevel: L0
+    route:
+      capability: work
+      interaction: show-me
+      reason: The change is bounded to implementation detail and does not reopen upstream decisions.
+    rulesVersion: 1
+  - kind: NEEDS_EXPERIMENT
+    minimumReconcileLevel: L2
+    route:
+      capability: experiment
+      interaction: show-me
+      reason: The remaining implementation choice requires measured evidence.
+    rulesVersion: 1
+  - kind: PLAN_CHANGED
+    minimumReconcileLevel: L1
+    route:
+      capability: plan
+      interaction: brainstorm
+      reason: Only task structure, dependency order, or delivery sequencing changed.
+    rulesVersion: 1
+  - kind: PRODUCT_CHANGED
+    minimumReconcileLevel: L4
+    route:
+      capability: frame
+      interaction: grill
+      reason: Product goal or user outcome changed and requires a new decision.
+    rulesVersion: 1
+  - kind: REALITY_CHANGED
+    minimumReconcileLevel: L4
+    route:
+      capability: research
+      interaction: show-me
+      reason: Current-system reality changed or is no longer trustworthy.
+    rulesVersion: 1
+  - kind: SCOPE_CHANGED
+    minimumReconcileLevel: L3
+    route:
+      capability: spec
+      interaction: grill
+      reason: Scope, acceptance criteria, or non-goals changed.
+    rulesVersion: 1
+  - kind: TECHNICAL_CONSTRAINT_CHANGED
+    minimumReconcileLevel: L2
+    route:
+      capability: design
+      interaction: brainstorm
+      reason: A technical constraint invalidated the selected implementation approach.
+    rulesVersion: 1

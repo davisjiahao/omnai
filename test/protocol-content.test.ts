@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CAPABILITIES } from '../src/domain/types.js';
 import {
+  EXECUTION_PROTOCOL_RUN_KINDS,
   loadProtocol,
   repositoryProtocolId,
 } from '../src/protocols/index.js';
@@ -68,4 +69,20 @@ test('capability-specific safety rules survive extraction from embedded prompts'
   for (const [capability, pattern] of expected) {
     assert.match((await loadProtocol(repositoryProtocolId(capability))).content, pattern, capability);
   }
+});
+
+test('execution role protocols declare bounded inputs, outputs, evidence, authority, and stop conditions', async () => {
+  for (const id of Object.keys(EXECUTION_PROTOCOL_RUN_KINDS) as Array<keyof typeof EXECUTION_PROTOCOL_RUN_KINDS>) {
+    const document = await loadProtocol(id);
+    assert.equal(document.kind, 'execution-role', id);
+    assert.match(document.content, /## Allowed inputs/i, id);
+    assert.match(document.content, /## Structured output/i, id);
+    assert.match(document.content, /## Evidence expectations/i, id);
+    assert.match(document.content, /## Forbidden authority/i, id);
+    assert.match(document.content, /## Stop and signal conditions/i, id);
+  }
+  assert.match((await loadProtocol('execution.project-writer')).content, /must not create the final Git commit/i);
+  assert.match((await loadProtocol('execution.recovery-writer')).content, /TDD_PROOF_UNAVAILABLE/i);
+  assert.match((await loadProtocol('execution.project-reviewer')).content, /must not write project source/i);
+  assert.match((await loadProtocol('execution.project-test-planner')).content, /ProjectTestPlanCandidate/);
 });

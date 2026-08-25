@@ -1,84 +1,37 @@
 import { z } from 'zod';
+import { requireVerifiedAuthorityCatalog } from '../authority/catalog-loader.js';
+import {
+  WORKSET_PROTOCOL_ACTIONS,
+  type StageAuthorityCatalogV1,
+} from '../authority/catalog-schema.js';
 import { CAPABILITIES, type Capability } from '../domain/types.js';
 
-export const WORKSET_PROTOCOL_ACTIONS = [
-  'inspect-project',
-  'decide-project-impact',
-  'bind-project-change',
-  'record-reentry',
-  'reenter',
-  'decide-reentry',
-  'apply-reentry',
-  'replan-reentry',
-  'finalize-reentry',
-  'project-workflow',
-] as const;
+export { WORKSET_PROTOCOL_ACTIONS };
+function freezeProtocolRegistry<const Values extends readonly string[]>(values: Values): Values {
+  return Object.freeze([...values]) as unknown as Values;
+}
 
-export const PROTOCOL_INTERACTIONS = [
-  'grill',
-  'brainstorm',
-  'show-me',
-] as const;
-
-export const PROTOCOL_IDS = [
-  'common.authoritative-work',
-  'repository.frame',
-  'repository.research',
-  'repository.map',
-  'repository.model',
-  'repository.spec',
-  'repository.design',
-  'repository.plan',
-  'repository.triage',
-  'repository.reproduce',
-  'repository.debug',
-  'repository.diagnose',
-  'repository.experiment',
-  'repository.fix',
-  'repository.mitigate',
-  'repository.work',
-  'repository.simplify',
-  'repository.review',
-  'repository.verify',
-  'repository.qa',
-  'repository.ship',
-  'repository.release',
-  'repository.canary',
-  'repository.learn',
-  'repository.archive',
-  'repository.reconcile',
-  'interaction.grill',
-  'interaction.brainstorm',
-  'interaction.show-me',
-  'workset.candidate-research',
-  'workset.project-impact-decision',
-  'workset.project-change-binding',
-  'workset.project-workflow-handoff',
-  'workset.reentry-classification',
-  'workset.reentry-interaction',
-  'workset.reentry-plan',
-  'workset.reentry-decision',
-  'workset.reentry-apply',
-  'workset.reentry-replan',
-  'workset.reentry-finalize',
-] as const;
-
-export const PROTOCOL_ERROR_CODES = [
+const PROTOCOL_INTERACTION_VALUES = freezeProtocolRegistry(['grill', 'brainstorm', 'show-me'] as const);
+export const PROTOCOL_INTERACTIONS = freezeProtocolRegistry(PROTOCOL_INTERACTION_VALUES);
+const PROTOCOL_ERROR_CODE_VALUES = freezeProtocolRegistry([
   'PROTOCOL_UNKNOWN',
   'PROTOCOL_RESOURCE_MISSING',
   'PROTOCOL_METADATA_INVALID',
   'PROTOCOL_MAPPING_MISSING',
   'PROTOCOL_PACKAGE_ROOT_NOT_FOUND',
-] as const;
+  'PROTOCOL_HASH_MISMATCH',
+] as const);
+export const PROTOCOL_ERROR_CODES = freezeProtocolRegistry(PROTOCOL_ERROR_CODE_VALUES);
 
-export type ProtocolId = (typeof PROTOCOL_IDS)[number];
+export type ProtocolId = string;
 export type RepositoryProtocolId = `repository.${Capability}`;
 export type ProtocolInteraction = (typeof PROTOCOL_INTERACTIONS)[number];
 export type InteractionProtocolId = `interaction.${ProtocolInteraction}`;
-export type WorksetProtocolId = Extract<ProtocolId, `workset.${string}`>;
+export type WorksetProtocolId = `workset.${string}`;
 export type ProtocolKind = 'common' | 'repository-capability' | 'interaction' | 'workset-action';
 export type WorksetProtocolAction = (typeof WORKSET_PROTOCOL_ACTIONS)[number];
 export type ProtocolErrorCode = (typeof PROTOCOL_ERROR_CODES)[number];
+export type ProtocolManifest = StageAuthorityCatalogV1['protocolManifests'][number];
 
 export interface ProtocolRef {
   id: ProtocolId;
@@ -109,66 +62,48 @@ export class ProtocolError extends Error {
   }
 }
 
-const protocolIdSchema = z.enum(PROTOCOL_IDS);
-const capabilitySchema = z.enum(CAPABILITIES);
-const protocolInteractionSchema = z.enum(PROTOCOL_INTERACTIONS);
-const worksetActionSchema = z.enum(WORKSET_PROTOCOL_ACTIONS);
+const protocolInteractionSchema = z.enum(PROTOCOL_INTERACTION_VALUES);
+const worksetActionSchema = z.enum(freezeProtocolRegistry(WORKSET_PROTOCOL_ACTIONS));
 
+// 背景：frontmatter 只描述已由 StageAuthorityCatalogV1 选中的资源；它本身不再承担 protocol
+// inventory 权限。目的：严格解析对象形状后，由 loader 将每个字段与 manifest 逐项绑定。
+// 上下文：故 id 是非空字符串而不是本地 enum，真正的成员资格必须异步查询已验证 catalog。
 export const protocolMetadataSchema = z.discriminatedUnion('kind', [
-  z.object({
-    schemaVersion: z.literal(1),
-    id: protocolIdSchema,
-    version: z.number().int().positive(),
-    kind: z.literal('common'),
-  }).strict(),
-  z.object({
-    schemaVersion: z.literal(1),
-    id: protocolIdSchema,
-    version: z.number().int().positive(),
-    kind: z.literal('repository-capability'),
-    capability: capabilitySchema,
-  }).strict(),
-  z.object({
-    schemaVersion: z.literal(1),
-    id: protocolIdSchema,
-    version: z.number().int().positive(),
-    kind: z.literal('interaction'),
-    interaction: protocolInteractionSchema,
-  }).strict(),
-  z.object({
-    schemaVersion: z.literal(1),
-    id: protocolIdSchema,
-    version: z.number().int().positive(),
-    kind: z.literal('workset-action'),
-    actions: z.array(worksetActionSchema).min(1),
-  }).strict(),
+  z.strictObject({ schemaVersion: z.literal(1), id: z.string().min(1), version: z.number().int().positive(), kind: z.literal('common') }),
+  z.strictObject({ schemaVersion: z.literal(1), id: z.string().min(1), version: z.number().int().positive(), kind: z.literal('repository-capability'), capability: z.enum(CAPABILITIES) }),
+  z.strictObject({ schemaVersion: z.literal(1), id: z.string().min(1), version: z.number().int().positive(), kind: z.literal('interaction'), interaction: protocolInteractionSchema }),
+  z.strictObject({ schemaVersion: z.literal(1), id: z.string().min(1), version: z.number().int().positive(), kind: z.literal('workset-action'), actions: z.array(worksetActionSchema).min(1) }),
 ]);
-
 export type ProtocolMetadata = z.infer<typeof protocolMetadataSchema>;
 
-export function parseProtocolId(value: string): ProtocolId {
-  if (!(PROTOCOL_IDS as readonly string[]).includes(value)) {
-    throw new ProtocolError('PROTOCOL_UNKNOWN', `Unknown protocol '${value}'.`);
-  }
-  return value as ProtocolId;
+export async function listProtocolManifests(): Promise<readonly ProtocolManifest[]> {
+  return (await requireVerifiedAuthorityCatalog()).protocolManifests;
 }
 
-export function repositoryProtocolId(capability: Capability): RepositoryProtocolId {
-  const id = `repository.${capability}` as RepositoryProtocolId;
-  if (!(PROTOCOL_IDS as readonly string[]).includes(id)) {
-    throw new ProtocolError(
-      'PROTOCOL_MAPPING_MISSING',
-      `Capability '${capability}' has no canonical repository protocol.`,
-    );
-  }
-  return id;
+export async function listProtocolIds(): Promise<readonly ProtocolId[]> {
+  return (await listProtocolManifests()).map((manifest) => manifest.id);
 }
 
-export function protocolRelativePath(id: ProtocolId): string {
-  if (id === 'common.authoritative-work') return 'common/authoritative-work.md';
-  const separator = id.indexOf('.');
-  if (separator <= 0 || separator === id.length - 1) {
-    throw new ProtocolError('PROTOCOL_MAPPING_MISSING', `Protocol '${id}' has no canonical path mapping.`);
+export async function getProtocolManifest(value: string): Promise<ProtocolManifest> {
+  const manifest = (await listProtocolManifests()).find((candidate) => candidate.id === value);
+  if (!manifest) throw new ProtocolError('PROTOCOL_UNKNOWN', `Unknown protocol '${value}'.`);
+  return manifest;
+}
+
+export async function parseProtocolId(value: string): Promise<ProtocolId> {
+  return (await getProtocolManifest(value)).id;
+}
+
+export async function repositoryProtocolId(capability: Capability): Promise<RepositoryProtocolId> {
+  const id = `repository.${capability}`;
+  const manifest = await getProtocolManifest(id);
+  if (manifest.kind !== 'repository-capability' || manifest.capability !== capability) {
+    throw new ProtocolError('PROTOCOL_MAPPING_MISSING', `Capability '${capability}' has no canonical repository protocol.`);
   }
-  return `${id.slice(0, separator)}/${id.slice(separator + 1)}.md`;
+  return manifest.id as RepositoryProtocolId;
+}
+
+export async function protocolRelativePath(value: string): Promise<string> {
+  const manifest = await getProtocolManifest(value);
+  return manifest.relativePath.slice('resources/protocols/'.length);
 }

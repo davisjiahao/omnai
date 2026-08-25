@@ -62,3 +62,26 @@ test('review completion requires every risk-impact lens and no blocking findings
     await fixture.cleanup();
   }
 });
+
+test('architecture-governance review requires the Core-selected architecture lens', async () => {
+  const fixture = await createTestRepository();
+  try {
+    const change = await createChange(fixture.root, 'Resolve an internal dependency cycle', 'architecture-governance');
+    const reviewPath = changeArtifactPath(fixture.root, change.directoryName, 'evidence/review.json');
+    const lenses = selectReviewLenses(getScenario(change.metadata.scenario), change.metadata.risk, change.metadata.impact);
+    assert.ok(lenses.includes('architecture'));
+
+    await writeTextAtomic(reviewPath, reviewRecord(
+      change.metadata.id,
+      change.metadata.activeRevision,
+      lenses.filter((lens) => lens !== 'architecture'),
+    ));
+    await assert.rejects(() => completeStage(fixture.root, change, 'review'), /missing review lenses: architecture/i);
+
+    await writeTextAtomic(reviewPath, reviewRecord(change.metadata.id, change.metadata.activeRevision, lenses));
+    await completeStage(fixture.root, change, 'review');
+    assert.equal(change.metadata.readiness.review, 'READY');
+  } finally {
+    await fixture.cleanup();
+  }
+});

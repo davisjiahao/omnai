@@ -10,10 +10,16 @@ This Skill is a thin entry. The canonical Brainstorm method lives in `interactio
 ## Route and load
 
 1. Run `omnai context --json`.
-2. In Workset scope, run `omnai workset next --json`. Continue only when the returned action calls for Brainstorm, then load its ordered `protocolIds` with `omnai protocol show <protocolIds...> --json`.
-3. In repository scope, run `omnai next --json`, keep the returned active repository capability protocol, and load it together with `interaction.brainstorm` using `omnai protocol show interaction.brainstorm <protocolIds...> --json`.
-4. Execute the loaded bundle only inside the active capability and its owning artifact.
-5. Record the selected approach and consequences in authoritative artifacts, then return control to deterministic routing by running the applicable next --json command again.
+2. In Workset scope, run a fresh `omnai workset next --json`. Continue only when the returned action calls for Brainstorm, then load only its ordered `protocolIds` with `omnai protocol show <protocolIds...> --json`.
+3. In repository scope, run a fresh `omnai next --json`. Retain its `decisionIds`, ordered `protocolIds`, Revision, Baseline, and `flowHash` as one exact route snapshot; load that bundle, which includes `interaction.brainstorm` and the active repository capability protocol.
+4. Execute the canonical method only for the first returned decision ID and inside the active capability.
+
+## Repository resolution slot
+
+1. Before the mutating resolve response for a repository DecisionRecord, obtain a fresh route with `omnai next --json`. Workset Re-entry actions instead follow their loaded Workset protocol bundle and return to `omnai workset next --json`.
+2. Exactly compare Revision, Baseline, `flowHash`, `decisionIds`, and ordered `protocolIds` with the retained snapshot. If any field differs, discard the pending resolution and load the new route.
+3. Resolve the same routed record through Core with `omnai decision resolve <decision> <resolution-file> --json` and the authority flag required by Core.
+4. After one bounded action, return to deterministic routing by running the applicable `next --json` command again.
 
 ## Safety
 

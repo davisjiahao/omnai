@@ -1,31 +1,36 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { relative } from 'node:path';
-import type { Capability, EvidenceRecord, ReconcileLevel } from './domain/types.js';
-import { CAPABILITIES, RECONCILE_LEVELS } from './domain/types.js';
+import { readFile } from 'node:fs/promises';
+import { relative, resolve as resolvePath } from 'node:path';
+import YAML from 'yaml';
+import { z, type ZodType } from 'zod';
+import type { Capability, EvidenceRecord, FlowPlan, ReconcileLevel } from './domain/types.js';
+import {
+  CAPABILITIES,
+  RECONCILE_LEVELS,
+  decisionResolutionInputSchema,
+  flowAssessmentProposalSchema,
+  openDecisionInputSchema,
+  sourceRefSchema,
+} from './domain/types.js';
 import { changeArtifactPath, findRepositoryRoot, omnaiRoot } from './core/paths.js';
 import {
   createChange,
+  archiveChange,
   initializeProject,
   listChanges,
   loadProjectConfig,
   markReadiness,
   resolveChange,
-  saveChange,
   selectChange,
 } from './core/store.js';
 import { detectScenario, getScenario, listScenarios } from './core/scenarios.js';
-import { readinessTable, resolveNextAction } from './core/readiness.js';
+import { readinessTable } from './core/readiness.js';
 import { completeStage, prepareStage, shortRunSummary } from './core/stages.js';
 import {
   loadTasks,
-  refreshTaskReadiness,
-  requireTask,
-  saveTasks,
   summarizeTasks,
-  taskFrontier,
-  transitionTask,
 } from './core/tasks.js';
 import { appendJsonLine, pathExists } from './core/files.js';
 import { evidenceSummary, findEvidenceGaps, listEvidence, recordEvidence, recordHumanApproval, runVerificationCommand } from './core/evidence.js';
@@ -35,8 +40,24 @@ import { createInvestigation, promoteInvestigation, type InvestigationKind } fro
 import { loadIssueState, saveIssueState, transitionIssue, ISSUE_TRIAGE_STATES } from './core/issues.js';
 import { buildEvidenceMatrix, selectReviewLenses } from './core/policy.js';
 import { evaluateGuard } from './core/guards.js';
-import { repositoryProtocolId, validateCanonicalProtocolInventory } from './protocols/index.js';
+import { validateCanonicalProtocolInventory } from './protocols/index.js';
+import {
+  resolveRepositoryFlowSnapshot,
+  resolveRepositoryRoute,
+  type RepositoryRoute,
+} from './core/router.js';
+import { applyFlowAssessment } from './core/flow-assessment.js';
+import {
+  listDecisions,
+  openDecision,
+  requireDecision,
+  resolveDecision,
+  supersedeDecision,
+} from './core/decisions.js';
 import { OMNAI_VERSION } from './version.js';
+import { mutateImplementationTask } from './core/task-mutations.js';
+
+const sourceRefsInputSchema = z.array(sourceRefSchema).min(1);
 
 const program = new Command();
 program
@@ -96,7 +117,7 @@ program
     const repoRoot = findRepositoryRoot();
     const change = await resolveChange(repoRoot, reference);
     const scenario = getScenario(change.metadata.scenario);
-    const next = resolveNextAction(change.metadata, scenario);
+    const next = await resolveRepositoryRoute(repoRoot, change);
     const evidence = await listEvidence(repoRoot, change);
     const matrix = buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact);
     const gaps = findEvidenceGaps(matrix, evidence, change.metadata.activeRevision);
@@ -110,6 +131,8 @@ program
     console.log(`Evidence: ${JSON.stringify(evidenceSummary(evidence))}`);
     console.log(`Evidence gaps: ${gaps.map((item) => item.id).join(', ') || 'none'}`);
     console.log(`Review lenses: ${selectReviewLenses(scenario, change.metadata.risk, change.metadata.impact).join(', ')}`);
+    console.log(`Flow hash: ${next.flowHash}`);
+    console.log(`Decision causes: ${next.decisionIds.join(', ') || 'none'}`);
     console.log(`Next: ${next.capability ?? 'none'} — ${next.reason}`);
   });
 
@@ -121,18 +144,147 @@ program
   .action(async (reference: string | undefined, options: { json?: boolean }) => {
     const repoRoot = findRepositoryRoot();
     const change = await resolveChange(repoRoot, reference);
-    const next = resolveNextAction(change.metadata, getScenario(change.metadata.scenario));
-    const result = {
-      ...next,
-      protocolIds: next.capability ? [repositoryProtocolId(next.capability)] : [],
-    };
+    const next = await resolveRepositoryRoute(repoRoot, change);
     if (options.json) {
-      console.log(JSON.stringify(result, null, 2));
+      console.log(JSON.stringify(next, null, 2));
     } else {
       console.log(next.capability ?? 'none');
       console.log(next.reason);
+      console.log(`Flow hash: ${next.flowHash}`);
+      console.log(`Decision causes: ${next.decisionIds.join(', ') || 'none'}`);
     }
     if (next.blocked) process.exitCode = 2;
+  });
+
+const flowCommand = program.command('flow').description('Inspect or reassess adaptive Flow state');
+flowCommand
+  .command('status')
+  .description('Show the accepted FlowPlan')
+  .argument('[change]', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (reference: string | undefined, options: { json?: boolean }) => {
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, reference);
+    const { flow, route } = await resolveRepositoryFlowSnapshot(repoRoot, change);
+    printFlow(flow, options.json, route);
+  });
+flowCommand
+  .command('assess')
+  .description('Apply an exact Revision/Baseline Flow assessment proposal')
+  .argument('<assessment-file>', 'Strict YAML or JSON assessment proposal')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (assessmentPath: string, options: { change?: string; json?: boolean }) => {
+    const proposal = await readStructuredInput(assessmentPath, flowAssessmentProposalSchema);
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const result = await applyFlowAssessment(repoRoot, change, proposal);
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(`Flow ${result.flow.changeId} ${result.flow.revision} / ${result.flow.baseline}`);
+      console.log(result.reconcile
+        ? `Reconciled ${result.reconcile.revision.id} / ${result.reconcile.revision.baseline}`
+        : 'Reconcile: not required');
+    }
+  });
+
+const decisionCommand = program.command('decision').description('Inspect or mutate guarded Decision records');
+decisionCommand
+  .command('list')
+  .description('List Decision records for a Change')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (options: { change?: string; json?: boolean }) => {
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const decisions = await listDecisions(repoRoot, change);
+    if (options.json) {
+      console.log(JSON.stringify(decisions, null, 2));
+    } else if (decisions.length === 0) {
+      console.log('No decisions.');
+    } else {
+      for (const decision of decisions) {
+        console.log(`${decision.id}  ${decision.status.padEnd(10)} ${decision.kind.padEnd(12)} ${decision.question}`);
+      }
+    }
+  });
+decisionCommand
+  .command('show')
+  .description('Show one Decision record')
+  .argument('<decision>', 'Decision ID')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (decisionId: string, options: { change?: string; json?: boolean }) => {
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const decision = await requireDecision(repoRoot, change, decisionId);
+    printDecision(decision, options.json);
+  });
+decisionCommand
+  .command('open')
+  .description('Open a Decision from a strict input file')
+  .argument('<input-file>', 'Strict YAML or JSON Decision input')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (inputPath: string, options: { change?: string; json?: boolean }) => {
+    const input = await readStructuredInput(inputPath, openDecisionInputSchema);
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const decision = await openDecision(repoRoot, change, input);
+    printDecision(decision, options.json);
+  });
+decisionCommand
+  .command('resolve')
+  .description('Resolve a Decision from a strict input file')
+  .argument('<decision>', 'Decision ID')
+  .argument('<resolution-file>', 'Strict YAML or JSON resolution input')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--human-confirmed', 'Confirm HUMAN_CONFIRMED authority explicitly')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (
+    decisionId: string,
+    resolutionPath: string,
+    options: { change?: string; humanConfirmed?: boolean; json?: boolean },
+  ) => {
+    const resolution = await readStructuredInput(resolutionPath, decisionResolutionInputSchema);
+    if (resolution.authority === 'HUMAN_CONFIRMED' && !options.humanConfirmed) {
+      throw new Error('HUMAN_CONFIRMATION_REQUIRED');
+    }
+    if (resolution.authority !== 'HUMAN_CONFIRMED' && options.humanConfirmed) {
+      throw new Error('HUMAN_CONFIRMATION_NOT_APPLICABLE');
+    }
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const decision = await resolveDecision(repoRoot, change, decisionId, resolution);
+    printDecision(decision, options.json);
+  });
+decisionCommand
+  .command('supersede')
+  .description('Supersede a Decision with another live Decision')
+  .argument('<decision>', 'Decision ID to supersede')
+  .argument('<replacement>', 'Live replacement Decision ID')
+  .requiredOption('--reason <reason>', 'Why the Decision is superseded')
+  .requiredOption('--source <source-file>', 'Strict YAML or JSON SourceRef array')
+  .option('-C, --change <change>', 'Change ID or slug')
+  .option('--json', 'Print machine-readable JSON')
+  .action(async (
+    decisionId: string,
+    replacementId: string,
+    options: { reason: string; source: string; change?: string; json?: boolean },
+  ) => {
+    const sourceRefs = await readStructuredInput(options.source, sourceRefsInputSchema);
+    const repoRoot = findRepositoryRoot();
+    const change = await resolveChange(repoRoot, options.change);
+    const decision = await supersedeDecision(
+      repoRoot,
+      change,
+      decisionId,
+      replacementId,
+      options.reason,
+      sourceRefs,
+    );
+    printDecision(decision, options.json);
   });
 
 const investigationCommand = program.command('investigate').description('Run a read-only investigation outside Change state');
@@ -240,7 +392,7 @@ for (const capability of CAPABILITIES.filter((item) => !['work', 'verify', 'ship
       }
       const prepared = await prepareStage(repoRoot, change, capability, instruction ?? '');
       console.log(shortRunSummary(prepared));
-      console.log(`Read and execute: ${prepared.manifest.promptPath}`);
+      console.log(`Read and execute: ${prepared.promptPath}`);
     });
 }
 
@@ -255,11 +407,6 @@ program
   .action(async (taskId: string | undefined, options: { change?: string; done?: boolean; verified?: boolean; block?: string }) => {
     const repoRoot = findRepositoryRoot();
     const change = await resolveChange(repoRoot, options.change);
-    const tasksPath = changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml');
-    const taskFile = refreshTaskReadiness(await loadTasks(tasksPath));
-    const task = taskId ? requireTask(taskFile, taskId) : taskFrontier(taskFile)[0];
-    if (!task) throw new Error('No ready task exists. Run omnai status or reconcile the task graph.');
-
     if (!options.block && !options.done && !options.verified) {
       const issuePath = changeArtifactPath(repoRoot, change.directoryName, 'issue.yaml');
       if (await pathExists(issuePath)) {
@@ -270,43 +417,30 @@ program
     }
 
     if (options.block) {
-      if (task.status !== 'BLOCKED') transitionTask(taskFile, task.id, 'BLOCKED');
-      task.notes.push(options.block);
-      await saveTasks(tasksPath, taskFile);
-      await appendTaskEvent(repoRoot, change, task.id, 'TASK_BLOCKED', options.block);
+      const { task } = await mutateImplementationTask(repoRoot, change, {
+        action: 'BLOCK', ...(taskId ? { taskId } : {}), reason: options.block,
+      });
       console.log(`Blocked ${task.id}: ${options.block}`);
       return;
     }
     if (options.done) {
-      if (task.status === 'RUNNING') transitionTask(taskFile, task.id, 'IMPLEMENTED');
-      else if (task.status !== 'IMPLEMENTED') throw new Error(`${task.id} must be RUNNING before --done`);
-      await saveTasks(tasksPath, taskFile);
-      await markReadiness(repoRoot, change, 'implementation', 'CONCERNS');
-      await appendTaskEvent(repoRoot, change, task.id, 'TASK_IMPLEMENTED');
+      const { task } = await mutateImplementationTask(repoRoot, change, {
+        action: 'IMPLEMENTED', ...(taskId ? { taskId } : {}),
+      });
       console.log(`${task.id} implemented; fresh verification is still required.`);
       return;
     }
     if (options.verified) {
-      const evidence = await listEvidence(repoRoot, change);
-      const missing = task.evidenceRequired.filter((requirement) => !evidence.some((record) => record.revision === change.metadata.activeRevision && record.status === 'PASS' && record.requirementId === requirement && (!record.taskId || record.taskId === task.id)));
-      if (missing.length > 0) throw new Error(`${task.id} is missing PASS evidence for: ${missing.join(', ')}`);
-      if (task.status === 'IMPLEMENTED') transitionTask(taskFile, task.id, 'VERIFYING');
-      if (task.status === 'VERIFYING') transitionTask(taskFile, task.id, 'VERIFIED');
-      if (task.status === 'VERIFIED') transitionTask(taskFile, task.id, 'DONE');
-      if (task.status !== 'DONE') throw new Error(`${task.id} must be IMPLEMENTED or VERIFYING before --verified`);
-      refreshTaskReadiness(taskFile);
-      await saveTasks(tasksPath, taskFile);
-      if (taskFile.tasks.every((item) => item.status === 'DONE')) await markReadiness(repoRoot, change, 'implementation', 'READY');
-      await appendTaskEvent(repoRoot, change, task.id, 'TASK_DONE');
+      const { task } = await mutateImplementationTask(repoRoot, change, {
+        action: 'VERIFIED', ...(taskId ? { taskId } : {}),
+      });
       console.log(`${task.id} marked DONE with matching evidence.`);
       return;
     }
 
-    if (task.status === 'READY') transitionTask(taskFile, task.id, 'RUNNING');
-    if (task.status !== 'RUNNING') throw new Error(`${task.id} is ${task.status}, not READY or RUNNING`);
-    await saveTasks(tasksPath, taskFile);
-    await markReadiness(repoRoot, change, 'implementation', 'IN_PROGRESS');
-    await appendTaskEvent(repoRoot, change, task.id, 'TASK_STARTED');
+    const { task } = await mutateImplementationTask(repoRoot, change, {
+      action: 'START', ...(taskId ? { taskId } : {}),
+    });
     const prepared = await prepareStage(repoRoot, change, 'work', `Implement ${task.id}: ${task.title}\n\n${task.objective}`);
     console.log(`${task.id}: ${task.title}`);
     console.log(shortRunSummary(prepared));
@@ -478,13 +612,11 @@ program
     const gaps = findEvidenceGaps(buildEvidenceMatrix(scenario, change.metadata.risk, change.metadata.impact), evidence, change.metadata.activeRevision);
     const unfinished = tasks.tasks.filter((task) => !['DONE', 'CANCELLED', 'SUPERSEDED'].includes(task.status));
     const reviewReady = !scenario.stages.includes('review') || change.metadata.readiness.review === 'READY';
-    const releaseReady = !scenario.stages.some((stage) => stage === 'ship' || stage === 'release') || change.metadata.readiness.release === 'READY';
+    const releaseReady = !scenario.stages.includes('ship') || change.metadata.readiness.release === 'READY';
     if (!options.force && (unfinished.length > 0 || gaps.length > 0 || change.metadata.readiness.verification !== 'READY' || !reviewReady || !releaseReady)) {
       throw new Error(`Archive gate failed: unfinished=${unfinished.length}, evidenceGaps=${gaps.map((item) => item.id).join(',') || 'none'}, verification=${change.metadata.readiness.verification}, review=${change.metadata.readiness.review}, release=${change.metadata.readiness.release}`);
     }
-    change.metadata.status = 'ARCHIVED';
-    await saveChange(repoRoot, change);
-    await appendTaskEvent(repoRoot, change, undefined, 'CHANGE_ARCHIVED');
+    await archiveChange(repoRoot, change);
     console.log(`Archived ${change.metadata.id}. History remains under .omnai/changes/${change.directoryName}`);
   });
 
@@ -517,6 +649,37 @@ program.parseAsync(process.argv).catch((error: unknown) => {
   console.error(`OmnAI error: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });
+
+async function readStructuredInput<T>(path: string, schema: ZodType<T>): Promise<T> {
+  const raw = await readFile(resolvePath(path), 'utf8');
+  const decoded = path.toLowerCase().endsWith('.json') ? JSON.parse(raw) : YAML.parse(raw);
+  return schema.parse(decoded);
+}
+
+function printFlow(
+  flow: FlowPlan,
+  json?: boolean,
+  route?: RepositoryRoute,
+): void {
+  const selectedInteraction = route?.protocolIds.find((id) => id.startsWith('interaction.')) ?? null;
+  if (json) {
+    console.log(JSON.stringify(route ? { ...flow, selectedInteraction } : flow, null, 2));
+    return;
+  }
+  console.log(`${flow.changeId} ${flow.revision} / ${flow.baseline}`);
+  console.log(`Assessment: ${flow.assessment.scale}, ${flow.assessment.topology}, ${flow.assessment.deliveryShape}`);
+  if (route) console.log(`Selected interaction: ${selectedInteraction ?? 'none'}`);
+  console.log(`Input hash: ${flow.inputHash}`);
+}
+
+function printDecision(decision: Awaited<ReturnType<typeof requireDecision>>, json?: boolean): void {
+  if (json) {
+    console.log(JSON.stringify(decision, null, 2));
+    return;
+  }
+  console.log(`${decision.id} ${decision.status} ${decision.kind} (${decision.owner})`);
+  console.log(decision.question);
+}
 
 function assertInvestigationKind(value: string): asserts value is InvestigationKind {
   if (!['system-query', 'field-lineage', 'business-flow'].includes(value)) throw new Error(`Unsupported investigation kind '${value}'`);

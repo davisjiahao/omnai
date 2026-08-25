@@ -1,18 +1,14 @@
 import { readdir } from 'node:fs/promises';
 import { pathExists, readYaml, writeYaml } from '../core/files.js';
 import { listChanges } from '../core/store.js';
-import { ensureExecutionWorkspace } from './execution-workspace.js';
 import { createWorksetWorktree } from './git-worktrees.js';
 import { requireRegisteredProject } from './project-registry.js';
 import {
-  personalConfigPath,
   worksetManifestPath,
   worksetsRoot,
 } from './paths.js';
 import {
-  personalConfigSchema,
   worksetSchema,
-  type PersonalConfig,
   type Workset,
   type WorksetMember,
 } from './types.js';
@@ -23,23 +19,11 @@ export interface WorksetNextAction {
   reason: string;
 }
 
-export async function createWorkset(home: string, title: string): Promise<Workset> {
-  const id = await nextWorksetId(home);
-  const now = new Date().toISOString();
-  const workset = worksetSchema.parse({
-    schemaVersion: 1,
-    id,
-    slug: slugify(title),
-    title,
-    status: 'OPEN',
-    members: [],
-    createdAt: now,
-    updatedAt: now,
-  });
-  await saveWorkset(home, workset);
-  await ensureExecutionWorkspace(home, workset);
-  await savePersonalConfig(home, { schemaVersion: 1, activeWorkset: id });
-  return workset;
+export async function createWorkset(_home: string, _title: string): Promise<Workset> {
+  // 背景：final-v0.3 删除 PersonalConfig，但 legacy Workset writer 仍在模块加载时导入该符号，
+  // 导致 package root/CLI 连 --version 都无法链接。目的：Plan 06 publication transaction 接入前
+  // 明确 fail-closed；本计划只恢复模块可链接性，不伪造 v2 writer、兼容 config 或 partial state。
+  throw new Error('NATIVE_WORKSET_PUBLICATION_UNAVAILABLE: Plan 06 Workset writer is not active');
 }
 
 export async function listWorksets(home: string): Promise<Workset[]> {
@@ -64,11 +48,9 @@ export async function resolveWorkset(home: string, reference?: string): Promise<
     return workset;
   }
 
-  const config = await loadPersonalConfig(home);
-  if (!config.activeWorkset) throw new Error('No active Workset is selected.');
-  const workset = worksets.find((item) => item.id === config.activeWorkset);
-  if (!workset) throw new Error(`Active Workset '${config.activeWorkset}' was not found.`);
-  return workset;
+  throw new Error(
+    'NATIVE_WORKSET_PUBLICATION_UNAVAILABLE: implicit active Workset resolution requires the Plan 06 authority context',
+  );
 }
 
 export async function saveWorkset(home: string, workset: Workset): Promise<void> {
@@ -181,30 +163,4 @@ function requireMember(workset: Workset, projectAlias: string): WorksetMember {
   const member = workset.members.find((item) => item.project === projectAlias);
   if (!member) throw new Error(`Project '${projectAlias}' is not a member of ${workset.id}.`);
   return member;
-}
-
-async function loadPersonalConfig(home: string): Promise<PersonalConfig> {
-  const path = personalConfigPath(home);
-  if (!(await pathExists(path))) return personalConfigSchema.parse({ schemaVersion: 1, activeWorkset: null });
-  return readYaml(path, personalConfigSchema);
-}
-
-async function savePersonalConfig(home: string, config: PersonalConfig): Promise<void> {
-  await writeYaml(personalConfigPath(home), personalConfigSchema.parse(config));
-}
-
-async function nextWorksetId(home: string): Promise<string> {
-  const worksets = await listWorksets(home);
-  const next = worksets.reduce((maximum, workset) => Math.max(maximum, Number(workset.id.slice(4))), 0) + 1;
-  return `WKS-${String(next).padStart(4, '0')}`;
-}
-
-function slugify(value: string): string {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, '-')
-    .replace(/^-+|-+$/g, '');
-  if (!slug) throw new Error('Workset title must contain at least one letter or number.');
-  return slug;
 }

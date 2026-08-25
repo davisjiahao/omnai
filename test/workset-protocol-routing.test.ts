@@ -35,7 +35,8 @@ test('packaged interaction and Workset protocols have exact metadata bindings', 
     const metadata = YAML.parse(match[1] ?? '') as Record<string, unknown>;
     assert.equal(metadata.schemaVersion, 1, id);
     assert.equal(metadata.id, id, id);
-    assert.equal(metadata.version, 1, id);
+    const expectedVersion = id === 'interaction.grill' || id === 'interaction.brainstorm' ? 2 : 1;
+    assert.equal(metadata.version, expectedVersion, id);
     for (const [key, value] of Object.entries(expected)) assert.deepEqual(metadata[key], value, `${id}:${key}`);
   }
 });

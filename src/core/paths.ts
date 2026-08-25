@@ -1,26 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { join } from 'node:path';
 
-export function findRepositoryRoot(startDirectory = process.cwd()): string {
-  try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: startDirectory,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    let current = resolve(startDirectory);
-    while (true) {
-      if (existsSync(join(current, '.git'))) return current;
-      const parent = dirname(current);
-      if (parent === current) {
-        throw new Error(`No Git repository found from ${startDirectory}`);
-      }
-      current = parent;
-    }
-  }
-}
+export { findRepositoryRoot } from './repository-root.js';
 
 export function omnaiRoot(repoRoot: string): string {
   return join(repoRoot, '.omnai');
@@ -64,4 +44,20 @@ export function changeEvidenceRoot(repoRoot: string, directoryName: string): str
 
 export function changeRevisionsRoot(repoRoot: string, directoryName: string): string {
   return join(changeRoot(repoRoot, directoryName), 'revisions');
+}
+
+export function changeDecisionsRoot(repoRoot: string, directoryName: string): string {
+  return join(changeRoot(repoRoot, directoryName), 'decisions');
+}
+
+export function changeDecisionPath(repoRoot: string, directoryName: string, decisionId: string): string {
+  return join(changeDecisionsRoot(repoRoot, directoryName), `${decisionId}.yaml`);
+}
+
+export function changeFlowPath(repoRoot: string, directoryName: string): string {
+  return join(changeRoot(repoRoot, directoryName), 'flow.yaml');
+}
+
+export function changeMutationLockPath(repoRoot: string, directoryName: string): string {
+  return join(changeRoot(repoRoot, directoryName), '.core-mutation.lock');
 }

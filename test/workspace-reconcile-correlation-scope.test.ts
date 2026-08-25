@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { changeArtifactPath } from '../src/core/paths.js';
+import { join } from 'node:path';
+import { changeArtifactPath, changeRevisionsRoot } from '../src/core/paths.js';
 import { reconcileChange } from '../src/core/reconcile.js';
 import { resolveChange } from '../src/core/store.js';
 import { loadTasks, saveTasks } from '../src/core/tasks.js';
+import { readYaml, writeYaml } from '../src/core/files.js';
+import { revisionSchema } from '../src/domain/types.js';
 import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { registerProject } from '../src/workspace/project-registry.js';
 import { applyWorksetReentry } from '../src/workspace/reconcile-apply.js';
@@ -64,9 +67,12 @@ test('correlation recovery rejects a repository Revision whose Task scope differ
       reason: decided.reason,
       affectedReadiness: application.readinessClosure,
       affectedTasks: application.taskRoots,
-      affectedTaskClosure: ['TASK-001'],
+      affectedTaskClosure: application.taskClosure,
       correlationId: `${decided.id}/user`,
     });
+    const revisionPath = join(changeRevisionsRoot(member.worktree, change.directoryName), 'REV-0002.yaml');
+    const revision = await readYaml(revisionPath, revisionSchema);
+    await writeYaml(revisionPath, { ...revision, affectedTasks: ['TASK-001'] });
 
     const recovered = await applyWorksetReentry(home.root, workset.id, decided.id, 'user');
     assert.equal(recovered.status, 'DECIDED');

@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "identity": {
+    "changeId": "CHG-0001",
+    "revision": "REV-0001",
+    "runId": "RUN-000001",
+    "capability": "plan"
+  },
+  "instruction": "验证\n计划",
+  "protocols": [
+    {
+      "id": "common.authoritative-work",
+      "version": 1,
+      "relativePath": "resources/protocols/common/authoritative-work.md",
+      "rawBytesHash": "sha256:2ceb58c7c2994e69f133fccb2b8af0adc2373d1738d08870a79ae0690f9c79a2",
+      "rawUtf8": "common\n"
+    },
+    {
+      "id": "repository.plan",
+      "version": 1,
+      "relativePath": "resources/protocols/repository/plan.md",
+      "rawBytesHash": "sha256:64879f7d6b960a01909762d911a32d4582c20010c5641ee90278b644a9e3b525",
+      "rawUtf8": "plan"
+    }
+  ],
+  "contexts": [
+    {
+      "locator": { "scope": "CHANGE", "path": "intent.md" },
+      "kind": "MISSING"
+    },
+    {
+      "locator": { "scope": "CHANGE", "path": "experiments/" },
+      "kind": "DIRECTORY",
+      "entries": [
+        {
+          "path": "experiments/a.md",
+          "rawUtf8": "A\n",
+          "rawBytesHash": "sha256:06f961b802bc46ee168555f066d28f4f0e9afdf3f88174c1ee6f9de004fc30a0"
+        },
+        {
+          "path": "experiments/b.md",
+          "rawUtf8": "B",
+          "rawBytesHash": "sha256:df7e70e5021544f4834bbee64a9e3789febc4be81470df629cad6ddb03320a5c"
+        }
+      ],
+      "inventoryHash": "sha256:d2fbef335ca9b27f770156a47c32be2052a753d913ffd835f95c49e0a8aafafd"
+    }
+  ],
+  "flowSnapshot": {
+    "value": { "flow": "locked" },
+    "canonicalHash": "sha256:2b0a5d2c91e8e91deee76437ff36a6c82259f85721194d81047b805ee248fc7d"
+  },
+  "decisionSnapshots": [
+    {
+      "decisionId": "DEC-0001",
+      "value": { "choice": "A" },
+      "canonicalHash": "sha256:8fbedba22667454c97b89d45b65f7e3f1d29b5f5e821adad0fe57c2c74de9f05"
+    },
+    {
+      "decisionId": "DEC-0002",
+      "value": { "choice": "B" },
+      "canonicalHash": "sha256:7c071c875fae5ac65835de1410465c15c8d6e2e226353990eaf61deb55a4da4c"
+    }
+  ],
+  "authorityContract": {
+    "schemaVersion": 3,
+    "changeId": "CHG-0001",
+    "runId": "RUN-000001",
+    "capability": "plan",
+    "revision": "REV-0001",
+    "preparedFromAuthorityHead": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "prepareOwner": {
+      "sequence": 2,
+      "owner": { "kind": "STAGE_PREPARE", "id": "RUN-000001" },
+      "operationRequestId": "prepare-compiler-golden",
+      "requestDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "authoredOutputBindings": [
+      {
+        "kind": "TASKFILE_DRAFT",
+        "role": "TASKFILE_DRAFT",
+        "path": "stage-outputs/RUN-000001/tasks.draft.yaml"
+      }
+    ],
+    "allowedDescendants": [],
+    "terminal": {
+      "kind": "PLAN_STAGE",
+      "draftRole": "TASKFILE_DRAFT",
+      "sourceTasksHash": "sha256:f3b3c9c6d22a8601952d9a8722ee37c0bb60949418b57d32a1073ee0d35ac9ce",
+      "requireNonemptyWorkPlan": true
+    },
+    "terminalHash": "sha256:1e76c9095bdda79b92d723d98ef15944b49a67dc71d4e09dbb1e61f03f7d49e6"
+  }
+}

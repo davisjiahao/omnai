@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
+import { loadProtocolBundle } from '../src/protocols/loader.js';
 import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { createTestDirectory, createTestRepository } from './helpers.js';
 import { registerProject } from '../src/workspace/project-registry.js';
@@ -129,6 +130,40 @@ test('oldest pending Re-entry outranks ordinary active-project work', async () =
     /B2a lifecycle|cannot be resolved directly/i,
   );
   assert.equal((await resolveWorksetNext(home.root, workset.id) as { reentryId?: string }).reentryId, first.id);
+});
+
+test('real Grill and Brainstorm WRE routes use Re-entry identity instead of Project DecisionRecords', async () => {
+  const cases = [
+    { kind: 'DOMAIN_CHANGED' as const, interaction: 'grill' as const, interactionProtocol: 'interaction.grill' as const },
+    { kind: 'TECHNICAL_CONSTRAINT_CHANGED' as const, interaction: 'brainstorm' as const, interactionProtocol: 'interaction.brainstorm' as const },
+  ];
+  for (const current of cases) {
+    const home = await createTestDirectory('omnai-home-');
+    const projectRepo = await createTestRepository(`wre-${current.interaction}`);
+    cleanups.push(home.cleanup, projectRepo.cleanup);
+    await registerProject(home.root, projectRepo.root, 'project');
+    const workset = await createWorkset(home.root, `${current.interaction} Re-entry`);
+    await activate(home.root, workset.id, 'project');
+    const reentry = await recordWorksetReentry(home.root, workset.id, {
+      kind: current.kind,
+      reason: `${current.interaction} the changed premise.`,
+      affectedProjects: ['project'],
+    });
+
+    const route = await resolveWorksetNext(home.root, workset.id);
+    assert.equal(route.action, 'reenter');
+    if (route.action !== 'reenter') throw new Error('expected a Workset Re-entry route');
+    assert.equal(route.reentryId, reentry.id);
+    assert.equal(route.interaction, current.interaction);
+    assert.equal('decisionIds' in route, false);
+    const bundle = await loadProtocolBundle(route.protocolIds);
+    const interaction = bundle.protocols.find(({ id }) => id === current.interactionProtocol);
+    assert.ok(interaction);
+    assert.match(interaction.content, /Repository Decision mode/i);
+    assert.match(interaction.content, /Workset Re-entry mode/i);
+    assert.match(interaction.content, /WRE-|Re-entry ID/i);
+    assert.match(interaction.content, /does not require|without.*DecisionRecord/i);
+  }
 });
 
 test('planned PENDING Re-entry routes to explicit decision instead of repeating the interaction', async () => {

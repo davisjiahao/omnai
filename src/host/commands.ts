@@ -1,6 +1,9 @@
 import { Command } from 'commander';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
+import { pathExists, readYaml } from '../core/files.js';
+import { probeAgent } from '../execution/agents/profiles.js';
+import type { AgentProbe, AgentProfile } from '../execution/agents/types.js';
 import {
   loadProtocolBundle,
   parseProtocolId,
@@ -21,6 +24,7 @@ import {
   type UserHost,
   type UserHostInstallResult,
   type UserHostStatus,
+  userHostManifestSchema,
 } from './user-host-skills.js';
 
 export function isUserLevelCommand(value: string | undefined): boolean {
@@ -80,11 +84,12 @@ export function createUserLevelProgram(): Command {
         resolveUserHome(),
         parseHostSelection(value),
       );
+      const publicStatuses = await statusesWithAgentReadiness(statuses);
       if (options.json) {
-        printJson(statuses);
+        printJson(publicStatuses);
         return;
       }
-      printStatuses(statuses);
+      printStatuses(publicStatuses);
     });
 
   const protocol = program
@@ -225,10 +230,80 @@ function printInstallResults(results: UserHostInstallResult[]): void {
   }
 }
 
-function printStatuses(statuses: UserHostStatus[]): void {
+interface PublicAgentReadiness {
+  agentId: string;
+  protocol: 'acp' | 'native';
+  available: boolean;
+  authenticated: boolean;
+  protocolVersion: number | null;
+  activeSessions: number;
+  maxParallelSessions: number;
+  isolation: {
+    mode: 'agent-sandbox' | 'process-sandbox' | 'none';
+    enforcedWorkspaceRoots: boolean;
+  };
+}
+
+type PublicUserHostStatus = UserHostStatus & { agents: PublicAgentReadiness[] };
+
+async function statusesWithAgentReadiness(
+  statuses: UserHostStatus[],
+): Promise<PublicUserHostStatus[]> {
+  const projected: PublicUserHostStatus[] = [];
+  for (const status of statuses) {
+    const agents: PublicAgentReadiness[] = [];
+    if (await pathExists(status.manifestPath)) {
+      const manifest = await readYaml(status.manifestPath, userHostManifestSchema);
+      for (const profile of manifest.agents) {
+        try {
+          const probe = await probeAgent(profile);
+          agents.push(publicAgentReadiness(profile, probe));
+        } catch {
+          agents.push({
+            agentId: profile.agentId,
+            protocol: profile.protocol,
+            available: false,
+            authenticated: false,
+            protocolVersion: null,
+            activeSessions: 0,
+            maxParallelSessions: profile.maxParallelSessions,
+            isolation: profile.isolation,
+          });
+        }
+      }
+    }
+    projected.push({ ...status, agents });
+  }
+  return projected;
+}
+
+function publicAgentReadiness(
+  profile: AgentProfile,
+  probe: AgentProbe,
+): PublicAgentReadiness {
+  return {
+    agentId: profile.agentId,
+    protocol: profile.protocol,
+    available: probe.available,
+    authenticated: probe.authenticated,
+    protocolVersion: probe.protocolVersion,
+    activeSessions: probe.activeSessions,
+    maxParallelSessions: profile.maxParallelSessions,
+    isolation: profile.isolation,
+  };
+}
+
+function printStatuses(statuses: PublicUserHostStatus[]): void {
   for (const status of statuses) {
     const detail = status.details.length > 0 ? ` — ${status.details.join('; ')}` : '';
     console.log(`${status.host.padEnd(8)} ${status.status.padEnd(13)} ${status.destination}${detail}`);
+    for (const agent of status.agents) {
+      console.log(
+        `  ${agent.agentId} ${agent.available ? 'AVAILABLE' : 'UNAVAILABLE'} ` +
+        `${agent.authenticated ? 'AUTHENTICATED' : 'UNAUTHENTICATED'} ` +
+        `${agent.activeSessions}/${agent.maxParallelSessions}`,
+      );
+    }
   }
 }
 

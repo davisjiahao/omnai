@@ -60,7 +60,7 @@ test('protocol show returns common plus the requested protocol without local sou
     'repository.design',
   ]);
   assert.equal('sourcePath' in parsed.protocols[0]!, false);
-  assert.match(parsed.rendered, /protocol:repository\.design@1/);
+  assert.match(parsed.rendered, /protocol:repository\.design@3/);
 });
 
 test('protocol show preserves requested order and deduplicates repeated IDs', async () => {

@@ -5,8 +5,10 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
 import {
-  PROTOCOL_IDS,
   ProtocolError,
+  getProtocolManifest,
+  listProtocolIds,
+  parseProtocolId,
   protocolMetadataSchema,
   protocolRelativePath,
   type ProtocolBundle,
@@ -17,16 +19,15 @@ import {
 
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)([\s\S]*)$/;
 
-export function locateProtocolRoot(candidates?: string[]): string {
+export async function locateProtocolRoot(candidates?: string[]): Promise<string> {
   const currentFile = fileURLToPath(import.meta.url);
   const roots = candidates ?? [
     resolve(dirname(currentFile), '../../../resources/protocols'),
     resolve(dirname(currentFile), '../../resources/protocols'),
     resolve(process.cwd(), 'resources', 'protocols'),
   ];
-  const match = roots.find((candidate) =>
-    existsSync(join(resolve(candidate), protocolRelativePath('common.authoritative-work'))),
-  );
+  const commonPath = await protocolRelativePath('common.authoritative-work');
+  const match = roots.find((candidate) => existsSync(join(resolve(candidate), commonPath)));
   if (!match) {
     throw new ProtocolError(
       'PROTOCOL_PACKAGE_ROOT_NOT_FOUND',
@@ -37,13 +38,16 @@ export function locateProtocolRoot(candidates?: string[]): string {
 }
 
 export async function loadProtocol(
-  id: ProtocolId,
-  protocolRoot = locateProtocolRoot(),
+  requestedId: string,
+  protocolRoot?: string,
 ): Promise<ProtocolDocument> {
-  const sourcePath = resolve(protocolRoot, protocolRelativePath(id));
-  let fullText: string;
+  const id = await parseProtocolId(requestedId);
+  const manifest = await getProtocolManifest(id);
+  const root = protocolRoot ?? await locateProtocolRoot();
+  const sourcePath = resolve(root, await protocolRelativePath(id));
+  let rawBytes: Buffer;
   try {
-    fullText = await readFile(sourcePath, 'utf8');
+    rawBytes = await readFile(sourcePath);
   } catch (error) {
     if (isMissingFileError(error)) {
       throw new ProtocolError(
@@ -55,13 +59,30 @@ export async function loadProtocol(
     throw error;
   }
 
+  const hash = hashRawBytes(rawBytes);
+  if (hash !== manifest.rawBytesHash) {
+    throw new ProtocolError(
+      'PROTOCOL_HASH_MISMATCH',
+      `Protocol '${id}' at ${sourcePath} has hash '${hash}', expected '${manifest.rawBytesHash}'.`,
+    );
+  }
+  let fullText: string;
+  try {
+    fullText = new TextDecoder('utf-8', { fatal: true }).decode(rawBytes);
+  } catch (error) {
+    throw new ProtocolError(
+      'PROTOCOL_METADATA_INVALID',
+      `Protocol '${id}' at ${sourcePath} is not valid UTF-8.`,
+      { cause: error },
+    );
+  }
   const { metadata, body } = parseProtocolFile(id, sourcePath, fullText);
-  validateIdSpecificMetadata(id, metadata, sourcePath);
+  validateManifestMetadata(manifest, metadata, sourcePath);
 
   return {
     id,
     version: metadata.version,
-    hash: hashText(fullText),
+    hash,
     kind: metadata.kind,
     content: body,
     sourcePath,
@@ -69,10 +90,10 @@ export async function loadProtocol(
 }
 
 export async function loadProtocolBundle(
-  ids: ProtocolId[],
-  protocolRoot = locateProtocolRoot(),
+  ids: readonly string[],
+  protocolRoot?: string,
 ): Promise<ProtocolBundle> {
-  const ordered = deduplicateProtocolIds(['common.authoritative-work', ...ids]);
+  const ordered = deduplicateProtocolIds(await Promise.all(['common.authoritative-work', ...ids].map(parseProtocolId)));
   const protocols: ProtocolDocument[] = [];
   for (const id of ordered) protocols.push(await loadProtocol(id, protocolRoot));
   const rendered = protocols
@@ -82,10 +103,10 @@ export async function loadProtocolBundle(
 }
 
 export async function validateCanonicalProtocolInventory(
-  protocolRoot = locateProtocolRoot(),
+  protocolRoot?: string,
 ): Promise<ProtocolDocument[]> {
   const documents: ProtocolDocument[] = [];
-  for (const id of PROTOCOL_IDS) documents.push(await loadProtocol(id, protocolRoot));
+  for (const id of await listProtocolIds()) documents.push(await loadProtocol(id, protocolRoot));
   return documents;
 }
 
@@ -125,24 +146,28 @@ function parseProtocolFile(
   return { metadata: parsed.data, body: match[2] ?? '' };
 }
 
-function validateIdSpecificMetadata(
-  id: ProtocolId,
+function validateManifestMetadata(
+  manifest: Awaited<ReturnType<typeof getProtocolManifest>>,
   metadata: ProtocolMetadata,
   sourcePath: string,
 ): void {
+  const id = manifest.id as ProtocolId;
   if (metadata.id !== id) {
     throw metadataError(id, sourcePath, `frontmatter id '${metadata.id}' does not match the requested path.`);
   }
+  if (metadata.version !== manifest.version) {
+    throw metadataError(id, sourcePath, `version '${metadata.version}' must match '${manifest.version}'.`);
+  }
 
-  if (id === 'common.authoritative-work') {
+  if (manifest.kind === 'common') {
     if (metadata.kind !== 'common') {
       throw metadataError(id, sourcePath, `kind '${metadata.kind}' must be 'common'.`);
     }
     return;
   }
 
-  if (id.startsWith('repository.')) {
-    const expectedCapability = id.slice('repository.'.length);
+  if (manifest.kind === 'repository-capability') {
+    const expectedCapability = manifest.capability;
     if (metadata.kind !== 'repository-capability') {
       throw metadataError(id, sourcePath, `kind '${metadata.kind}' must be 'repository-capability'.`);
     }
@@ -156,8 +181,8 @@ function validateIdSpecificMetadata(
     return;
   }
 
-  if (id.startsWith('interaction.')) {
-    const expectedInteraction = id.slice('interaction.'.length);
+  if (manifest.kind === 'interaction') {
+    const expectedInteraction = manifest.interaction;
     if (metadata.kind !== 'interaction') {
       throw metadataError(id, sourcePath, `kind '${metadata.kind}' must be 'interaction'.`);
     }
@@ -173,6 +198,12 @@ function validateIdSpecificMetadata(
 
   if (metadata.kind !== 'workset-action') {
     throw metadataError(id, sourcePath, `kind '${metadata.kind}' must be 'workset-action'.`);
+  }
+  if (
+    metadata.actions.length !== manifest.actions.length
+    || metadata.actions.some((action, index) => action !== manifest.actions[index])
+  ) {
+    throw metadataError(id, sourcePath, 'actions must match the verified manifest exactly.');
   }
 }
 
@@ -194,7 +225,7 @@ function deduplicateProtocolIds(ids: ProtocolId[]): ProtocolId[] {
   return ordered;
 }
 
-function hashText(content: string): string {
+function hashRawBytes(content: Uint8Array): string {
   return `sha256:${createHash('sha256').update(content).digest('hex')}`;
 }
 

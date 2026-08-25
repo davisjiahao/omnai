@@ -1,26 +1,53 @@
+import { channel } from 'node:diagnostics_channel';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
-  impactModelSchema,
-  readinessSchema,
-  riskModelSchema,
-  type ImpactModel,
-  type ReadinessStatus,
-  type RiskDimensionLevel,
-  type RiskLevel,
+  changeMetadataSchema,
+  type ChangeMetadata,
 } from '../domain/types.js';
-import { appendJsonLine, ensureDir, pathExists, writeTextAtomic, writeYaml } from './files.js';
-import { createInitialIssueState } from './issues.js';
-import { changeArtifactPath, changeRoot } from './paths.js';
-import { reconcileChange, type ReconcileResult } from './reconcile.js';
+import { withChangeMutationLock } from './change-mutation-lock.js';
+import { hashCanonicalArtifact } from './canonical-hash-internal.js';
+import { assertDecisionReconcileTransactionFence } from './decision-reconcile-transaction.js';
+import { ensureDir, pathExists, readText, readYaml, writeTextAtomic } from './files.js';
+import { assertFlowTransactionFence } from './flow-transaction.js';
+import {
+  assertOrdinaryReconcileTransactionFence,
+  loadOrdinaryReconcileTransactionForSourceRevision,
+} from './ordinary-reconcile-transaction.js';
+import { resultForCompletedTransaction } from './ordinary-reconcile-recovery.js';
+import {
+  reconcileOrdinaryWithinChangeLock,
+  type ReconcileResult,
+} from './ordinary-reconcile-orchestration.js';
+import { changeArtifactPath, changeMetadataPath, changeRoot } from './paths.js';
+import { incrementBaseline, incrementRevision } from './revision-ids.js';
 import { getScenario } from './scenarios.js';
+import {
+  assertSemanticMutationFence,
+  assertSemanticMutationRequestPreflight,
+  completeSemanticMutationTransaction,
+  ensureSemanticMutationAudits,
+  loadCompletedSemanticMutationForSource,
+  loadPendingSemanticMutation,
+  nextSemanticMutationIdentity,
+  semanticMutationTransactionSchema,
+  writeSemanticMutationTransaction,
+  type ScenarioSemanticMutation,
+} from './semantic-mutation-journal.js';
 import type { ChangeRef } from './store.js';
 import { loadTasks } from './tasks.js';
-import { contractTemplate, deliveryTemplate, fixTemplate, issueTemplate } from './templates.js';
+import { assertTransactionLineageIntegrity } from './transaction-lineage-integrity.js';
+import {
+  scenarioArtifactSpecifications,
+  scenarioReclassificationMetadata,
+} from './scenario-reclassification-target.js';
 
 export interface ReclassifyResult {
   change: ChangeRef;
   reconcile: ReconcileResult;
 }
+
+const mutationChannel = channel('omnai:core:change-mutation');
 
 export async function reclassifyChange(
   repoRoot: string,
@@ -28,154 +55,256 @@ export async function reclassifyChange(
   scenarioId: string,
   reason = 'Scenario profile reclassified',
 ): Promise<ReclassifyResult> {
-  if (change.metadata.status === 'ARCHIVED') throw new Error('Archived Changes cannot be reclassified.');
+  const request = { scenarioId, reason };
+  await assertSemanticMutationRequestPreflight(repoRoot, change, 'SCENARIO_RECLASSIFY', request);
+  const pending = await loadPendingSemanticMutation(repoRoot, change);
+  if (!pending) {
+    // Read-only fast fences preserve zero-side-effect rejection, including a stale crashed lock owner.
+    await assertFlowTransactionFence(repoRoot, change);
+    await assertDecisionReconcileTransactionFence(repoRoot, change);
+    await assertOrdinaryReconcileTransactionFence(repoRoot, change);
+  }
+  return withChangeMutationLock(
+    repoRoot,
+    change,
+    () => reclassifyWithinChangeLock(repoRoot, change, request),
+  );
+}
 
-  const previousScenario = getScenario(change.metadata.scenario);
-  const nextScenario = getScenario(scenarioId);
+async function reclassifyWithinChangeLock(
+  repoRoot: string,
+  change: ChangeRef,
+  request: ScenarioSemanticMutation['request'],
+): Promise<ReclassifyResult> {
+  await assertTransactionLineageIntegrity(repoRoot, change);
+  const pending = await loadPendingSemanticMutation(repoRoot, change);
+  if (pending) {
+    if (pending.kind !== 'SCENARIO_RECLASSIFY') {
+      throw new Error(`SEMANTIC_MUTATION_PENDING: ${pending.id}`);
+    }
+    if (JSON.stringify(pending.request) !== JSON.stringify(request)) {
+      throw new Error('SEMANTIC_MUTATION_REQUEST_MISMATCH');
+    }
+    return continueScenarioReclassification(repoRoot, change, pending);
+  }
+  await assertSemanticMutationFence(repoRoot, change);
+  const completed = await loadCompletedSemanticMutationForSource(
+    repoRoot,
+    change,
+    request,
+    change.metadata.activeRevision,
+    change.metadata.baseline,
+  );
+  if (completed?.kind === 'SCENARIO_RECLASSIFY') {
+    return completedScenarioResult(repoRoot, change, completed);
+  }
+  await assertFlowTransactionFence(repoRoot, change);
+  await assertDecisionReconcileTransactionFence(repoRoot, change);
+  await assertOrdinaryReconcileTransactionFence(repoRoot, change);
+
+  const active = await readYaml(
+    changeMetadataPath(repoRoot, change.directoryName),
+    changeMetadataSchema,
+  );
+  if (JSON.stringify(active) !== JSON.stringify(change.metadata)) {
+    throw new Error('SCENARIO_RECLASSIFY_STALE_CHANGE_STATE');
+  }
+  if (active.status === 'ARCHIVED') throw new Error('Archived Changes cannot be reclassified.');
+  const previousScenario = getScenario(active.scenario);
+  const nextScenario = getScenario(request.scenarioId);
   if (nextScenario.workMode === 'READ_ONLY_QUERY') {
     throw new Error(`Scenario '${nextScenario.id}' is a read-only investigation and cannot classify an implementation Change.`);
   }
   if (nextScenario.id === previousScenario.id) {
-    throw new Error(`Change ${change.metadata.id} already uses scenario '${nextScenario.id}'.`);
+    throw new Error(`Change ${active.id} already uses scenario '${nextScenario.id}'.`);
   }
 
-  const nextRisk = mergeRisk(change.metadata.risk, nextScenario);
-  const nextImpact = mergeImpact(change.metadata.impact, nextScenario);
-  const nextReadiness = reclassifiedReadiness(change.metadata.readiness, nextScenario);
-
-  await ensureScenarioArtifacts(repoRoot, change, nextScenario, nextImpact);
-  const taskFile = await loadTasks(changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml'));
-  const affectedTasks = taskFile.tasks.map((task) => task.id);
-
-  change.metadata.scenario = nextScenario.id;
-  change.metadata.workMode = nextScenario.workMode;
-  change.metadata.risk = nextRisk;
-  change.metadata.impact = nextImpact;
-  change.metadata.readiness = nextReadiness;
-
-  const reconcile = await reconcileChange(repoRoot, change, {
-    level: 'L4',
-    type: 'SCENARIO_RECLASSIFIED',
-    reason: `${reason}. ${previousScenario.id} -> ${nextScenario.id}`,
-    affectedTasks,
-  });
-
-  await appendJsonLine(changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'), {
-    timestamp: new Date().toISOString(),
-    event: 'SCENARIO_RECLASSIFIED',
-    changeId: change.metadata.id,
-    revision: change.metadata.activeRevision,
-    detail: `${previousScenario.id} -> ${nextScenario.id}`,
-    data: {
-      previousScenario: previousScenario.id,
-      scenario: nextScenario.id,
-      risk: change.metadata.risk,
-      impact: change.metadata.impact,
+  // Every deterministic input and target is parsed/frozen before the first write.
+  const tasks = await loadTasks(changeArtifactPath(repoRoot, change.directoryName, 'tasks.yaml'));
+  const proposedMetadata = scenarioReclassificationMetadata(active, nextScenario.id);
+  const artifacts = await freezeScenarioArtifacts(repoRoot, change, proposedMetadata);
+  const identity = await nextSemanticMutationIdentity(repoRoot, change);
+  const createdAt = new Date().toISOString();
+  const completedRevision = incrementRevision(active.activeRevision);
+  const completedBaseline = incrementBaseline(active.baseline);
+  const transaction = semanticMutationTransactionSchema.parse({
+    schemaVersion: 1,
+    status: 'PENDING',
+    ...identity,
+    kind: 'SCENARIO_RECLASSIFY',
+    changeId: active.id,
+    revision: active.activeRevision,
+    baseline: active.baseline,
+    createdAt,
+    request,
+    sourceMetadata: active,
+    proposedMetadata,
+    tasks,
+    artifacts,
+    ordinaryCorrelationId: `SCENARIO-${identity.id}`,
+    completedRevision,
+    completedBaseline,
+    audit: {
+      timestamp: createdAt,
+      event: 'SCENARIO_RECLASSIFIED',
+      changeId: active.id,
+      revision: completedRevision,
+      detail: `${previousScenario.id} -> ${nextScenario.id}`,
+      data: {
+        previousScenario: previousScenario.id,
+        scenario: nextScenario.id,
+        risk: proposedMetadata.risk,
+        impact: proposedMetadata.impact,
+        proposedMetadataHash: hashCanonicalArtifact(proposedMetadata),
+        tasksHash: hashCanonicalArtifact(tasks),
+        artifactTargetsHash: hashCanonicalArtifact(artifacts),
+        ordinaryCorrelationId: `SCENARIO-${identity.id}`,
+        completedBaseline,
+        semanticMutationId: identity.id,
+      },
     },
   });
+  if (transaction.kind !== 'SCENARIO_RECLASSIFY') throw new Error('SEMANTIC_MUTATION_KIND_MISMATCH');
+  await writeSemanticMutationTransaction(repoRoot, change, transaction);
+  publish('SCENARIO_RECLASSIFY_INTENT_WRITTEN', transaction);
+  return continueScenarioReclassification(repoRoot, change, transaction);
+}
 
+async function continueScenarioReclassification(
+  repoRoot: string,
+  change: ChangeRef,
+  transaction: ScenarioSemanticMutation,
+): Promise<ReclassifyResult> {
+  await assertSemanticMutationFence(repoRoot, change, transaction.id);
+  await ensureScenarioArtifacts(repoRoot, change, transaction);
+  publish('SCENARIO_RECLASSIFY_ARTIFACTS_ENSURED', transaction);
+
+  const ownedChange: ChangeRef = {
+    directoryName: change.directoryName,
+    metadata: structuredClone(transaction.proposedMetadata),
+  };
+  const affectedTasks = transaction.tasks.tasks.map(({ id }) => id);
+  const reconcile = await reconcileOrdinaryWithinChangeLock(repoRoot, ownedChange, {
+    level: 'L4',
+    type: 'SCENARIO_RECLASSIFIED',
+    reason: `${transaction.request.reason}. ${transaction.sourceMetadata.scenario} -> ${transaction.request.scenarioId}`,
+    affectedTasks,
+    correlationId: transaction.ordinaryCorrelationId,
+  }, {
+    semanticMutationId: transaction.id,
+    createdAt: transaction.createdAt,
+  });
+  if (
+    reconcile.revision.id !== transaction.completedRevision
+    || reconcile.revision.baseline !== transaction.completedBaseline
+  ) throw new Error('SCENARIO_RECLASSIFY_RECONCILE_MISMATCH');
+  publish('SCENARIO_RECLASSIFY_RECONCILE_COMPLETED', transaction);
+
+  change.metadata = await readYaml(
+    changeMetadataPath(repoRoot, change.directoryName),
+    changeMetadataSchema,
+  );
+  if (
+    change.metadata.activeRevision !== transaction.completedRevision
+    || change.metadata.baseline !== transaction.completedBaseline
+    || change.metadata.scenario !== transaction.request.scenarioId
+  ) throw new Error('SCENARIO_RECLASSIFY_TARGET_MISMATCH');
+  await ensureSemanticMutationAudits(repoRoot, change, transaction.id, [transaction.audit]);
+  if (transaction.status === 'PENDING') {
+    await completeSemanticMutationTransaction(repoRoot, change, transaction);
+  }
   return { change, reconcile };
 }
 
-function reclassifiedReadiness(
-  current: ChangeRef['metadata']['readiness'],
-  scenario: ReturnType<typeof getScenario>,
-): ChangeRef['metadata']['readiness'] {
-  const required = (capability: string): boolean => scenario.stages.includes(capability as never);
-  const keepOrEnable = (value: ReadinessStatus, needed: boolean): ReadinessStatus => {
-    if (!needed) return 'NOT_APPLICABLE';
-    return value === 'NOT_APPLICABLE' ? 'MISSING' : value;
-  };
-
-  return readinessSchema.parse({
-    frame: keepOrEnable(current.frame, required('frame')),
-    map: keepOrEnable(current.map, required('map')),
-    research: keepOrEnable(current.research, required('research')),
-    mitigation: keepOrEnable(current.mitigation, required('mitigate')),
-    triage: keepOrEnable(current.triage, required('triage')),
-    reproduction: keepOrEnable(current.reproduction, required('reproduce')),
-    diagnosis: keepOrEnable(current.diagnosis, scenario.stages.some((stage) => stage === 'debug' || stage === 'diagnose')),
-    domain: keepOrEnable(current.domain, required('model')),
-    spec: keepOrEnable(current.spec, required('spec')),
-    design: keepOrEnable(current.design, required('design')),
-    experiment: keepOrEnable(current.experiment, required('experiment')),
-    fix: keepOrEnable(current.fix, required('fix')),
-    plan: keepOrEnable(current.plan, required('plan')),
-    implementation: keepOrEnable(current.implementation, required('work')),
-    review: keepOrEnable(current.review, required('review')),
-    verification: keepOrEnable(current.verification, required('verify')),
-    qa: keepOrEnable(current.qa, required('qa')),
-    release: keepOrEnable(current.release, scenario.stages.some((stage) => stage === 'ship' || stage === 'release')),
-    canary: keepOrEnable(current.canary, required('canary')),
-    learning: keepOrEnable(current.learning, required('learn')),
-  });
+async function completedScenarioResult(
+  repoRoot: string,
+  change: ChangeRef,
+  transaction: ScenarioSemanticMutation,
+): Promise<ReclassifyResult> {
+  const active = await readYaml(
+    changeMetadataPath(repoRoot, change.directoryName),
+    changeMetadataSchema,
+  );
+  if (
+    active.activeRevision !== transaction.completedRevision
+    || active.baseline !== transaction.completedBaseline
+    || active.scenario !== transaction.request.scenarioId
+  ) throw new Error('SCENARIO_RECLASSIFY_COMPLETED_TARGET_MISMATCH');
+  const ordinary = await loadOrdinaryReconcileTransactionForSourceRevision(
+    repoRoot,
+    change,
+    transaction.revision,
+  );
+  if (
+    ordinary?.status !== 'COMPLETED'
+    || ordinary.correlationId !== transaction.ordinaryCorrelationId
+    || ordinary.completedRevision !== transaction.completedRevision
+    || ordinary.completedBaseline !== transaction.completedBaseline
+  ) throw new Error('SCENARIO_RECLASSIFY_RECONCILE_MISMATCH');
+  change.metadata = active;
+  return { change, reconcile: await resultForCompletedTransaction(repoRoot, change, ordinary) };
 }
 
-function mergeRisk(
-  current: ChangeRef['metadata']['risk'],
-  scenario: ReturnType<typeof getScenario>,
-): ChangeRef['metadata']['risk'] {
-  const target = riskModelSchema.parse({ level: scenario.risk, dimensions: scenario.riskDimensions ?? {} });
-  return riskModelSchema.parse({
-    level: strongerRisk(current.level, target.level),
-    dimensions: {
-      businessCriticality: strongerDimension(current.dimensions.businessCriticality, target.dimensions.businessCriticality),
-      data: strongerDimension(current.dimensions.data, target.dimensions.data),
-      compatibility: strongerDimension(current.dimensions.compatibility, target.dimensions.compatibility),
-      reversibility: strongerDimension(current.dimensions.reversibility, target.dimensions.reversibility),
-      security: strongerDimension(current.dimensions.security, target.dimensions.security),
-      operational: strongerDimension(current.dimensions.operational, target.dimensions.operational),
-    },
-  });
-}
-
-function mergeImpact(
-  current: ImpactModel,
-  scenario: ReturnType<typeof getScenario>,
-): ImpactModel {
-  const target = impactModelSchema.parse(scenario.defaultImpact ?? {});
-  return impactModelSchema.parse({
-    frontend: current.frontend || target.frontend,
-    backend: current.backend || target.backend,
-    apiContract: current.apiContract || target.apiContract,
-    database: current.database || target.database,
-    mq: current.mq || target.mq,
-    remoteService: current.remoteService || target.remoteService,
-    security: current.security || target.security,
-    observability: current.observability || target.observability,
-  });
+async function freezeScenarioArtifacts(
+  repoRoot: string,
+  change: ChangeRef,
+  metadata: ChangeMetadata,
+): Promise<ScenarioSemanticMutation['artifacts']> {
+  type Artifact = ScenarioSemanticMutation['artifacts'][number];
+  const targets: Artifact[] = [];
+  for (const specification of scenarioArtifactSpecifications(metadata)) {
+    const absolute = specification.kind === 'DIRECTORY'
+      ? join(changeRoot(repoRoot, change.directoryName), specification.path)
+      : changeArtifactPath(repoRoot, change.directoryName, specification.path);
+    if (await pathExists(absolute)) {
+      const persisted = await stat(absolute);
+      if (
+        (specification.kind === 'FILE' && !persisted.isFile())
+        || (specification.kind === 'DIRECTORY' && !persisted.isDirectory())
+      ) throw new Error(`SCENARIO_RECLASSIFY_ARTIFACT_TYPE_MISMATCH: ${specification.path}`);
+      targets.push({
+        path: specification.path,
+        kind: specification.kind,
+        content: specification.kind === 'FILE' ? await readText(absolute) : null,
+      });
+    } else {
+      targets.push({
+        path: specification.path,
+        kind: specification.kind,
+        content: specification.fallback,
+      });
+    }
+  }
+  return targets;
 }
 
 async function ensureScenarioArtifacts(
   repoRoot: string,
   change: ChangeRef,
-  scenario: ReturnType<typeof getScenario>,
-  impact: ImpactModel,
+  transaction: ScenarioSemanticMutation,
 ): Promise<void> {
-  const writeIfMissing = async (name: string, content: string): Promise<void> => {
-    const path = changeArtifactPath(repoRoot, change.directoryName, name);
-    if (!(await pathExists(path))) await writeTextAtomic(path, content);
-  };
-
-  if (impact.apiContract || scenario.requiredArtifacts.includes('contract.md')) await writeIfMissing('contract.md', contractTemplate);
-  if (scenario.stages.some((stage) => ['triage', 'reproduce', 'debug'].includes(stage))) {
-    await writeIfMissing('issue.md', issueTemplate);
-    const issuePath = changeArtifactPath(repoRoot, change.directoryName, 'issue.yaml');
-    if (!(await pathExists(issuePath))) await writeYaml(issuePath, createInitialIssueState());
-  }
-  if (scenario.stages.includes('fix')) await writeIfMissing('fix.md', fixTemplate);
-  if (scenario.stages.some((stage) => stage === 'ship' || stage === 'release')) await writeIfMissing('delivery.md', deliveryTemplate);
-  if (scenario.stages.includes('experiment') || scenario.optionalStages.includes('experiment')) {
-    await ensureDir(join(changeRoot(repoRoot, change.directoryName), 'experiments'));
+  for (const artifact of transaction.artifacts) {
+    const path = artifact.kind === 'DIRECTORY'
+      ? join(changeRoot(repoRoot, change.directoryName), artifact.path)
+      : changeArtifactPath(repoRoot, change.directoryName, artifact.path);
+    if (artifact.kind === 'DIRECTORY') {
+      if (await pathExists(path) && !(await stat(path)).isDirectory()) {
+        throw new Error(`SCENARIO_RECLASSIFY_ARTIFACT_CONFLICT: ${artifact.path}`);
+      }
+      await ensureDir(path);
+      continue;
+    }
+    if (artifact.content === null) throw new Error('SCENARIO_RECLASSIFY_ARTIFACT_TARGET_MISSING');
+    if (await pathExists(path)) {
+      if (!(await stat(path)).isFile() || await readText(path) !== artifact.content) {
+        throw new Error(`SCENARIO_RECLASSIFY_ARTIFACT_CONFLICT: ${artifact.path}`);
+      }
+    } else {
+      await writeTextAtomic(path, artifact.content);
+    }
   }
 }
 
-function strongerRisk(left: RiskLevel, right: RiskLevel): RiskLevel {
-  const weight: Record<RiskLevel, number> = { P0: 4, P1: 3, P2: 2, P3: 1 };
-  return weight[left] >= weight[right] ? left : right;
-}
-
-function strongerDimension(left: RiskDimensionLevel, right: RiskDimensionLevel): RiskDimensionLevel {
-  const weight: Record<RiskDimensionLevel, number> = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
-  return weight[left] >= weight[right] ? left : right;
+function publish(stage: string, transaction: ScenarioSemanticMutation): void {
+  mutationChannel.publish({ stage, changeId: transaction.changeId, semanticMutationId: transaction.id });
 }

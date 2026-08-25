@@ -8,7 +8,10 @@ OmnAI is a local CLI and a set of thin agent skills. It has no server, database,
 User / Issue / Prompt
         │
         ▼
-Scenario + Readiness Router
+Scenario safety floor + FlowPlan + Decisions
+        │
+        ▼
+Core route (Readiness + Revision/Baseline)
         │
         ▼
 Canonical Capability Prompt
@@ -34,7 +37,13 @@ These fact classes have separate artifacts so a code observation cannot silently
 
 ## Canonical artifacts
 
-`intent.md`, `research.md`, `domain.md`, `spec.md`, and `design.md` are reviewable prose contracts. `tasks.yaml`, `change.yaml`, revision YAML, evidence YAML, and `progress.jsonl` provide machine-readable state.
+`intent.md`, `research.md`, `domain.md`, `spec.md`, and `design.md` are reviewable prose contracts. `flow.yaml`, Decision YAML, `tasks.yaml`, `change.yaml`, revision YAML, evidence YAML, and `progress.jsonl` provide machine-readable state.
+
+The Scenario's ordered capabilities are the routing safety floor. Core compiles
+`flow.yaml` from that floor plus risk, impact, accepted assessment, and Decision
+records. It may promote conditional capabilities, but it cannot downgrade or
+reorder Scenario-required work. The full route model is documented in
+[Adaptive Flow](concepts/adaptive-flow.md).
 
 The active revision is named in `change.yaml`. Every run records the revision it consumed. A later revision never rewrites the historical meaning of an earlier run.
 
@@ -43,6 +52,9 @@ The active revision is named in `change.yaml`. Every run records the revision it
 The CLI owns:
 
 - scenario selection
+- Flow assessment and capability compilation
+- Decision identity, ownership, and guarded mutation
+- decision-aware protocol composition
 - readiness
 - path and artifact conventions
 - task graph validation
@@ -50,7 +62,12 @@ The CLI owns:
 - revisioning and selective invalidation
 - bounded context-packet generation
 
-The coding agent owns the capability-specific reasoning and code edits, but cannot silently move to a different capability or change upstream intent.
+The coding agent owns the capability-specific reasoning and code edits, but cannot silently move to a different capability or change upstream intent. Only Core can advance Readiness or accept a Flow transition.
+
+Workset remains an outer multi-project container, not a repository capability.
+Reconcile remains a cross-cutting interrupt that archives the prior FlowPlan,
+advances Revision/Baseline lineage, and selectively invalidates affected state.
+F1 provides this routing spine but does not release autonomous execution.
 
 ## Context engineering
 

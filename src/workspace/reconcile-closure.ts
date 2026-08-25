@@ -1,10 +1,11 @@
 import { dependentTaskIds } from '../core/tasks.js';
-import type {
-  Capability,
-  ChangeMetadata,
-  ReconcileLevel,
-  ScenarioProfile,
-  TaskFile,
+import {
+  taskIdSchema,
+  type Capability,
+  type ChangeMetadata,
+  type ReconcileLevel,
+  type ScenarioProfile,
+  type TaskFile,
 } from '../domain/types.js';
 import type { ReentryKind } from './reentry.js';
 
@@ -30,7 +31,6 @@ const CAPABILITY_TO_READINESS: Partial<Record<Capability, ReadinessKey>> = {
   verify: 'verification',
   qa: 'qa',
   ship: 'release',
-  release: 'release',
   canary: 'canary',
   learn: 'learning',
 };
@@ -75,10 +75,11 @@ export function calculateReadinessClosure(
 }
 
 export function calculateTaskClosure(taskFile: TaskFile, taskRoots: string[]): string[] {
+  const parsedTaskRoots = taskRoots.map((taskId) => taskIdSchema.parse(taskId));
   const known = new Set(taskFile.tasks.map((task) => task.id));
-  for (const taskId of taskRoots) {
+  for (const taskId of parsedTaskRoots) {
     if (!known.has(taskId)) throw new Error(`Task '${taskId}' was not found in the active Task DAG.`);
   }
-  const affected = new Set(dependentTaskIds(taskFile, taskRoots));
+  const affected = new Set(dependentTaskIds(taskFile, parsedTaskRoots));
   return taskFile.tasks.filter((task) => affected.has(task.id)).map((task) => task.id);
 }

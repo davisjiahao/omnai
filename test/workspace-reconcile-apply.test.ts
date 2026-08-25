@@ -181,7 +181,7 @@ test('retry recovers an already correlated repository reconcile instead of advan
   assert.equal((await resolveChange(active.worktree, active.changeId)).metadata.activeRevision, 'REV-0002');
 });
 
-test('apply uses the frozen exact task closure instead of expanding a changed Task DAG', async () => {
+test('apply rejects a frozen task closure made non-canonical by a changed Task DAG', async () => {
   const home = await createTestDirectory('omnai-home-');
   const repo = await createTestRepository('user-center');
   cleanups.push(home.cleanup, repo.cleanup);
@@ -218,9 +218,14 @@ test('apply uses the frozen exact task closure instead of expanding a changed Ta
   });
   await saveTasks(tasksPath, changedTasks);
 
-  await applyWorksetReentry(home.root, workset.id, decided.id, 'user');
+  const applied = await applyWorksetReentry(home.root, workset.id, decided.id, 'user');
   const after = await loadTasks(tasksPath);
-  assert.equal(after.tasks.find((item) => item.id === 'TASK-001')?.status, 'NEEDS_REVALIDATION');
-  assert.equal(after.tasks.find((item) => item.id === 'TASK-002')?.status, 'NEEDS_REVALIDATION');
+  assert.equal(applied.status, 'DECIDED');
+  assert.equal(applied.applications[0]?.status, 'FAILED');
+  assert.equal(applied.applications[0]?.failureKind, 'APPLY_ERROR');
+  assert.match(applied.applications[0]?.error ?? '', /RECONCILE_TASK_CLOSURE_INVALID/);
+  assert.equal(after.tasks.find((item) => item.id === 'TASK-001')?.status, 'DONE');
+  assert.equal(after.tasks.find((item) => item.id === 'TASK-002')?.status, 'DONE');
   assert.equal(after.tasks.find((item) => item.id === 'TASK-003')?.status, 'DONE');
+  assert.equal((await resolveChange(active.worktree, active.changeId)).metadata.activeRevision, 'REV-0001');
 });

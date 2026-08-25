@@ -2,16 +2,18 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import YAML from 'yaml';
 import { z } from 'zod';
 import {
   pathExists,
   readText,
-  readYaml,
   writeTextAtomic,
   writeYaml,
 } from '../core/files.js';
+import { agentProfileSchema } from '../execution/agents/types.js';
+import { withMutationLockAtPath, type MutationLockOptions } from '../execution/mutation-lock.js';
 import { OMNAI_VERSION } from '../version.js';
-import { hostManifestPath } from '../workspace/paths.js';
+import { hostManifestMutationLockPath, hostManifestPath } from '../workspace/paths.js';
 
 export const USER_HOSTS = ['claude', 'codex', 'opencode'] as const;
 export const ENTRY_SKILLS = [
@@ -47,6 +49,7 @@ export const userHostManifestSchema = z.object({
   })),
   installedAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  agents: z.array(agentProfileSchema).default([]),
 });
 
 export type UserHostManifest = z.infer<typeof userHostManifestSchema>;
@@ -112,11 +115,25 @@ export async function installUserHostSkills(
   userHome: string,
   hosts: UserHost[],
   sourceRoot?: string,
+  mutationOptions: MutationLockOptions = {},
 ): Promise<UserHostInstallResult[]> {
   const selected = uniqueHosts(hosts);
   if (selected.length === 0) return [];
   const canonical = await loadCanonicalSkills(sourceRoot);
 
+  return withMutationLockAtPath(
+    hostManifestMutationLockPath(omnaiHome),
+    () => installUserHostSkillsUnderLock(omnaiHome, userHome, selected, canonical),
+    mutationOptions,
+  );
+}
+
+async function installUserHostSkillsUnderLock(
+  omnaiHome: string,
+  userHome: string,
+  selected: UserHost[],
+  canonical: CanonicalSkill[],
+): Promise<UserHostInstallResult[]> {
   const preflight: UserHostStatus[] = [];
   for (const host of selected) {
     preflight.push(await statusWithCanonical(omnaiHome, userHome, host, canonical));
@@ -143,22 +160,27 @@ export async function installUserHostSkills(
     }
 
     const previous = status.status === 'OUTDATED'
-      ? await readYaml(status.manifestPath, userHostManifestSchema)
+      ? await readPhysicalUserHostManifest(status.manifestPath)
       : null;
     for (const skill of canonical) {
       await writeTextAtomic(skillFilePath(status.destination, skill.name), skill.content);
     }
 
     const now = new Date().toISOString();
-    const manifest: UserHostManifest = userHostManifestSchema.parse({
+    const agents = previous?.hasAgents
+      ? previous.raw.agents
+      : [(await import('../execution/agents/profiles.js')).defaultAgentProfileForHost(status.host)];
+    const manifest = {
       schemaVersion: 1,
       host: status.host,
       omnaiVersion: OMNAI_VERSION,
       destination: status.destination,
       skills: canonical.map((skill) => ({ name: skill.name, hash: skill.hash })),
-      installedAt: previous?.installedAt ?? now,
+      installedAt: previous?.parsed.installedAt ?? now,
       updatedAt: now,
-    });
+      agents,
+    };
+    userHostManifestSchema.parse(manifest);
     await writeYaml(status.manifestPath, manifest);
     results.push({
       host: status.host,
@@ -208,7 +230,8 @@ async function statusWithCanonical(
     );
   }
 
-  const manifest = await readYaml(manifestPath, userHostManifestSchema);
+  const physicalManifest = await readPhysicalUserHostManifest(manifestPath);
+  const manifest = physicalManifest.parsed;
   const structuralDrift: string[] = [];
   if (manifest.host !== host) {
     structuralDrift.push(`Manifest host is '${manifest.host}', expected '${host}'.`);
@@ -251,6 +274,9 @@ async function statusWithCanonical(
 
   const currentByName = new Map(canonical.map((skill) => [skill.name, skill]));
   const outdated: string[] = [];
+  if (!physicalManifest.hasAgents) {
+    outdated.push('Manifest predates Agent profile configuration.');
+  }
   if (manifest.omnaiVersion !== OMNAI_VERSION) {
     outdated.push(`Installed version '${manifest.omnaiVersion}' differs from '${OMNAI_VERSION}'.`);
   }
@@ -312,4 +338,23 @@ function hash(content: string): string {
 function uniqueHosts(hosts: UserHost[]): UserHost[] {
   const selected = new Set(hosts);
   return USER_HOSTS.filter((host) => selected.has(host));
+}
+
+interface PhysicalUserHostManifest {
+  raw: Record<string, unknown>;
+  parsed: UserHostManifest;
+  hasAgents: boolean;
+}
+
+async function readPhysicalUserHostManifest(path: string): Promise<PhysicalUserHostManifest> {
+  const value: unknown = YAML.parse(await readText(path));
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error(`Invalid Host manifest object at ${path}`);
+  }
+  const raw = value as Record<string, unknown>;
+  return {
+    raw,
+    parsed: userHostManifestSchema.parse(raw),
+    hasAgents: Object.prototype.hasOwnProperty.call(raw, 'agents'),
+  };
 }

@@ -1,7 +1,7 @@
 ---
 schemaVersion: 1
 id: repository.verify
-version: 1
+version: 2
 kind: repository-capability
 capability: verify
 ---
@@ -10,7 +10,9 @@ capability: verify
 
 ## Method
 
-Build the required evidence matrix from scenario, risk, and impact. Gather fresh evidence for every required item, run the full command that proves each claim, read exit codes and failures, verify acceptance criteria line by line, and record honest PASS, FAIL, or INCONCLUSIVE results.
+Consume the required Evidence Matrix that Core built from scenario, risk, and impact. Gather fresh, proportionate evidence for every required item, run the full command that proves each claim, read exit codes and failures, verify acceptance criteria line by line, and record honest PASS, FAIL, or INCONCLUSIVE results.
+
+For module-boundary claims already required by that matrix or the artifact contract, use approved architecture applicability only to scale the verification method and proportionate evidence; it does not add or remove matrix items. Verify observable behavior at the stable interface with the required behavioral, characterization, contract, integration, or operability evidence. Verify boundary enforcement, migration and retirement, and compatibility when applicable. Static “unused” analysis alone is insufficient deletion evidence; require fresh proof that observable behavior and contracts remain preserved.
 
 ## Stop conditions
 

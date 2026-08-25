@@ -48,3 +48,7 @@ export function hostsRoot(home: string): string {
 export function hostManifestPath(home: string, host: string): string {
   return join(hostsRoot(home), `${host}.yaml`);
 }
+
+export function hostManifestMutationLockPath(home: string): string {
+  return join(hostsRoot(home), '.mutation.lock');
+}

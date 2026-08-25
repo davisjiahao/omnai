@@ -15,13 +15,22 @@ import {
   contractTemplate, deliveryTemplate, designTemplate, domainTemplate, emptyTaskFile, fixTemplate, intentTemplate,
   issueTemplate, learningsIndexTemplate, projectGlossaryTemplate, projectPoliciesTemplate, researchTemplate, specTemplate,
 } from './templates.js';
-import { appendJsonLine, ensureDir, pathExists, readYaml, writeTextAtomic, writeYaml } from './files.js';
+import { appendJsonLine, ensureDir, pathExists, readJsonLines, readYaml, writeTextAtomic, writeYaml } from './files.js';
+import { createInitialFlowPlan } from './flow-store.js';
+import { withGuardedChangeMutation } from './guarded-change-mutation.js';
+import { markReadinessWithinChangeLock } from './readiness-mutation-internal.js';
+import { persistChangeMetadataWithinChangeLock } from './change-metadata-internal.js';
+import { assertNativeWorkflowSupported } from './native-workflow-gate.js';
 
 const WORKFLOW_VERSION = '0.2.0';
 
 export interface ChangeRef { directoryName: string; metadata: ChangeMetadata; }
 
 export async function initializeProject(repoRoot: string): Promise<ProjectConfig> {
+  // 背景：legacy initializer 会在发现 v0.3 schema 不兼容前创建 .omnai/changes/project。
+  // 目的：Task 9H candidate activation 前，第一笔 observable action 必须是零写 INITIALIZE gate；
+  // 手工 0.3 marker、legacy marker 与缺失状态都没有创建权限。
+  await assertNativeWorkflowSupported(repoRoot, 'INITIALIZE');
   const root = omnaiRoot(repoRoot);
   await ensureDir(root);
   await ensureDir(changesRoot(repoRoot));
@@ -42,11 +51,23 @@ export async function initializeProject(repoRoot: string): Promise<ProjectConfig
   }
 
   const lockPath = workflowLockPath(repoRoot);
-  if (!(await pathExists(lockPath))) {
+  if (await pathExists(lockPath)) {
+    const lock = await readYaml(lockPath, workflowLockSchema);
+    if (lock.artifactSchemas.decision === undefined || lock.artifactSchemas.flow === undefined) {
+      await writeYaml(lockPath, workflowLockSchema.parse({
+        ...lock,
+        artifactSchemas: {
+          ...lock.artifactSchemas,
+          decision: lock.artifactSchemas.decision ?? 1,
+          flow: lock.artifactSchemas.flow ?? 1,
+        },
+      }));
+    }
+  } else {
     const lock: WorkflowLock = workflowLockSchema.parse({
       schemaVersion: 1,
       workflowVersion: WORKFLOW_VERSION,
-      artifactSchemas: { project: 1, change: 1, task: 1, evidence: 1, revision: 1, issue: 1 },
+      artifactSchemas: { project: 1, change: 1, task: 1, evidence: 1, revision: 1, issue: 1, decision: 1, flow: 1 },
     });
     await writeYaml(lockPath, lock);
   }
@@ -103,7 +124,7 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
       review: required('review'),
       verification: required('verify'),
       qa: required('qa'),
-      release: scenario.stages.some((stage) => stage === 'ship' || stage === 'release') ? 'MISSING' : 'NOT_APPLICABLE',
+      release: scenario.stages.some((stage) => stage === 'ship') ? 'MISSING' : 'NOT_APPLICABLE',
       canary: required('canary'),
       learning: required('learn'),
     }),
@@ -123,7 +144,7 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'domain.md'), domainTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'spec.md'), specTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'design.md'), designTemplate);
-  if (metadata.impact.apiContract || scenario.requiredArtifacts.includes('contract.md')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'contract.md'), contractTemplate);
+  if (metadata.impact.apiContract || scenario.requiredArtifacts.some((path) => path === 'contract.md')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'contract.md'), contractTemplate);
   if (scenario.stages.some((stage) => ['triage', 'reproduce', 'debug'].includes(stage))) {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'issue.md'), issueTemplate);
     await writeYaml(changeArtifactPath(repoRoot, directoryName, 'issue.yaml'), createInitialIssueState());
@@ -131,7 +152,7 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
   if (scenario.stages.includes('fix')) {
     await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'fix.md'), fixTemplate);
   }
-  if (scenario.stages.some((stage) => stage === 'ship' || stage === 'release')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'delivery.md'), deliveryTemplate);
+  if (scenario.stages.some((stage) => stage === 'ship')) await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'delivery.md'), deliveryTemplate);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'tasks.yaml'), emptyTaskFile);
   await writeTextAtomic(changeArtifactPath(repoRoot, directoryName, 'progress.jsonl'), '');
   await writeYaml(join(changeRevisionsRoot(repoRoot, directoryName), 'REV-0001.yaml'), {
@@ -141,8 +162,10 @@ export async function createChange(repoRoot: string, title: string, scenarioId?:
     timestamp: now, event: 'CHANGE_CREATED', changeId: id, revision: 'REV-0001', detail: `Scenario ${scenario.id}`,
     data: { risk: metadata.risk, impact: metadata.impact, baseline: metadata.baseline },
   });
-  await saveProjectConfig(repoRoot, { ...config, activeChange: id });
-  return { directoryName, metadata };
+  const change = { directoryName, metadata };
+  await createInitialFlowPlan(repoRoot, change);
+  await saveProjectConfig(repoRoot, { ...config, activeChange: metadata.id });
+  return change;
 }
 
 export async function listChanges(repoRoot: string): Promise<ChangeRef[]> {
@@ -176,15 +199,64 @@ export async function selectChange(repoRoot: string, reference: string): Promise
 }
 
 export async function saveChange(repoRoot: string, change: ChangeRef): Promise<void> {
-  const metadata = changeMetadataSchema.parse({ ...change.metadata, updatedAt: new Date().toISOString() });
-  await writeYaml(changeMetadataPath(repoRoot, change.directoryName), metadata);
-  change.metadata = metadata;
+  const proposed = changeMetadataSchema.parse(structuredClone(change.metadata));
+  await withGuardedChangeMutation(repoRoot, change, async (active) => {
+    if (active.updatedAt !== proposed.updatedAt) throw new Error('CHANGE_METADATA_CAS_MISMATCH');
+    await persistChangeMetadataWithinChangeLock(
+      repoRoot,
+      change,
+      proposed,
+      new Date().toISOString(),
+    );
+  });
+}
+
+export async function archiveChange(repoRoot: string, change: ChangeRef): Promise<void> {
+  await withGuardedChangeMutation(repoRoot, change, async (active) => {
+    const progressPath = changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl');
+    const events = await readJsonLines<{
+      timestamp?: string;
+      event?: string;
+      changeId?: string;
+      revision?: string;
+      data?: { baseline?: string };
+    }>(progressPath);
+    const matching = events.filter((event) => (
+      event.event === 'CHANGE_ARCHIVED'
+      && event.changeId === active.id
+      && event.revision === active.activeRevision
+    ));
+    if (matching.length > 1) throw new Error('CHANGE_ARCHIVE_AUDIT_CONFLICT');
+
+    const archivedAt = active.status === 'ARCHIVED' ? active.updatedAt : new Date().toISOString();
+    const expected = {
+      timestamp: archivedAt,
+      event: 'CHANGE_ARCHIVED',
+      changeId: active.id,
+      revision: active.activeRevision,
+      data: { baseline: active.baseline },
+    };
+    if (matching.length === 1 && JSON.stringify(matching[0]) !== JSON.stringify(expected)) {
+      throw new Error('CHANGE_ARCHIVE_AUDIT_CONFLICT');
+    }
+    if (active.status !== 'ARCHIVED') {
+      await persistChangeMetadataWithinChangeLock(
+        repoRoot,
+        change,
+        { ...active, status: 'ARCHIVED' },
+        archivedAt,
+      );
+    }
+    if (matching.length === 0) await appendJsonLine(progressPath, expected);
+  });
 }
 
 export async function markReadiness(repoRoot: string, change: ChangeRef, key: keyof ChangeMetadata['readiness'], value: ReadinessStatus): Promise<void> {
-  change.metadata.readiness[key] = value;
-  if (change.metadata.status === 'DRAFT' && value === 'IN_PROGRESS') change.metadata.status = 'IN_PROGRESS';
-  await saveChange(repoRoot, change);
+  await withGuardedChangeMutation(
+    repoRoot,
+    change,
+    () => markReadinessWithinChangeLock(repoRoot, change, key, value),
+  );
 }
 
 export async function nextChangeId(repoRoot: string): Promise<string> {

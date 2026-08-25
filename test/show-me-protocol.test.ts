@@ -4,7 +4,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import YAML from 'yaml';
-import { CAPABILITIES, readinessSchema } from '../src/domain/types.js';
+import { CAPABILITIES, readinessKeySchema } from '../src/domain/types.js';
 import {
   PROTOCOL_INTERACTIONS,
   WORKSET_PROTOCOL_ACTIONS,
@@ -68,7 +68,7 @@ test('Show-me does not expand workflow state or the four-Skill Host surface', as
   assert.equal(worksetInteractionTypeIsUnchanged, true);
   assert.equal((CAPABILITIES as readonly string[]).includes('show-me'), false);
   assert.equal((WORKSET_PROTOCOL_ACTIONS as readonly string[]).includes('show-me'), false);
-  assert.equal(readinessSchema.keyof().options.includes('show-me' as never), false);
+  assert.equal(readinessKeySchema.options.includes('show-me' as never), false);
 
   const invalidReentry = worksetReentrySchema.safeParse({
     schemaVersion: 2,

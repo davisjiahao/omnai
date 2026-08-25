@@ -16,7 +16,11 @@ Use for bounded-context/module boundaries, framework replacement, dependency inv
 
 ## Artifacts
 
-Research explains present seams and why they exist. `domain.md` clarifies ownership/boundaries. Design compares viable approaches and documents trade-offs. Only hard-to-reverse/surprising trade-offs become ADRs.
+Research records current topology, callers, ownership, dependency direction, interfaces, seams, adapters, constraints, risks, lineage, and cited evidence without recommending a target. `domain.md` remains authoritative for ownership, lifecycle, invariants, ubiquitous language, and bounded contexts; a code seam is not automatically a bounded context. `spec.md`, when used, records affected callers, observable behavior, preserved constraints, compatibility needs, and decisions deferred to Design.
+
+`design.md` owns the target module-boundary assessment. It declares exactly one applicability level: `not-applicable` for work behind a stable boundary, `focused` for a changed internal interface with stable ownership and wider architecture, or `full` for governance, shared-library, cross-service, migration, new-boundary, ownership/lifecycle, or other P0/P1 boundary decisions. Focused and full assessments use stable `MOD-*`, `IF-*`, `SEAM-*`, and `ADP-*` IDs and cover interface semantics, dependency category and direction, depth, leverage, locality, deletion behavior, enforcement, test surface, migration, and retirement. External HTTP, event, and public-library semantics remain in `contract.md` or their authoritative contract source.
+
+Design compares viable approaches and documents trade-offs. Only hard-to-reverse or surprising trade-offs become ADRs. Plan carries approved module/interface IDs, implementation order, and evidence needs into independently verifiable tasks; it does not create a separate architecture artifact.
 
 ## Risk and impact
 
@@ -28,11 +32,11 @@ A human decides difficult-to-reverse architecture and ownership choices. Non-tri
 
 ## Evidence
 
-Historical lineage, architecture review, characterization tests, operability/compatibility evidence, and project-specific build/performance/security evidence. Refactoring must preserve behavior unless the Change explicitly modifies it.
+Historical lineage, the existing `architecture-review` evidence item, characterization tests, operability/compatibility evidence, and project-specific build/performance/security evidence. Refactoring must preserve behavior unless the Change explicitly modifies it. Boundary claims use fresh evidence at the stable interface; static “unused” analysis alone does not prove a safe deletion.
 
 ## Reconciliation
 
-If an implementation seam disproves the architecture model, stop and reconcile design rather than stacking adapters. After repeated failed fix attempts, treat the pattern as architecture evidence.
+If an implementation seam disproves the architecture model, stop and reconcile Design rather than stacking adapters. An L2 signal changes a technical interface, seam, adapter, dependency direction, migration, or interface test-surface assumption; reopen Design and dependent Plan, Work, Review, and Verify artifacts. An L3 signal changes domain ownership, lifecycle, invariant, bounded context, requirement, or acceptance intent; reopen the earliest affected Model or Specification stage and its downstream artifacts. Preserve the previous revision, patch, tests, findings, and evidence as lineage. After repeated failed fix attempts, treat the pattern as architecture evidence.
 
 ## Example
 

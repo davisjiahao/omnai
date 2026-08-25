@@ -3,10 +3,13 @@ import { afterEach, test } from 'node:test';
 import { join } from 'node:path';
 import { createTestRepository } from './helpers.js';
 import { createChange, saveChange } from '../src/core/store.js';
-import { getScenario } from '../src/core/scenarios.js';
+import { getScenario, SCENARIOS } from '../src/core/scenarios.js';
 import { resolveNextAction } from '../src/core/readiness.js';
 import { reconcileChange } from '../src/core/reconcile.js';
 import { pathExists } from '../src/core/files.js';
+import { repositoryRouteOrder } from '../src/core/repository-route-order-internal.js';
+import { changeMetadataSchema } from '../src/domain/types.js';
+import { compileFlowPlan, createInitialFlowAssessment } from '../src/core/flow.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -20,6 +23,63 @@ test('migration-program routes through map after frame', async () => {
   assert.equal(resolveNextAction(change.metadata, getScenario('migration-program')).capability, 'frame');
   change.metadata.readiness.frame = 'READY';
   assert.equal(resolveNextAction(change.metadata, getScenario('migration-program')).capability, 'map');
+});
+
+test('adaptive routing preserves every Scenario floor and inserts promoted capabilities deterministically', () => {
+  const orders = new Map<string, string[]>();
+  for (const scenario of SCENARIOS) {
+    const now = '2026-08-19T00:00:00.000Z';
+    const metadata = changeMetadataSchema.parse({
+      schemaVersion: 1,
+      id: 'CHG-0001',
+      slug: 'scenario-order',
+      title: `Route ${scenario.id}`,
+      scenario: scenario.id,
+      workMode: scenario.workMode,
+      status: 'DRAFT',
+      activeRevision: 'REV-0001',
+      baseline: 'BL-0001',
+      artifactVersions: {},
+      risk: { level: scenario.risk, dimensions: scenario.riskDimensions ?? {} },
+      impact: scenario.defaultImpact ?? {},
+      createdAt: now,
+      updatedAt: now,
+      readiness: {},
+    });
+    const sourceRefs = [{
+      kind: 'policy' as const,
+      scenarioId: scenario.id,
+      contentHash: `sha256:${'1'.repeat(64)}` as const,
+    }];
+    const flow = compileFlowPlan(
+      metadata,
+      scenario,
+      createInitialFlowAssessment(metadata, scenario, sourceRefs),
+      [],
+      now,
+    );
+    const order = repositoryRouteOrder(flow, scenario);
+    orders.set(scenario.id, order);
+    assert.deepEqual(
+      order.filter((capability) => scenario.stages.includes(capability)),
+      scenario.stages,
+      scenario.id,
+    );
+    assert.equal(new Set(order).size, order.length, scenario.id);
+  }
+
+  assert.deepEqual(orders.get('migration-program'), [
+    'frame', 'map', 'research', 'model', 'spec', 'design', 'plan', 'work',
+    'review', 'verify', 'ship', 'learn', 'archive',
+  ]);
+  assert.deepEqual(orders.get('data-migration'), [
+    'research', 'map', 'model', 'spec', 'design', 'review', 'plan', 'work',
+    'verify', 'ship', 'learn', 'archive',
+  ]);
+  assert.deepEqual(orders.get('architecture-governance'), [
+    'research', 'model', 'design', 'review', 'plan', 'work', 'verify', 'ship',
+    'learn', 'archive',
+  ]);
 });
 
 test('incident-response starts with mitigation and scaffolds fix strategy', async () => {

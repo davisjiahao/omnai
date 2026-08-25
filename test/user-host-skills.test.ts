@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
+import YAML from 'yaml';
 import { pathExists, readYaml } from '../src/core/files.js';
 import {
   ENTRY_SKILLS,
@@ -203,6 +204,34 @@ test('a clean OUTDATED installation upgrades canonical bytes while preserving in
   assert.equal((await getUserHostSkillStatus(omnaiHome, userHome, 'codex', sourceRoot)).status, 'READY');
 });
 
+test('Host Skill update preserves the physically configured Agent array without adding defaults or reordering', async () => {
+  const sourceRoot = await createCanonicalSkillsFixture();
+  const { omnaiHome, userHome } = await createHomes();
+  await installUserHostSkills(omnaiHome, userHome, ['codex'], sourceRoot);
+  const manifestPath = hostManifestPath(omnaiHome, 'codex');
+  const raw = YAML.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+  const configuredAgents = [
+    rawAgent('second-agent', '/opt/second-agent'),
+    rawAgent('first-agent', '/opt/first-agent'),
+  ];
+  raw.agents = configuredAgents;
+  await writeFile(manifestPath, YAML.stringify(raw), 'utf8');
+  await writeFile(
+    join(sourceRoot, 'omnai', 'SKILL.md'),
+    '---\nname: omnai\ndescription: Use when testing a newer router.\n---\n\n# omnai\n\nAgent-safe update.\n',
+    'utf8',
+  );
+
+  const [result] = await installUserHostSkills(omnaiHome, userHome, ['codex'], sourceRoot);
+  const updatedRaw = YAML.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>;
+  assert.equal(result?.action, 'UPDATED');
+  assert.deepEqual(updatedRaw.agents, configuredAgents);
+
+  const parsed = await readYaml(manifestPath, userHostManifestSchema);
+  assert.deepEqual(parsed.agents.map((item) => item.agentId), ['second-agent', 'first-agent']);
+  assert.deepEqual(parsed.agents.map((item) => item.args), [[], []]);
+});
+
 test('multi-host install preflights every Host before writing any destination', async () => {
   const sourceRoot = await createCanonicalSkillsFixture();
   const { omnaiHome, userHome } = await createHomes();
@@ -221,3 +250,23 @@ test('multi-host install preflights every Host before writing any destination', 
   assert.equal(await pathExists(hostManifestPath(omnaiHome, 'codex')), false);
   assert.equal(await readFile(foreign, 'utf8'), 'foreign opencode skill\n');
 });
+
+function rawAgent(agentId: string, command: string) {
+  return {
+    schemaVersion: 1,
+    agentId,
+    protocol: 'acp',
+    command,
+    protocolVersion: 1,
+    maxParallelSessions: 2,
+    isolation: { mode: 'agent-sandbox', enforcedWorkspaceRoots: true },
+    capabilities: {
+      loadSession: true,
+      resumeSession: true,
+      closeSession: true,
+      additionalDirectories: true,
+      mcpStdio: true,
+    },
+    omnaiModes: ['coordination-read-only', 'project-writer', 'project-reviewer'],
+  };
+}

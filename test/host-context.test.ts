@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
 import { initializeProject, createChange } from '../src/core/store.js';
+import { findRepositoryRoot } from '../src/core/paths.js';
 import { pathExists, writeYaml } from '../src/core/files.js';
 import { createAndActivateWorksetProjectChange } from '../src/workspace/change-bindings.js';
 import { resolveOmnaiContext } from '../src/host/context.js';
@@ -137,4 +138,14 @@ test('fails explicitly when a Workset marker points to missing personal state', 
     () => resolveOmnaiContext(home.root, directory.root),
     /WKS-9999.*not found|not found.*WKS-9999/i,
   );
+});
+
+test('repository fallback ignores an empty .git mount marker', async () => {
+  const directory = await createTestDirectory('invalid-git-marker-');
+  cleanups.push(directory.cleanup);
+  await mkdir(join(directory.root, '.git'));
+  const nested = join(directory.root, 'src');
+  await mkdir(nested);
+
+  assert.throws(() => findRepositoryRoot(nested), /No Git repository found/);
 });

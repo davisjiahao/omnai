@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import YAML from 'yaml';
 import { z } from 'zod';
+import { OMNAI_VERSION } from '../version.js';
 import { readText } from '../core/files.js';
 import {
   bindWorksetProjectChange,
@@ -48,7 +49,7 @@ export function createPersonalWorkspaceProgram(): Command {
   program
     .name('omnai')
     .description('OmnAI personal multi-project workspace commands')
-    .version('0.2.0')
+    .version(OMNAI_VERSION)
     .showHelpAfterError();
 
   const project = program.command('project').description('Manage the personal Project Registry');

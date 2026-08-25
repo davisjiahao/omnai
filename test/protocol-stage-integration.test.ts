@@ -44,7 +44,7 @@ test('prepared repository runs use canonical protocols and record exact audit ha
   ) as AuditedManifest;
 
   assert.match(prompt, /protocol:common\.authoritative-work@1/);
-  assert.match(prompt, /protocol:repository\.design@1/);
+  assert.match(prompt, /protocol:repository\.design@3/);
   assert.match(prompt, /Explore 2-3 viable approaches/);
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(manifest.protocols.map((item) => item.id), [

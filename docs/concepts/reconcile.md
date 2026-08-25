@@ -2,6 +2,11 @@
 
 Real development is not linear. Implementation, tests, review, or production can reveal that an earlier assumption was wrong. OmnAI treats that discovery as a signal, not as workflow failure.
 
+Reconcile is a cross-cutting interrupt in the
+[adaptive route](adaptive-flow.md), not a final static Scenario stage. It may
+interrupt Frame, Model, Design, Plan, Work, Review, Verify, Ship, or a future
+execution Run.
+
 ## Levels
 
 | Level | Meaning | Typical response |
@@ -36,7 +41,7 @@ Task C: repository                   RUNNING
 New fact: AuthorizationRecord mixes durable consent and quote usage
 ```
 
-A level-L3 reconcile can preserve Task A, mark Task B `NEEDS_REVALIDATION`, invalidate Task C, create `REV-0002`, and mark model/spec/design/plan readiness for revision. The previous revision remains available for audit.
+A level-L3 reconcile can preserve Task A, mark Task B `NEEDS_REVALIDATION`, invalidate Task C, create `REV-0002`, and mark model/spec/design/plan readiness for revision. The previous revision and its FlowPlan remain available for audit; evidence produced for that Revision cannot prove the new one.
 
 ## Command
 
@@ -49,3 +54,9 @@ omnai reconcile \
 ```
 
 After reconciliation, `omnai next` points to the earliest invalid or stale capability. Only after downstream artifacts are coherent does implementation resume.
+
+For an adaptive Change, Core also recompiles `flow.yaml` against the new active
+Revision/Baseline and archives the prior plan as
+`revisions/REV-####.flow.yaml`. Decision and Flow inputs bound to an older
+Revision or Baseline fail closed instead of mutating current state. Workset
+siblings and project-local Tasks outside the computed closure continue.

@@ -22,6 +22,8 @@ OmnAI v0.2 supports one engineer coordinating one objective across several repos
 - repository-local `.omnai/` Project Change state;
 - read-only investigations separated from implementation work;
 - 19 scenario profiles with risk- and impact-aware routing;
+- a Core-compiled adaptive FlowPlan that preserves Scenario order as its safety floor;
+- source-bound Decision records with Grill and Brainstorm interaction overlays;
 - explicit Revision and Baseline lineage;
 - task dependency graphs, evidence requirements, review, and delivery guards;
 - a personal Project Registry;
@@ -108,6 +110,11 @@ There is one canonical repository protocol for every OmnAI capability, including
 
 Core chooses the legal action and ordered protocol IDs. Codex, Claude Code, and OpenCode do not maintain separate routing tables or separate workflow prompts.
 
+Repository routing is not limited to the static Scenario list. Core starts with
+that ordered safety floor, then uses the active FlowPlan, Decision records,
+Readiness, Revision, and Baseline to select the smallest safe route. See
+[Adaptive Flow](docs/concepts/adaptive-flow.md).
+
 Inspect a protocol bundle directly:
 
 ```bash
@@ -163,6 +170,28 @@ Examples:
 ```
 
 Context discovery is read-only and never calls `omnai init` automatically.
+
+## Quick start: one adaptive repository Change
+
+```bash
+omnai init
+omnai new "Move consent ownership" --scenario complex-domain-feature
+omnai flow status --json
+omnai next --json
+```
+
+Use strict YAML or JSON files for guarded routing changes:
+
+```bash
+omnai decision open domain-decision.yaml --json
+omnai decision resolve DEC-0001 domain-resolution.yaml --human-confirmed --json
+omnai flow assess cross-module-assessment.yaml --json
+omnai next --json
+```
+
+Old Changes without `flow.yaml` keep their exact Scenario route until
+`omnai flow migrate`. Adaptive Flow F1 does not release autonomous execution;
+the four Entry Skills and project-local Task boundary remain unchanged.
 
 ## Quick start: one multi-project Workset
 

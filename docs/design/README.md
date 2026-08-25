@@ -1,5 +1,18 @@
 # OmnAI Design Documents
 
+## v0.3 authority and reading order
+
+Read the approved v0.3 work in this order:
+
+1. [`../superpowers/specs/2026-08-16-omnai-v0.3-autonomous-parallel-execution-design.md`](../superpowers/specs/2026-08-16-omnai-v0.3-autonomous-parallel-execution-design.md) — **authoritative autonomous-execution design**.
+2. [`../superpowers/plans/2026-08-16-omnai-v0.3-autonomous-parallel-execution.md`](../superpowers/plans/2026-08-16-omnai-v0.3-autonomous-parallel-execution.md) — **authoritative autonomous-execution implementation plan and C1–C4 gates**.
+3. [`../superpowers/specs/2026-08-18-omnai-v0.3-module-boundary-protocol-fusion-design.md`](../superpowers/specs/2026-08-18-omnai-v0.3-module-boundary-protocol-fusion-design.md) — **repository-protocol amendment adding the risk-scaled module-boundary assessment**.
+4. [`../superpowers/plans/2026-08-18-omnai-v0.3-module-boundary-protocol-fusion.md`](../superpowers/plans/2026-08-18-omnai-v0.3-module-boundary-protocol-fusion.md) — implementation plan for that amendment.
+
+The autonomous-execution design and plan remain authoritative for execution schemas, lifecycle, packets, claims, commits, recovery, and release gates. The module-boundary amendment changes repository guidance and artifact handoffs only; it grants no execution authority and adds no Entry Skill.
+
+The currently installed public Host surface remains the four Entry Skills listed below. The separately approved autonomous-execution plan may add `omnai-run` only after its C4 certification gate; this amendment neither advances that gate nor adds another Skill.
+
 ## v0.2 authoritative reading order
 
 Read the v0.2 design in this order:

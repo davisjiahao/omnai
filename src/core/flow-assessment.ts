@@ -2,13 +2,23 @@ import { randomUUID } from 'node:crypto';
 import { channel } from 'node:diagnostics_channel';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isProxy } from 'node:util/types';
 import { z } from 'zod';
 import {
+  ARCHITECTURE_APPLICABILITIES,
+  DELIVERY_SHAPES,
+  FLOW_SCALES,
+  FLOW_TOPOLOGIES,
+  FLOW_UNCERTAINTY,
+  baselineIdSchema,
+  changeIdSchema,
   changeMetadataSchema,
+  decisionIdSchema,
   flowAssessmentProposalSchema,
   flowPlanSchema,
   readinessSchema,
   reconcileSignalSchema,
+  revisionIdSchema,
   revisionSchema,
   type Capability,
   type ChangeMetadata,
@@ -16,18 +26,33 @@ import {
   type FlowAssessment,
   type FlowAssessmentProposal,
   type FlowPlan,
+  type ScenarioProfile,
 } from '../domain/types.js';
+import {
+  guardStrictPersistentInput,
+  normalizedAbsoluteRealPathSchema,
+  sourceRefLogicalKey,
+} from '../domain/public.js';
+import {
+  buildChangeBaseContext,
+  discoverCanonicalChangeDirectory,
+  sealForNewMutation,
+  type ChangeAuthorityContext,
+} from './authority/context.js';
 import { withChangeMutationLock } from './change-mutation-lock.js';
 import { listDecisions } from './decisions.js';
 import { rebindLiveDecisionsWithinChangeLock } from './decision-store.js';
 import { assertDecisionReconcileTransactionFence } from './decision-reconcile-transaction.js';
 import { appendJsonLine, pathExists, readJsonLines, readYaml, writeYaml } from './files.js';
-import { compileFlowPlan, hashFlowPlan } from './flow.js';
+import {
+  assertExactAssessmentDecisionLinkage,
+  compileFlowPlan,
+  hashFlowPlan,
+} from './flow.js';
 import {
   ensureFlowArchiveWithinChangeLock,
   preflightFlowArchiveCompatibilityWithinChangeLock,
 } from './flow-archive.js';
-import { loadFlowPlan } from './flow-store.js';
 import { loadFlowPlanForTransactionRecoveryWithinChangeLock } from './flow-store-internal.js';
 import {
   completeFlowAssessmentTransaction,
@@ -62,6 +87,11 @@ import {
   sourceReboundFlowRequest,
 } from './flow-semantic-mutation.js';
 import { assertSemanticMutationRequestPreflight } from './semantic-mutation-journal.js';
+import { parseSourceLocator, resolveCurrentSource } from './source/resolver.js';
+import {
+  SourceResolutionError,
+  type SourceLocator,
+} from './source/types.js';
 
 const READINESS_FOR_CAPABILITY: Partial<Record<Capability, keyof ChangeMetadata['readiness']>> = {
   frame: 'frame', research: 'research', map: 'map', model: 'domain', spec: 'spec', design: 'design', plan: 'plan',
@@ -71,30 +101,311 @@ const READINESS_FOR_CAPABILITY: Partial<Record<Capability, keyof ChangeMetadata[
 };
 
 const mutationChannel = channel('omnai:core:change-mutation');
+const reflectApplyIntrinsic = Reflect.apply;
+const arrayPushIntrinsic = Array.prototype.push;
+const jsonStringifyIntrinsic = JSON.stringify;
+const SetIntrinsic = Set;
+const setAddIntrinsic = Set.prototype.add;
+const setHasIntrinsic = Set.prototype.has;
+
+const flowAssessmentMutationClassificationSchema = z.strictObject({
+  scale: z.enum(FLOW_SCALES),
+  uncertainty: z.strictObject({
+    problem: z.enum(FLOW_UNCERTAINTY),
+    domain: z.enum(FLOW_UNCERTAINTY),
+    solution: z.enum(FLOW_UNCERTAINTY),
+    delivery: z.enum(FLOW_UNCERTAINTY),
+  }),
+  topology: z.enum(FLOW_TOPOLOGIES),
+  architectureApplicability: z.enum(ARCHITECTURE_APPLICABILITIES),
+  deliveryShape: z.enum(DELIVERY_SHAPES),
+  decisionIds: z.array(decisionIdSchema),
+});
+const flowAssessmentMutationRequestSchema = guardStrictPersistentInput(z.strictObject({
+  schemaVersion: z.literal(1),
+  changeId: changeIdSchema,
+  revision: revisionIdSchema,
+  baseline: baselineIdSchema,
+  assessment: flowAssessmentMutationClassificationSchema,
+  sources: z.array(z.unknown()),
+}));
+type ParsedFlowAssessmentMutationRequestV1 = Omit<
+  z.output<typeof flowAssessmentMutationRequestSchema>,
+  'sources'
+> & Readonly<{ sources: readonly SourceLocator[] }>;
+
+// 非持久 mutation request：只携带 current locator，不接受 contentHash。
+export type FlowAssessmentMutationRequestV1 = ParsedFlowAssessmentMutationRequestV1;
 
 export async function applyFlowAssessment(
   repoRoot: string,
   change: ChangeRef,
-  proposal: FlowAssessmentProposal,
+  rawRequest: unknown,
 ): Promise<{ flow: FlowPlan; reconcile: ReconcileResult | null }> {
-  const parsed = flowAssessmentProposalSchema.parse(proposal);
+  const authenticatedRepoRoot = authenticateFlowRepositoryRoot(repoRoot);
+  const authenticatedChange = authenticateFlowChangeRef(change);
+  const request = parseFlowAssessmentMutationRequest(rawRequest);
+  if (request.changeId !== authenticatedChange.metadata.id) throw new Error('FLOW_STALE_CHANGE');
+  const directoryName = await discoverCanonicalChangeDirectory(
+    authenticatedRepoRoot,
+    request.changeId,
+  );
+  if (directoryName !== authenticatedChange.directoryName) {
+    throw new Error('FLOW_CHANGE_REF_INVALID: canonical Change directory mismatch');
+  }
+  const canonicalChange: ChangeRef = {
+    directoryName,
+    metadata: authenticatedChange.metadata,
+  };
+  // PENDING identity 与 current source capture 必须属于同一个既有 Change lock 临界区；
+  // 否则并发 writer 可在首次查询后发布 PENDING，使本次请求仍读取新 source。
+  return withChangeMutationLock(
+    authenticatedRepoRoot,
+    canonicalChange,
+    () => applyFlowAssessmentRequestWithinChangeLock(
+      authenticatedRepoRoot,
+      canonicalChange,
+      request,
+    ),
+  );
+}
+
+async function applyFlowAssessmentRequestWithinChangeLock(
+  repoRoot: string,
+  change: ChangeRef,
+  request: ParsedFlowAssessmentMutationRequestV1,
+): Promise<{ flow: FlowPlan; reconcile: ReconcileResult | null }> {
+  const pending = await loadPendingFlowAssessmentTransaction(repoRoot, change);
+  if (pending !== null) {
+    assertExactFrozenRetry(request, pending.proposal);
+    await assertSemanticMutationRequestPreflight(
+      repoRoot,
+      change,
+      'FLOW',
+      sourceReboundFlowRequest(pending.proposal),
+    );
+    return applyFlowAssessmentWithinChangeLock(repoRoot, change, pending.proposal, null);
+  }
+
+  const resolved = await resolveFlowAssessmentRequest(repoRoot, request);
+  if (resolved.context.revisionId !== request.revision) throw new Error('FLOW_STALE_REVISION');
+  if (resolved.context.metadata.baseline !== request.baseline) throw new Error('FLOW_STALE_BASELINE');
   await assertSemanticMutationRequestPreflight(
     repoRoot,
     change,
     'FLOW',
-    sourceReboundFlowRequest(parsed),
+    sourceReboundFlowRequest(resolved.proposal),
   );
-  return withChangeMutationLock(
+  const current = resolved.context.flow;
+  if (current !== null) {
+    const candidate = compileFlowPlan(
+      resolved.context.metadata,
+      requireContextScenario(resolved.context, resolved.context.metadata.scenario),
+      resolved.proposal.assessment,
+      resolved.context.decisions,
+      new Date().toISOString(),
+    );
+    if (candidate.inputHash === current.inputHash) return { flow: current, reconcile: null };
+  }
+  return applyFlowAssessmentWithinChangeLock(
     repoRoot,
     change,
-    () => applyFlowAssessmentWithinChangeLock(repoRoot, change, parsed),
+    resolved.proposal,
+    resolved.context,
   );
+}
+
+function parseFlowAssessmentMutationRequest(
+  rawRequest: unknown,
+): ParsedFlowAssessmentMutationRequestV1 {
+  try {
+    const parsed = flowAssessmentMutationRequestSchema.parse(rawRequest);
+    requireCodeUnitSortedUniqueStrings(parsed.assessment.decisionIds);
+    const sources: SourceLocator[] = [];
+    const sourceKeys: string[] = [];
+    for (let index = 0; index < parsed.sources.length; index += 1) {
+      const source = parseSourceLocator(parsed.sources[index]);
+      if (source.changeId !== parsed.changeId || source.revisionId !== parsed.revision) {
+        throw new TypeError('FLOW_ASSESSMENT_SOURCE_CONTEXT_MISMATCH');
+      }
+      arrayPush(sources, source);
+      arrayPush(sourceKeys, sourceRefLogicalKey(source));
+    }
+    requireCodeUnitSortedUniqueStrings(sourceKeys);
+    return Object.freeze({
+      ...parsed,
+      sources: Object.freeze(sources),
+    });
+  } catch (cause) {
+    throw new Error('FLOW_ASSESSMENT_REQUEST_INVALID', { cause });
+  }
+}
+
+function authenticateFlowRepositoryRoot(rawRepoRoot: unknown): string {
+  try {
+    return normalizedAbsoluteRealPathSchema.parse(rawRepoRoot);
+  } catch (cause) {
+    throw new Error('FLOW_REPOSITORY_ROOT_INVALID', { cause });
+  }
+}
+
+function authenticateFlowChangeRef(rawChange: unknown): ChangeRef {
+  try {
+    if (rawChange === null || typeof rawChange !== 'object' || isProxy(rawChange)) {
+      throw new TypeError('ChangeRef object');
+    }
+    const prototype = Object.getPrototypeOf(rawChange);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError('ChangeRef prototype');
+    }
+    const keys = Reflect.ownKeys(rawChange);
+    if (keys.length !== 2 || !keys.includes('directoryName') || !keys.includes('metadata')) {
+      throw new TypeError('ChangeRef own keys');
+    }
+    const directoryDescriptor = Object.getOwnPropertyDescriptor(rawChange, 'directoryName');
+    const metadataDescriptor = Object.getOwnPropertyDescriptor(rawChange, 'metadata');
+    if (directoryDescriptor === undefined || !('value' in directoryDescriptor)
+      || directoryDescriptor.enumerable !== true
+      || metadataDescriptor === undefined || !('value' in metadataDescriptor)
+      || metadataDescriptor.enumerable !== true
+      || typeof directoryDescriptor.value !== 'string') {
+      throw new TypeError('ChangeRef data descriptors');
+    }
+    const metadata = changeMetadataSchema.parse(metadataDescriptor.value);
+    const directoryName = directoryDescriptor.value;
+    if (directoryName !== `${metadata.id}-${metadata.slug}`) {
+      throw new TypeError('ChangeRef canonical directory');
+    }
+    return { directoryName, metadata };
+  } catch (cause) {
+    throw new Error('FLOW_CHANGE_REF_INVALID', { cause });
+  }
+}
+
+async function resolveFlowAssessmentRequest(
+  repoRoot: string,
+  request: ParsedFlowAssessmentMutationRequestV1,
+): Promise<Readonly<{
+  context: ChangeAuthorityContext;
+  proposal: FlowAssessmentProposal;
+}>> {
+  const sourceRefs: FlowAssessment['sourceRefs'][number][] = [];
+  let context: ChangeAuthorityContext;
+  try {
+    const base = await buildChangeBaseContext(repoRoot, request.changeId);
+    context = await sealForNewMutation(base, async (session) => {
+      for (let index = 0; index < request.sources.length; index += 1) {
+        const resolved = await resolveCurrentSource(session, request.sources[index]!);
+        arrayPush(sourceRefs, resolved.sourceRef);
+      }
+    });
+  } catch (cause) {
+    if (cause instanceof SourceResolutionError
+      && cause.code === 'SOURCE_IDENTITY_MISSING'
+      && hasDecisionSource(request.sources)) {
+      throw new Error('FLOW_ASSESSMENT_DECISION_LINKAGE_MISMATCH', { cause });
+    }
+    throw cause;
+  }
+
+  let proposal: FlowAssessmentProposal;
+  try {
+    proposal = flowAssessmentProposalSchema.parse({
+      schemaVersion: 2,
+      changeId: request.changeId,
+      revision: request.revision,
+      baseline: request.baseline,
+      assessment: { ...request.assessment, sourceRefs },
+    });
+    assertExactAssessmentDecisionLinkage(proposal.assessment, context.decisions);
+  } catch (cause) {
+    throw new Error('FLOW_ASSESSMENT_DECISION_LINKAGE_MISMATCH', { cause });
+  }
+  return Object.freeze({ context, proposal });
+}
+
+function assertExactFrozenRetry(
+  request: ParsedFlowAssessmentMutationRequestV1,
+  frozen: FlowAssessmentProposal,
+): void {
+  const frozenClassification = {
+    scale: frozen.assessment.scale,
+    uncertainty: frozen.assessment.uncertainty,
+    topology: frozen.assessment.topology,
+    architectureApplicability: frozen.assessment.architectureApplicability,
+    deliveryShape: frozen.assessment.deliveryShape,
+    decisionIds: frozen.assessment.decisionIds,
+  };
+  const requestLocators = sourceLogicalKeys(request.sources);
+  const frozenLocators = sourceLogicalKeys(frozen.assessment.sourceRefs);
+  if (request.schemaVersion !== 1
+    || frozen.schemaVersion !== 2
+    || request.changeId !== frozen.changeId
+    || request.revision !== frozen.revision
+    || request.baseline !== frozen.baseline
+    || stringifyJson(request.assessment) !== stringifyJson(frozenClassification)
+    || stringifyJson(requestLocators) !== stringifyJson(frozenLocators)) {
+    throw new Error('FLOW_TRANSACTION_PENDING: proposal mismatch');
+  }
+}
+
+function requireCodeUnitSortedUniqueStrings(values: readonly string[]): void {
+  for (let index = 1; index < values.length; index += 1) {
+    if (values[index - 1]! >= values[index]!) {
+      throw new TypeError('FLOW_ASSESSMENT_REQUEST_ORDER_INVALID');
+    }
+  }
+}
+
+function requireContextScenario(
+  context: ChangeAuthorityContext,
+  scenarioId: string,
+): ScenarioProfile {
+  for (let index = 0; index < context.authorityCatalog.scenarioProfiles.length; index += 1) {
+    const candidate = context.authorityCatalog.scenarioProfiles[index]!;
+    if (candidate.id === scenarioId) return candidate;
+  }
+  throw new Error('FLOW_SCENARIO_CONTEXT_MISMATCH');
+}
+
+function arrayPush<Value>(array: Value[], value: Value): void {
+  reflectApplyIntrinsic(arrayPushIntrinsic, array, [value]);
+}
+
+function setAdd<Value>(set: Set<Value>, value: Value): void {
+  reflectApplyIntrinsic(setAddIntrinsic, set, [value]);
+}
+
+function setHas<Value>(set: Set<Value>, value: Value): boolean {
+  return reflectApplyIntrinsic(setHasIntrinsic, set, [value]) as boolean;
+}
+
+function sourceLogicalKeys(
+  sources: readonly (SourceLocator | FlowAssessment['sourceRefs'][number])[],
+): readonly string[] {
+  const keys: string[] = [];
+  for (let index = 0; index < sources.length; index += 1) {
+    arrayPush(keys, sourceRefLogicalKey(sources[index]!));
+  }
+  return keys;
+}
+
+function hasDecisionSource(sources: readonly SourceLocator[]): boolean {
+  for (let index = 0; index < sources.length; index += 1) {
+    if (sources[index]!.kind === 'decision') return true;
+  }
+  return false;
+}
+
+function stringifyJson(value: unknown): string {
+  return reflectApplyIntrinsic(jsonStringifyIntrinsic, JSON, [value]) as string;
 }
 
 async function applyFlowAssessmentWithinChangeLock(
   repoRoot: string,
   change: ChangeRef,
   proposal: FlowAssessmentProposal,
+  context: ChangeAuthorityContext | null,
 ): Promise<{ flow: FlowPlan; reconcile: ReconcileResult | null }> {
   await assertTransactionLineageIntegrity(repoRoot, change);
   await assertDecisionReconcileTransactionFence(repoRoot, change);
@@ -104,11 +415,12 @@ async function applyFlowAssessmentWithinChangeLock(
   if (parsed.changeId !== change.metadata.id || persisted.id !== parsed.changeId) throw new Error('FLOW_STALE_CHANGE');
   const pending = await loadPendingFlowAssessmentTransaction(repoRoot, change);
   if (pending) {
-    if (JSON.stringify(pending.proposal) !== JSON.stringify(parsed)) {
+    if (stringifyJson(pending.proposal) !== stringifyJson(parsed)) {
       throw new Error(`FLOW_TRANSACTION_PENDING: ${pending.correlationId}`);
     }
     return continuePendingFlowAssessment(repoRoot, change, pending, persisted);
   }
+  if (context === null) throw new Error('FLOW_AUTHORITY_CONTEXT_REQUIRED');
   if (persisted.activeRevision !== parsed.revision || persisted.baseline !== parsed.baseline) {
     if (persisted.activeRevision === parsed.revision) throw new Error('FLOW_STALE_BASELINE');
     if (persisted.baseline === parsed.baseline) throw new Error('FLOW_STALE_REVISION');
@@ -128,13 +440,13 @@ async function applyFlowAssessmentWithinChangeLock(
     return { flow: semanticRecovery.flow, reconcile: null };
   }
 
-  const current = await loadFlowPlan(repoRoot, change);
+  const current = context.flow;
   if (!current) throw new Error('FLOW_PLAN_REQUIRED');
-  const decisions = await listDecisions(repoRoot, change);
+  const decisions = context.decisions;
   const createdAt = new Date().toISOString();
   const candidate = compileFlowPlan(
     persisted,
-    getScenario(persisted.scenario),
+    requireContextScenario(context, persisted.scenario),
     parsed.assessment,
     decisions,
     createdAt,
@@ -190,7 +502,7 @@ async function recoverFlowAssessment(
   const durableTransactionPath = flowAssessmentTransactionPath(repoRoot, change, proposal.revision);
   if (!await pathExists(durableTransactionPath)) throw new Error('FLOW_STALE_REVISION');
   const transaction = knownTransaction ?? await loadFlowAssessmentTransaction(repoRoot, change, proposal.revision);
-  if (JSON.stringify(transaction.proposal) !== JSON.stringify(proposal)) throw new Error('FLOW_TRANSACTION_PROPOSAL_MISMATCH');
+  if (stringifyJson(transaction.proposal) !== stringifyJson(proposal)) throw new Error('FLOW_TRANSACTION_PROPOSAL_MISMATCH');
   const oldPlan = await loadAndValidateArchivedPlan(repoRoot, change, transaction, active);
   change.metadata = active;
   const reconcile = await loadTransactionReconcileResult(repoRoot, change, transaction, active);
@@ -229,18 +541,18 @@ async function continuePendingFlowAssessment(
     return recoverFlowAssessment(repoRoot, change, transaction.proposal, active, transaction);
   }
   change.metadata = active;
-  const current = await loadFlowPlan(repoRoot, change);
+  const current = await readStoredFlowPlanWithinLegacyWriter(repoRoot, change);
   if (!current) throw new Error('FLOW_TRANSACTION_ACTIVE_PLAN_MISSING');
   const decisions = await listDecisions(repoRoot, change);
   if (
     hashFlowPlan(current) !== transaction.oldPlanHash
-    || JSON.stringify(decisions) !== JSON.stringify(transaction.decisions)
+    || stringifyJson(decisions) !== stringifyJson(transaction.decisions)
   ) throw new Error('FLOW_TRANSACTION_STATE_CONFLICT');
   await ensureFlowArchiveWithinChangeLock(repoRoot, change, current);
   const oldPlan = await loadAndValidateArchivedPlan(repoRoot, change, transaction, active);
   const expected = compileFlowPlan(
     active,
-    getScenario(active.scenario),
+    await getScenario(active.scenario),
     oldPlan.assessment,
     decisions,
     new Date().toISOString(),
@@ -300,7 +612,7 @@ async function loadAndValidateArchivedPlan(
   };
   const expected = compileFlowPlan(
     archivedMetadata,
-    getScenario(archivedMetadata.scenario),
+    await getScenario(archivedMetadata.scenario),
     oldPlan.assessment,
     transaction.decisions,
     new Date().toISOString(),
@@ -324,18 +636,18 @@ async function validatePendingAcceptedState(
     accepted.baseline !== reconcile.revision.baseline
   ) throw new Error('FLOW_TRANSACTION_COMPLETION_MISMATCH');
 
-  const current = await loadFlowPlan(repoRoot, change);
+  const current = await readStoredFlowPlanWithinLegacyWriter(repoRoot, change);
   if (!current) throw new Error('FLOW_TRANSACTION_ACTIVE_PLAN_MISSING');
   const decisions = await listDecisions(repoRoot, change);
   const expected = compileFlowPlan(
     active,
-    getScenario(active.scenario),
+    await getScenario(active.scenario),
     transaction.proposal.assessment,
     decisions,
     new Date().toISOString(),
   );
   if (
-    JSON.stringify(current.assessment) !== JSON.stringify(expected.assessment) ||
+    stringifyJson(current.assessment) !== stringifyJson(expected.assessment) ||
     current.inputHash !== expected.inputHash
   ) throw new Error('FLOW_TRANSACTION_STATE_CONFLICT');
 
@@ -363,16 +675,16 @@ async function validateCompletedFlowAssessment(
   ) throw new Error('FLOW_TRANSACTION_COMPLETION_MISMATCH');
   await assertCompletedAuditHistory(repoRoot, change, transaction, oldPlan, reconcile);
 
-  const current = await loadFlowPlan(repoRoot, change);
+  const current = await readStoredFlowPlanWithinLegacyWriter(repoRoot, change);
   if (!current) throw new Error('FLOW_TRANSACTION_ACTIVE_PLAN_MISSING');
   if (
     changedFlowAssessmentFields(current.assessment, transaction.proposal.assessment).length > 0 ||
-    JSON.stringify(current.assessment.decisionIds) !== JSON.stringify(transaction.proposal.assessment.decisionIds)
+    stringifyJson(current.assessment.decisionIds) !== stringifyJson(transaction.proposal.assessment.decisionIds)
   ) throw new Error('FLOW_TRANSACTION_STATE_CONFLICT');
   const decisions = await listDecisions(repoRoot, change);
   const expected = compileFlowPlan(
     active,
-    getScenario(active.scenario),
+    await getScenario(active.scenario),
     current.assessment,
     decisions,
     new Date().toISOString(),
@@ -419,8 +731,8 @@ async function assertCompletedAuditHistory(
     reconcileEvent.data?.previousRevision !== transaction.proposal.revision ||
     reconcileEvent.data?.previousBaseline !== transaction.proposal.baseline ||
     reconcileEvent.data?.baseline !== transaction.completedBaseline ||
-    JSON.stringify(reconcileEvent.data?.affectedReadiness) !== JSON.stringify(reconcile.affectedReadiness) ||
-    JSON.stringify(reconcileEvent.data?.affectedTasks) !== JSON.stringify(reconcile.affectedTasks) ||
+    stringifyJson(reconcileEvent.data?.affectedReadiness) !== stringifyJson(reconcile.affectedReadiness) ||
+    stringifyJson(reconcileEvent.data?.affectedTasks) !== stringifyJson(reconcile.affectedTasks) ||
     flowEvent.changeId !== transaction.proposal.changeId ||
     flowEvent.revision !== transaction.completedRevision ||
     flowEvent.data?.previousRevision !== oldPlan.revision ||
@@ -443,14 +755,14 @@ async function finalizeAcceptedState(
   const decisions = await listDecisions(repoRoot, change);
   const rebound = compileFlowPlan(
     active,
-    getScenario(active.scenario),
+    await getScenario(active.scenario),
     oldPlan.assessment,
     decisions,
     new Date().toISOString(),
   );
   const candidate = compileFlowPlan(
     active,
-    getScenario(active.scenario),
+    await getScenario(active.scenario),
     transaction.proposal.assessment,
     decisions,
     new Date().toISOString(),
@@ -479,10 +791,10 @@ async function assertSameRevisionInputs(
   if (active.activeRevision !== proposal.revision) throw new Error('FLOW_STALE_REVISION');
   if (active.baseline !== proposal.baseline) throw new Error('FLOW_STALE_BASELINE');
   change.metadata = active;
-  const flow = await loadFlowPlan(repoRoot, change);
-  if (JSON.stringify(flow) !== JSON.stringify(expectedFlow)) throw new Error('FLOW_STALE_PLAN_STATE');
+  const flow = await readStoredFlowPlanWithinLegacyWriter(repoRoot, change);
+  if (stringifyJson(flow) !== stringifyJson(expectedFlow)) throw new Error('FLOW_STALE_PLAN_STATE');
   const decisions = await listDecisions(repoRoot, change);
-  if (JSON.stringify(decisions) !== JSON.stringify(expectedDecisions)) throw new Error('FLOW_STALE_DECISION_STATE');
+  if (stringifyJson(decisions) !== stringifyJson(expectedDecisions)) throw new Error('FLOW_STALE_DECISION_STATE');
 }
 
 async function loadTransactionReconcileResult(
@@ -508,7 +820,7 @@ async function loadTransactionReconcileResult(
   const signals: Array<z.infer<typeof reconcileSignalSchema>> = [];
   for (const file of files) {
     const candidate = await readYaml(join(changeRevisionsRoot(repoRoot, change.directoryName), file), reconcileSignalSchema);
-    if (candidate.operationRequestId === transaction.correlationId) signals.push(candidate);
+    if (candidate.operationRequestId === transaction.correlationId) arrayPush(signals, candidate);
   }
   const signal = signals[0];
   if (
@@ -629,8 +941,8 @@ function flowArchivePath(repoRoot: string, change: ChangeRef, revision: string):
 function isSourceOnlyAssessmentChange(current: FlowAssessment, next: FlowAssessment): boolean {
   return (
     changedFlowAssessmentFields(current, next).length === 0 &&
-    JSON.stringify(current.decisionIds) === JSON.stringify(next.decisionIds) &&
-    JSON.stringify(current.sourceRefs) !== JSON.stringify(next.sourceRefs)
+    stringifyJson(current.decisionIds) === stringifyJson(next.decisionIds) &&
+    stringifyJson(current.sourceRefs) !== stringifyJson(next.sourceRefs)
   );
 }
 
@@ -646,10 +958,14 @@ function publishTransactionStage(stage: string, change: ChangeRef, correlationId
 }
 
 function enableNewlyActiveReadiness(change: ChangeRef, previous: FlowPlan, next: FlowPlan): boolean {
-  const previouslyActive = new Set(previous.capabilities.filter(({ active }) => active).map(({ capability }) => capability));
+  const previouslyActive = new SetIntrinsic<Capability>();
+  for (let index = 0; index < previous.capabilities.length; index += 1) {
+    const row = previous.capabilities[index]!;
+    if (row.active) setAdd(previouslyActive, row.capability);
+  }
   let changed = false;
   for (const capability of next.capabilities) {
-    if (!capability.active || previouslyActive.has(capability.capability)) continue;
+    if (!capability.active || setHas(previouslyActive, capability.capability)) continue;
     const readiness = READINESS_FOR_CAPABILITY[capability.capability];
     if (readiness && change.metadata.readiness[readiness] === 'NOT_APPLICABLE') {
       change.metadata.readiness[readiness] = 'MISSING';
@@ -666,4 +982,14 @@ async function persistChangeMetadata(repoRoot: string, change: ChangeRef): Promi
     change.metadata,
     new Date().toISOString(),
   );
+}
+
+// Plan04 WriterFence 前，flow-assessment.ts 仍是批准的 durable writer；这里仅替换已关闭的
+// public Flow reader，不创建新的 writer/owner/closure。
+async function readStoredFlowPlanWithinLegacyWriter(
+  repoRoot: string,
+  change: ChangeRef,
+): Promise<FlowPlan | null> {
+  const path = changeFlowPath(repoRoot, change.directoryName);
+  return await pathExists(path) ? readYaml(path, flowPlanSchema) : null;
 }

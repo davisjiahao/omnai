@@ -19,6 +19,10 @@ import {
 import { appendJsonLine, pathExists, readJsonLines, readYaml, writeYaml } from './files.js';
 import { changeArtifactPath, changeRevisionsRoot } from './paths.js';
 import type { ChangeRef } from './store.js';
+import {
+  assertCompletedSemanticMutationInventory,
+  buildSemanticMutationLineageView,
+} from './authority/indexes.js';
 
 const common = {
   schemaVersion: z.literal(1),
@@ -211,50 +215,21 @@ export async function assertSemanticMutationRequestPreflight(
 }
 
 export async function assertCompletedSemanticMutationLineage(
-  repoRoot: string,
-  change: ChangeRef,
-  inventory?: {
+  _repoRoot: string,
+  _change: ChangeRef,
+  inventory: {
     transactions: readonly SemanticMutationTransaction[];
     events: readonly ProgressEvent[];
     eventsByMutationId: ReadonlyMap<string, readonly ProgressEvent[]>;
   },
 ): Promise<void> {
-  const transactions = inventory?.transactions ?? await listSemanticMutationTransactions(repoRoot, change);
-  const events = inventory?.events ?? await readJsonLines<ProgressEvent>(
-    changeArtifactPath(repoRoot, change.directoryName, 'progress.jsonl'),
-  );
-  if (inventory) {
-    const transactionIds = new Set(transactions.map(({ id }) => id));
-    for (const mutationId of inventory.eventsByMutationId.keys()) {
-      if (!transactionIds.has(mutationId)) fail('SEMANTIC_MUTATION_AUDIT_ORPHAN');
-    }
-  }
-  for (const transaction of transactions) {
-    const expectedAudits = transaction.kind === 'SCENARIO_RECLASSIFY'
-      ? [transaction.audit]
-      : transaction.audits;
-    const mutationEvents = inventory?.eventsByMutationId.get(transaction.id)
-      ?? events.filter((event) => (
-        event.data !== null
-        && 'semanticMutationId' in event.data
-        && event.data.semanticMutationId === transaction.id
-      ));
-    if (transaction.status === 'PENDING') {
-      if (mutationEvents.length > expectedAudits.length) fail('SEMANTIC_MUTATION_AUDIT_CARDINALITY');
-      for (let index = 0; index < mutationEvents.length; index += 1) {
-        if (JSON.stringify(mutationEvents[index]) !== JSON.stringify(expectedAudits[index])) {
-          fail('SEMANTIC_MUTATION_AUDIT_MISMATCH');
-        }
-      }
-      continue;
-    }
-    if (mutationEvents.length !== expectedAudits.length) fail('SEMANTIC_MUTATION_AUDIT_CARDINALITY');
-    for (const expected of expectedAudits) {
-      if (!mutationEvents.some((event) => JSON.stringify(event) === JSON.stringify(expected))) {
-        fail('SEMANTIC_MUTATION_AUDIT_MISMATCH');
-      }
-    }
-  }
+  // 背景：旧 optional inventory 会在漏传时静默重扫 journals/progress。目的：completed
+  // consumer 只能委托给纯索引闭包；correlation 必须从同一次 events capture 内部派生，
+  // caller 提供的 eventsByMutationId 只保留兼容签名，不进入真实性判断。
+  assertCompletedSemanticMutationInventory(buildSemanticMutationLineageView({
+    transactions: inventory.transactions,
+    events: inventory.events,
+  }));
 }
 
 /** @internal Idempotently ensures the exact event-specific outbox records. */

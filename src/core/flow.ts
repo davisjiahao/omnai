@@ -38,6 +38,22 @@ import {
   StrictJsonBoundaryError,
 } from '../domain/strict-json-internal.js';
 
+const reflectApplyIntrinsic = Reflect.apply;
+const arrayMapIntrinsic = Array.prototype.map;
+const arrayFilterIntrinsic = Array.prototype.filter;
+const arraySomeIntrinsic = Array.prototype.some;
+const arrayPushIntrinsic = Array.prototype.push;
+const MapIntrinsic = Map;
+const mapGetIntrinsic = Map.prototype.get;
+const mapSetIntrinsic = Map.prototype.set;
+const mapHasIntrinsic = Map.prototype.has;
+const mapForEachIntrinsic = Map.prototype.forEach;
+const SetIntrinsic = Set;
+const setAddIntrinsic = Set.prototype.add;
+const setHasIntrinsic = Set.prototype.has;
+const setForEachIntrinsic = Set.prototype.forEach;
+const setSizeIntrinsic = Object.getOwnPropertyDescriptor(Set.prototype, 'size')!.get!;
+
 // 背景：FlowCapability 是集合语义，final-v0.3 schema 要求 exact24 且按 capability code-unit
 // 排序；若内部 compiler 直接复用公开数组，caller 的 pop/splice/元素写会永久改变后续输出与预算。
 // 目的：模块初始化只从 canonical CAPABILITIES 复制、排序并冻结 private 真值；公开符号是另一个
@@ -53,14 +69,14 @@ export const FLOW_CAPABILITY_ORDER: readonly Capability[] = Object.freeze([
   ...INTERNAL_FLOW_CAPABILITY_ORDER,
 ]);
 
-const DOMAIN_UNCERTAIN_SCENARIOS = new Set([
+const DOMAIN_UNCERTAIN_SCENARIOS = setFromValues([
   'complex-domain-feature',
   'architecture-governance',
   'migration-program',
   'data-migration',
 ]);
 
-const SOLUTION_UNCERTAIN_SCENARIOS = new Set([
+const SOLUTION_UNCERTAIN_SCENARIOS = setFromValues([
   'product-discovery',
   'architecture-governance',
   'migration-program',
@@ -68,7 +84,7 @@ const SOLUTION_UNCERTAIN_SCENARIOS = new Set([
   'cross-service-change',
 ]);
 
-const CROSS_MODULE_SCENARIOS = new Set([
+const CROSS_MODULE_SCENARIOS = setFromValues([
   'architecture-governance',
   'migration-program',
   'data-migration',
@@ -106,7 +122,7 @@ const flowCompileInputV2RawSchema = z.strictObject({
   decisionBindings: z.array(decisionBindingSchema),
 }).superRefine((input, context) => {
   if (input.capabilities.length !== INTERNAL_FLOW_CAPABILITY_ORDER.length
-    || input.capabilities.some((row, index) => row.capability !== INTERNAL_FLOW_CAPABILITY_ORDER[index])) {
+    || arraySome(input.capabilities, (row, index) => row.capability !== INTERNAL_FLOW_CAPABILITY_ORDER[index])) {
     context.addIssue({
       code: 'custom',
       path: ['capabilities'],
@@ -116,15 +132,15 @@ const flowCompileInputV2RawSchema = z.strictObject({
   requireCodeUnitSortedUnique(input.decisionIds, (id) => id, context, ['decisionIds']);
   requireCodeUnitSortedUnique(input.decisionBindings, (binding) => binding.id, context, ['decisionBindings']);
   if (input.decisionIds.length !== input.decisionBindings.length
-    || input.decisionIds.some((id, index) => id !== input.decisionBindings[index]?.id)) {
+    || arraySome(input.decisionIds, (id, index) => id !== input.decisionBindings[index]?.id)) {
     context.addIssue({
       code: 'custom',
       path: ['decisionBindings'],
       message: 'NATIVE_SCHEMA_MISMATCH: Flow input Decision IDs and bindings must match one-to-one',
     });
   }
-  const inventory = new Set(input.decisionIds);
-  if (input.assessment.decisionIds.some((id) => !inventory.has(id))) {
+  const inventory = setFromValues(input.decisionIds);
+  if (arraySome(input.assessment.decisionIds, (id) => !setHas(inventory, id))) {
     context.addIssue({
       code: 'custom',
       path: ['assessment', 'decisionIds'],
@@ -161,7 +177,7 @@ export function createInitialFlowAssessment(
   assertScenarioAdjacency(parsedMetadata, parsedScenario);
   const topology = parsedScenario.id === 'cross-service-change'
     ? 'CROSS_PROJECT'
-    : CROSS_MODULE_SCENARIOS.has(parsedScenario.id)
+    : setHas(CROSS_MODULE_SCENARIOS, parsedScenario.id)
       ? 'CROSS_MODULE'
       : 'SINGLE_MODULE';
   const deliveryShape = parsedMetadata.workMode === 'MIGRATION'
@@ -178,8 +194,8 @@ export function createInitialFlowAssessment(
         : 'CHANGE',
     uncertainty: {
       problem: parsedScenario.id === 'product-discovery' ? 'OPEN' : 'CLEAR',
-      domain: DOMAIN_UNCERTAIN_SCENARIOS.has(parsedScenario.id) ? 'OPEN' : 'CLEAR',
-      solution: SOLUTION_UNCERTAIN_SCENARIOS.has(parsedScenario.id) ? 'OPEN' : 'CLEAR',
+      domain: setHas(DOMAIN_UNCERTAIN_SCENARIOS, parsedScenario.id) ? 'OPEN' : 'CLEAR',
+      solution: setHas(SOLUTION_UNCERTAIN_SCENARIOS, parsedScenario.id) ? 'OPEN' : 'CLEAR',
       delivery: parsedMetadata.workMode === 'MIGRATION'
         || parsedMetadata.workMode === 'RELEASE'
         || parsedMetadata.risk.level === 'P0'
@@ -218,7 +234,7 @@ export function compileFlowPlan(
     decisions,
     parsedMetadata.id,
   );
-  const required = new Set(parsedScenario.stages);
+  const required = setFromValues(parsedScenario.stages);
   const promotions = assessmentPromotions(parsedMetadata, normalizedAssessment);
   const projectedSources = initializeProjectedSources(normalizedAssessment.sourceRefs);
 
@@ -226,22 +242,23 @@ export function compileFlowPlan(
     // 只有 OPEN/BLOCKED 是当前 Flow source；RESOLVED/REJECTED/SUPERSEDED 仍由完整
     // DecisionBinding 保留历史身份，但不得继续影响当前 capability source projection。
     if (decision.status === 'OPEN' || decision.status === 'BLOCKED') {
-      for (const capability of decisionProjectionTargets(decision)) {
-        promotions.add(capability);
-        const bucket = projectedSources.get(capability)!;
+      const targets = decisionProjectionTargets(decision);
+      setForEach(targets, (capability) => {
+        setAdd(promotions, capability);
+        const bucket = mapGet(projectedSources, capability)!;
         // 单次 Map 插入替代旧 `[...累计数组, ...新引用]`。相同 locator 保留先到值，
         // 与旧稳定 sort+unique 的 assessment 优先、Decision ID 顺序优先语义一致。
         for (const sourceRef of decision.sourceRefs) {
           const key = sourceRefKey(sourceRef);
-          if (!bucket.has(key)) bucket.set(key, sourceRef);
+          if (!mapHas(bucket, key)) mapSet(bucket, key, sourceRef);
         }
-      }
+      });
     }
   }
 
-  const capabilities = INTERNAL_FLOW_CAPABILITY_ORDER.map((capability): FlowCapability => {
-    const isRequired = required.has(capability);
-    const active = isRequired || promotions.has(capability);
+  const capabilities = arrayMap(INTERNAL_FLOW_CAPABILITY_ORDER, (capability): FlowCapability => {
+    const isRequired = setHas(required, capability);
+    const active = isRequired || setHas(promotions, capability);
     return {
       capability,
       disposition: isRequired ? 'REQUIRED' : 'CONDITIONAL',
@@ -252,11 +269,11 @@ export function compileFlowPlan(
           ? 'Promoted by flow assessment or decision'
           : 'Not promoted by current flow inputs',
       // 每个 capability 在所有线性插入完成后只排序一次；没有循环内累计复制。
-      sourceRefs: sortSourceRefs([...projectedSources.get(capability)!.values()]),
+      sourceRefs: sortSourceRefs(mapValues(mapGet(projectedSources, capability)!)),
     };
   });
-  const decisionIds = sortedDecisions.map((decision) => decision.id);
-  const decisionBindings = sortedDecisions.map(decisionBinding);
+  const decisionIds = arrayMap(sortedDecisions, (decision) => decision.id);
+  const decisionBindings = arrayMap(sortedDecisions, decisionBinding);
   assertAssessmentDecisionBindingClosure(normalizedAssessment, decisionBindings);
   const input: FlowCompileInputV2 = {
     changeId: parsedMetadata.id,
@@ -279,6 +296,39 @@ export function compileFlowPlan(
 export function decisionBinding(record: DecisionRecord): DecisionBindingV2 {
   const parsed = decisionRecordSchema.parse(record);
   return { id: parsed.id, contentHash: hObject(parsed) };
+}
+
+// 背景：FlowPlan 的 durable inventory 保留所有 Decision，但 assessment 只描述当前未决
+// Decision。目的：Task5 mutation adapter 在 allocation 前要求 assessment 的 ID/ref 与认证
+// context 中全部 OPEN/BLOCKED 行完全相等；terminal/unknown/missing/extra 一律是同一稳定 mismatch。
+// 上下文：这里是纯闭包校验，不读取 filesystem，也不引入新的持久 authority 模型。
+export function assertExactAssessmentDecisionLinkage(
+  assessment: FlowAssessment,
+  decisions: readonly DecisionRecord[],
+): void {
+  const parsedAssessment = flowAssessmentSchema.parse(assessment);
+  const normalizedDecisions = normalizeDecisionsWithinProjectionBudget(
+    parsedAssessment,
+    decisions,
+  );
+  const active = arrayFilter(
+    normalizedDecisions,
+    ({ status }) => status === 'OPEN' || status === 'BLOCKED',
+  );
+  const expectedIds = arrayMap(active, ({ id }) => id);
+  const actualRefs = arrayFilter(
+    parsedAssessment.sourceRefs,
+    (source): source is Extract<SourceRef, { kind: 'decision' }> => source.kind === 'decision',
+  );
+  if (expectedIds.length !== parsedAssessment.decisionIds.length
+    || arraySome(expectedIds, (id, index) => id !== parsedAssessment.decisionIds[index])
+    || active.length !== actualRefs.length
+    || arraySome(active, (decision, index) => (
+      actualRefs[index]?.decisionId !== decision.id
+      || actualRefs[index]?.contentHash !== decisionBinding(decision).contentHash
+    ))) {
+    throw new Error('FLOW_ASSESSMENT_DECISION_LINKAGE_MISMATCH');
+  }
 }
 
 export function flowInputHash(input: FlowCompileInputV2): Sha256 {
@@ -326,9 +376,9 @@ export function assertDecisionFlowIdentityV2(
     decisions,
     parsed.changeId,
   );
-  const expectedBindings = normalizedDecisions.map(decisionBinding);
+  const expectedBindings = arrayMap(normalizedDecisions, decisionBinding);
   assertAssessmentDecisionBindingClosure(parsed.assessment, expectedBindings);
-  const expectedIds = expectedBindings.map(({ id }) => id);
+  const expectedIds = arrayMap(expectedBindings, ({ id }) => id);
   if (hObject(parsed.decisionBindings) !== hObject(expectedBindings)
     || hObject(parsed.decisionIds) !== hObject(expectedIds)) {
     throw new Error('FLOW_DECISION_BINDING_MISMATCH');
@@ -356,32 +406,35 @@ function assertAssessmentDecisionBindingClosure(
   assessment: FlowAssessment,
   decisionBindings: readonly DecisionBindingV2[],
 ): void {
-  const bindingById = new Map(decisionBindings.map((binding) => [binding.id, binding.contentHash]));
+  const bindingById = mapFromEntries(arrayMap(
+    decisionBindings,
+    (binding): [string, Sha256] => [binding.id, binding.contentHash],
+  ));
   for (const sourceRef of assessment.sourceRefs) {
     if (sourceRef.kind === 'decision'
-      && bindingById.get(sourceRef.decisionId) !== sourceRef.contentHash) {
+      && mapGet(bindingById, sourceRef.decisionId) !== sourceRef.contentHash) {
       throw new Error('FLOW_ASSESSMENT_DECISION_BINDING_MISMATCH');
     }
   }
 }
 
 function assessmentPromotions(metadata: ChangeMetadata, assessment: FlowAssessment): Set<Capability> {
-  const promotions = new Set<Capability>();
-  if (assessment.scale === 'PROGRAM') promotions.add('map');
-  if (assessment.uncertainty.problem !== 'CLEAR' || assessment.uncertainty.delivery !== 'CLEAR') promotions.add('research');
+  const promotions = new SetIntrinsic<Capability>();
+  if (assessment.scale === 'PROGRAM') setAdd(promotions, 'map');
+  if (assessment.uncertainty.problem !== 'CLEAR' || assessment.uncertainty.delivery !== 'CLEAR') setAdd(promotions, 'research');
   if (assessment.uncertainty.domain !== 'CLEAR') {
-    promotions.add('model');
-    promotions.add('research');
+    setAdd(promotions, 'model');
+    setAdd(promotions, 'research');
   }
-  if (assessment.uncertainty.solution !== 'CLEAR') promotions.add('design');
+  if (assessment.uncertainty.solution !== 'CLEAR') setAdd(promotions, 'design');
   if (
     assessment.topology === 'CROSS_MODULE' ||
     assessment.topology === 'CROSS_PROJECT' ||
     assessment.architectureApplicability === 'FOCUSED' ||
     assessment.architectureApplicability === 'FULL'
   ) {
-    promotions.add('design');
-    promotions.add('review');
+    setAdd(promotions, 'design');
+    setAdd(promotions, 'review');
   }
   if (assessment.topology === 'CROSS_PROJECT') {
     addPromotions(promotions, ['spec', 'design', 'review', 'verify', 'ship']);
@@ -392,12 +445,12 @@ function assessmentPromotions(metadata: ChangeMetadata, assessment: FlowAssessme
   if (assessment.deliveryShape === 'HIGH_RISK') {
     addPromotions(promotions, ['review', 'verify', 'ship']);
   }
-  if (metadata.risk.level === 'P0' || metadata.risk.level === 'P1') promotions.add('review');
+  if (metadata.risk.level === 'P0' || metadata.risk.level === 'P1') setAdd(promotions, 'review');
   return promotions;
 }
 
 function addPromotions(target: Set<Capability>, capabilities: readonly Capability[]): void {
-  for (const capability of capabilities) target.add(capability);
+  for (const capability of capabilities) setAdd(target, capability);
 }
 
 function sortSourceRefs(sourceRefs: readonly SourceRef[]): SourceRef[] {
@@ -407,18 +460,18 @@ function sortSourceRefs(sourceRefs: readonly SourceRef[]): SourceRef[] {
 function initializeProjectedSources(
   assessmentSourceRefs: readonly SourceRef[],
 ): Map<Capability, Map<string, SourceRef>> {
-  const projected = new Map<Capability, Map<string, SourceRef>>();
+  const projected = new MapIntrinsic<Capability, Map<string, SourceRef>>();
   for (const capability of INTERNAL_FLOW_CAPABILITY_ORDER) {
-    const bucket = new Map<string, SourceRef>();
-    for (const sourceRef of assessmentSourceRefs) bucket.set(sourceRefKey(sourceRef), sourceRef);
-    projected.set(capability, bucket);
+    const bucket = new MapIntrinsic<string, SourceRef>();
+    for (const sourceRef of assessmentSourceRefs) mapSet(bucket, sourceRefKey(sourceRef), sourceRef);
+    mapSet(projected, capability, bucket);
   }
   return projected;
 }
 
 function decisionProjectionTargets(decision: DecisionRecord): Set<Capability> {
-  const targets = new Set<Capability>(decision.affects.capabilities);
-  if (decision.status === 'OPEN' && decision.owner === 'AGENT') targets.add('research');
+  const targets = setFromValues<Capability>(decision.affects.capabilities);
+  if (decision.status === 'OPEN' && decision.owner === 'AGENT') setAdd(targets, 'research');
   return targets;
 }
 
@@ -444,7 +497,7 @@ function normalizeDecisionsWithinProjectionBudget(
     INTERNAL_FLOW_CAPABILITY_ORDER.length,
   );
   const normalized: DecisionRecord[] = [];
-  const seenDecisionIds = new Set<string>();
+  const seenDecisionIds = new SetIntrinsic<string>();
   const decisionCount = strictDecisionInventoryLength(decisions);
   for (let index = 0; index < decisionCount; index += 1) {
     consumeDecisionInventoryWork(inventoryBudget);
@@ -457,18 +510,18 @@ function normalizeDecisionsWithinProjectionBudget(
       if (expectedChangeId !== undefined && parsed.changeId !== expectedChangeId) {
         throw new Error('FLOW_DECISION_CHANGE_MISMATCH');
       }
-      if (seenDecisionIds.has(parsed.id)) {
+      if (setHas(seenDecisionIds, parsed.id)) {
         throw new Error(`FLOW_DECISION_ID_CONFLICT: ${parsed.id}`);
       }
-      seenDecisionIds.add(parsed.id);
+      setAdd(seenDecisionIds, parsed.id);
       if (parsed.status === 'OPEN' || parsed.status === 'BLOCKED') {
         consumeProjectionWork(
           projectionBudget,
           parsed.sourceRefs.length,
-          decisionProjectionTargets(parsed).size,
+          setSize(decisionProjectionTargets(parsed)),
         );
       }
-      normalized.push(parsed);
+      arrayPush(normalized, parsed);
     } catch (error) {
       if (!(error instanceof StrictJsonBoundaryError)) throw error;
       if (error.code === 'NODE_BUDGET') {
@@ -540,7 +593,7 @@ function strictDecisionInventoryLength(
   const ownKeys = Reflect.ownKeys(decisions);
   if (ownKeys.length !== length + 1
     || ownKeys[length] !== 'length'
-    || ownKeys.slice(0, length).some((key, index) => key !== String(index))) {
+    || arraySome(ownKeys.slice(0, length), (key, index) => key !== String(index))) {
     throw new TypeError('NATIVE_SCHEMA_MISMATCH: Decision inventory must not be sparse or extended');
   }
 
@@ -592,6 +645,92 @@ function sourceRefKey(sourceRef: SourceRef): string {
         : sourceRef.kind === 'decision' ? sourceRef.decisionId
           : sourceRef.taskId;
   return `${sourceRef.kind}\u0000${locator}`;
+}
+
+function arrayMap<Input, Output>(
+  array: readonly Input[],
+  callback: (value: Input, index: number, array: readonly Input[]) => Output,
+): Output[] {
+  return reflectApplyIntrinsic(arrayMapIntrinsic, array, [callback]) as Output[];
+}
+
+function arrayFilter<Value, Narrowed extends Value>(
+  array: readonly Value[],
+  callback: (value: Value, index: number, array: readonly Value[]) => value is Narrowed,
+): Narrowed[];
+function arrayFilter<Value>(
+  array: readonly Value[],
+  callback: (value: Value, index: number, array: readonly Value[]) => unknown,
+): Value[];
+function arrayFilter<Value>(
+  array: readonly Value[],
+  callback: (value: Value, index: number, array: readonly Value[]) => unknown,
+): Value[] {
+  return reflectApplyIntrinsic(arrayFilterIntrinsic, array, [callback]) as Value[];
+}
+
+function arraySome<Value>(
+  array: readonly Value[],
+  callback: (value: Value, index: number, array: readonly Value[]) => unknown,
+): boolean {
+  return reflectApplyIntrinsic(arraySomeIntrinsic, array, [callback]) as boolean;
+}
+
+function arrayPush<Value>(array: Value[], value: Value): void {
+  reflectApplyIntrinsic(arrayPushIntrinsic, array, [value]);
+}
+
+function mapGet<Key, Value>(map: Map<Key, Value>, key: Key): Value | undefined {
+  return reflectApplyIntrinsic(mapGetIntrinsic, map, [key]) as Value | undefined;
+}
+
+function mapFromEntries<Key, Value>(
+  entries: readonly (readonly [Key, Value])[],
+): Map<Key, Value> {
+  const map = new MapIntrinsic<Key, Value>();
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries[index]!;
+    mapSet(map, entry[0], entry[1]);
+  }
+  return map;
+}
+
+function mapSet<Key, Value>(map: Map<Key, Value>, key: Key, value: Value): void {
+  reflectApplyIntrinsic(mapSetIntrinsic, map, [key, value]);
+}
+
+function mapHas<Key, Value>(map: Map<Key, Value>, key: Key): boolean {
+  return reflectApplyIntrinsic(mapHasIntrinsic, map, [key]) as boolean;
+}
+
+function mapValues<Key, Value>(map: Map<Key, Value>): Value[] {
+  const values: Value[] = [];
+  reflectApplyIntrinsic(mapForEachIntrinsic, map, [
+    (value: Value) => arrayPush(values, value),
+  ]);
+  return values;
+}
+
+function setAdd<Value>(set: Set<Value>, value: Value): void {
+  reflectApplyIntrinsic(setAddIntrinsic, set, [value]);
+}
+
+function setFromValues<Value>(values: readonly Value[]): Set<Value> {
+  const set = new SetIntrinsic<Value>();
+  for (let index = 0; index < values.length; index += 1) setAdd(set, values[index]!);
+  return set;
+}
+
+function setHas<Value>(set: Set<Value>, value: Value): boolean {
+  return reflectApplyIntrinsic(setHasIntrinsic, set, [value]) as boolean;
+}
+
+function setForEach<Value>(set: Set<Value>, callback: (value: Value) => void): void {
+  reflectApplyIntrinsic(setForEachIntrinsic, set, [callback]);
+}
+
+function setSize<Value>(set: Set<Value>): number {
+  return reflectApplyIntrinsic(setSizeIntrinsic, set, []) as number;
 }
 
 function compareCodeUnits(left: string, right: string): number {

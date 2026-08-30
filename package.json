@@ -15,6 +15,8 @@
   },
   "files": [
     "dist",
+    "!dist/src/core/git-provider/test/**",
+    "!dist/test/package-version.test.*",
     "scripts/run-native-tests.mjs",
     "resources",
     "skills",
@@ -26,10 +28,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build:native": "node scripts/build-native-provider.mjs",
+    "build:native:test": "node scripts/build-native-provider.mjs --test-harness",
+    "build": "npm run build:native && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node scripts/run-native-tests.mjs",
     "test:adversarial": "npm run build && node scripts/run-adversarial-tests.mjs",
+    "check:transition": "tsc src/tooling/diagnostic-ownership.ts --rootDir . --outDir dist --declaration false --sourceMap false --target ES2022 --module NodeNext --moduleResolution NodeNext --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --skipLibCheck --pretty false && node scripts/check-v0.3-transition-ownership.mjs",
     "check": "npm run typecheck && npm test"
   },
   "dependencies": {

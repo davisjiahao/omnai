@@ -136,7 +136,7 @@ export async function loadFlowPlanInternal(repoRoot: string, change: ChangeRef):
   const active = await requireActiveChange(repoRoot, change);
   const plan = await readStoredFlowPlan(repoRoot, change);
   if (!plan) return null;
-  validateFlowPlan(plan, active, getScenario(active.scenario), true);
+  validateFlowPlan(plan, active, await getScenario(active.scenario), true);
   return plan;
 }
 
@@ -330,7 +330,15 @@ function validateFlowPlan(
 }
 
 function assertInputIntegrity(plan: FlowPlan): void {
-  if (flowInputHash(plan) !== plan.inputHash) throw new Error('FLOW_INTEGRITY_MISMATCH: inputHash');
+  if (flowInputHash({
+    changeId: plan.changeId,
+    revision: plan.revision,
+    baseline: plan.baseline,
+    assessment: plan.assessment,
+    capabilities: plan.capabilities,
+    decisionIds: plan.decisionIds,
+    decisionBindings: plan.decisionBindings,
+  }) !== plan.inputHash) throw new Error('FLOW_INTEGRITY_MISMATCH: inputHash');
 }
 
 function assertScenarioFloor(plan: FlowPlan, scenario: ScenarioProfile): void {

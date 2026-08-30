@@ -12,8 +12,10 @@ import { assertDecisionReconcileTransactionFence } from './decision-reconcile-tr
 import { appendJsonLine, pathExists, readJsonLines, readYaml, writeYaml } from './files.js';
 import { ensureFlowArchiveWithinChangeLock } from './flow-archive.js';
 import { assertFlowTransactionFence } from './flow-transaction.js';
-import { loadFlowPlan } from './flow-store.js';
-import { rebindPreflightedFlowPlanForRevisionWithinChangeLock } from './flow-store-internal.js';
+import {
+  loadFlowPlanInternal,
+  rebindPreflightedFlowPlanForRevisionWithinChangeLock,
+} from './flow-store-internal.js';
 import { assertOrdinaryReconcileTransactionFence } from './ordinary-reconcile-transaction.js';
 import { changeArtifactPath, changeMetadataPath, changeRevisionsRoot } from './paths.js';
 import type { ReconcileInput, ReconcileResult } from './reconcile.js';
@@ -62,7 +64,7 @@ export async function reconcileChangeWithinChangeLock(
   const transactionCorrelationId = options.reconcileTransactionCorrelationId
     ?? options.flowTransactionCorrelationId
     ?? options.ordinaryReconcileTransactionCorrelationId;
-  const preflightFlow = await loadFlowPlan(repoRoot, change);
+  const preflightFlow = await loadFlowPlanInternal(repoRoot, change);
   const preflightDecisions = await listDecisions(repoRoot, change);
   assertExpectedInputs(preflightFlow, preflightDecisions, options);
   await refreshPersistedMetadata(repoRoot, change);
@@ -92,11 +94,16 @@ export async function reconcileChangeWithinChangeLock(
     ) throw new Error('DECISION_RECONCILE_TRANSACTION_STATE_CONFLICT');
   }
 
+  if (preflightFlow === null) throw new Error('FLOW_PLAN_REQUIRED');
   await ensureFlowArchiveWithinChangeLock(repoRoot, change, preflightFlow);
   publishStage('FLOW_RECONCILE_ARCHIVE_ENSURED', change, transactionCorrelationId);
 
   if (hasExpectedInputs(options)) {
-    assertExpectedInputs(await loadFlowPlan(repoRoot, change), await listDecisions(repoRoot, change), options);
+    assertExpectedInputs(
+      await loadFlowPlanInternal(repoRoot, change),
+      await listDecisions(repoRoot, change),
+      options,
+    );
   }
 
   if (input.affectedTaskClosure !== undefined) {

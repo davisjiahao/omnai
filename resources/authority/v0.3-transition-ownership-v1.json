@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "commit": "948d927601007720d6051b4c7a2cf6d0fbbb96ad",
+    "diagnostics": 888,
+    "files": 76,
+    "diagnosticCounts": {
+      "src/cli.ts": 28,
+      "src/core/decision-semantic-mutation.ts": 1,
+      "src/core/evidence.ts": 2,
+      "src/core/flow-assessment.ts": 7,
+      "src/core/flow-store-internal.ts": 17,
+      "src/core/flow-terminal-authority.ts": 2,
+      "src/core/flow-transaction.ts": 5,
+      "src/core/ordinary-reconcile-orchestration.ts": 2,
+      "src/core/ordinary-reconcile-recovery.ts": 1,
+      "src/core/ordinary-terminal-target-internal.ts": 1,
+      "src/core/reclassify.ts": 10,
+      "src/core/scenario-reclassification-target.ts": 17,
+      "src/core/store.ts": 30,
+      "src/core/transaction-lineage-integrity.ts": 5,
+      "src/execution/contracts/compatibility.ts": 7,
+      "src/execution/contracts/coordinator.ts": 2,
+      "src/execution/contracts/store.ts": 35,
+      "src/execution/contracts/validators.ts": 4,
+      "src/execution/environments/profiles.ts": 6,
+      "src/execution/packets.ts": 1,
+      "src/execution/verification/planner.ts": 20,
+      "src/execution/verification/test-cases.ts": 34,
+      "src/host/commands.ts": 1,
+      "src/host/context.ts": 5,
+      "src/workspace/change-bindings.ts": 24,
+      "src/workspace/commands.ts": 21,
+      "src/workspace/git-worktrees.ts": 3,
+      "src/workspace/project-registry.ts": 4,
+      "src/workspace/reconcile-apply.ts": 53,
+      "src/workspace/reconcile-lineage.ts": 1,
+      "src/workspace/reconcile-plan.ts": 27,
+      "src/workspace/reconcile-replan.ts": 50,
+      "src/workspace/workset-protocols.ts": 1,
+      "src/workspace/workset-router.ts": 4,
+      "src/workspace/worksets.ts": 20,
+      "test/contract-coordinator.test.ts": 8,
+      "test/contract-store.test.ts": 13,
+      "test/critical-guard-regression.test.ts": 12,
+      "test/cross-project-dependency.test.ts": 7,
+      "test/evidence-matrix.test.ts": 5,
+      "test/flow-compiler.test.ts": 70,
+      "test/flow-protocols.test.ts": 3,
+      "test/flow-store.test.ts": 14,
+      "test/host-context-cli.test.ts": 6,
+      "test/host-context.test.ts": 3,
+      "test/integration-environment-adapters.test.ts": 5,
+      "test/inventory.test.ts": 1,
+      "test/module-boundary-protocol.test.ts": 8,
+      "test/policy.test.ts": 2,
+      "test/project-registry.test.ts": 1,
+      "test/protocol-content.test.ts": 10,
+      "test/protocol-doctor.test.ts": 1,
+      "test/readiness-vector.test.ts": 4,
+      "test/reconcile.test.ts": 11,
+      "test/review-gate.test.ts": 3,
+      "test/safety-regression.test.ts": 4,
+      "test/scenario-routing-regression.test.ts": 9,
+      "test/show-me-protocol.test.ts": 1,
+      "test/stages.test.ts": 1,
+      "test/task-7-round-4.test.ts": 5,
+      "test/task-7-round-5.test.ts": 6,
+      "test/verification-plan.test.ts": 12,
+      "test/workset-inactive.test.ts": 9,
+      "test/workset-protocol-routing.test.ts": 2,
+      "test/workset-reentry-resolution-guard.test.ts": 3,
+      "test/workset-reentry-store.test.ts": 14,
+      "test/workset-router.test.ts": 18,
+      "test/worksets.test.ts": 10,
+      "test/workspace-change-bindings.test.ts": 13,
+      "test/workspace-reconcile-apply.test.ts": 27,
+      "test/workspace-reconcile-closure.test.ts": 6,
+      "test/workspace-reconcile-correlation-scope.test.ts": 19,
+      "test/workspace-reconcile-replan-e2e.test.ts": 17,
+      "test/workspace-reconcile-replan.test.ts": 44,
+      "test/workspace-reentry-finalize-recovery.test.ts": 2,
+      "test/workspace-reentry-plan.test.ts": 28
+    }
+  },
+  "planFiles": [
+    {
+      "owner": "P02",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-02-authority-context-source-resolution.md"
+    },
+    {
+      "owner": "P03",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-03-project-genesis-global-chain.md"
+    },
+    {
+      "owner": "P04",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-04-core-writer-closure.md"
+    },
+    {
+      "owner": "P05",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-05-stage-evidence-lifecycle.md"
+    },
+    {
+      "owner": "P06",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-06-workspace-workset-publication.md"
+    },
+    {
+      "owner": "P07",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-07-host-cli-package-surface.md"
+    },
+    {
+      "owner": "P08",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-08-audit-scenario-closure.md"
+    },
+    {
+      "owner": "P09",
+      "path": "docs/superpowers/plans/2026-08-23-omnai-v0.3-09-publication-recertification.md"
+    }
+  ],
+  "overlapOwners": [
+    {
+      "path": "native/verified-fd-provider/verified_fd_provider.c",
+      "owner": "P02"
+    },
+    {
+      "path": "package.json",
+      "owner": "P02"
+    },
+    {
+      "path": "src/core/authority/context-builder.ts",
+      "owner": "P02"
+    },
+    {
+      "path": "src/core/decision-reconcile-transaction.ts",
+      "owner": "P03"
+    },
+    {
+      "path": "src/core/decision-semantic-mutation.ts",
+      "owner": "P03"
+    },
+    {
+      "path": "src/core/evidence.ts",
+      "owner": "P04"
+    },
+    {
+      "path": "src/core/evidence/input-capture.ts",
+      "owner": "P05"
+    },
+    {
+      "path": "src/core/flow-assessment.ts",
+      "owner": "P02"
+    },
+    {
+      "path": "src/core/issues.ts",
+      "owner": "P04"
+    },
+    {
+      "path": "src/core/ordinary-reconcile-orchestration.ts",
+      "owner": "P04"
+    },
+    {
+      "path": "src/core/ordinary-reconcile-transaction.ts",
+      "owner": "P03"
+    },
+    {
+      "path": "src/core/reclassify.ts",
+      "owner": "P04"
+    },
+    {
+      "path": "src/core/reconcile-internal.ts",
+      "owner": "P04"
+    },
+    {
+      "path": "src/core/semantic-mutation-journal.ts",
+      "owner": "P03"
+    },
+    {
+      "path": "src/core/stage/run-store.ts",
+      "owner": "P05"
+    },
+    {
+      "path": "src/core/store.ts",
+      "owner": "P03"
+    },
+    {
+      "path": "src/core/tasks.ts",
+      "owner": "P04"
+    }
+  ],
+  "supplemental": [
+    {
+      "path": "src/core/flow-store-internal.ts",
+      "owner": "P04",
+      "action": "REPAIR"
+    },
+    {
+      "path": "src/core/flow-terminal-authority.ts",
+      "owner": "P04",
+      "action": "REPAIR"
+    },
+    {
+      "path": "src/core/flow-transaction.ts",
+      "owner": "P04",
+      "action": "REPAIR"
+    },
+    {
+      "path": "src/core/transaction-lineage-integrity.ts",
+      "owner": "P04",
+      "action": "REPAIR"
+    },
+    {
+      "path": "src/execution/contracts/compatibility.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/contracts/coordinator.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/contracts/store.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/contracts/validators.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/environments/profiles.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/packets.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/verification/planner.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/execution/verification/test-cases.ts",
+      "owner": "P07",
+      "action": "EXCLUDE_UNCHANGED"
+    },
+    {
+      "path": "src/workspace/reconcile-lineage.ts",
+      "owner": "P06",
+      "action": "REPAIR"
+    },
+    {
+      "path": "test/contract-coordinator.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/contract-store.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/critical-guard-regression.test.ts",
+      "owner": "P09",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/cross-project-dependency.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/evidence-matrix.test.ts",
+      "owner": "P05",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/flow-compiler.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/flow-protocols.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/flow-store.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/host-context-cli.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/host-context.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/integration-environment-adapters.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/inventory.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/module-boundary-protocol.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/policy.test.ts",
+      "owner": "P09",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/project-registry.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/protocol-content.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/protocol-doctor.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/readiness-vector.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/reconcile.test.ts",
+      "owner": "P04",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/review-gate.test.ts",
+      "owner": "P05",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/safety-regression.test.ts",
+      "owner": "P08",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/scenario-routing-regression.test.ts",
+      "owner": "P08",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/show-me-protocol.test.ts",
+      "owner": "P07",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/stages.test.ts",
+      "owner": "P05",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/task-7-round-4.test.ts",
+      "owner": "P09",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/task-7-round-5.test.ts",
+      "owner": "P09",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/verification-plan.test.ts",
+      "owner": "P05",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workset-inactive.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workset-protocol-routing.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workset-reentry-resolution-guard.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workset-reentry-store.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workset-router.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/worksets.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-change-bindings.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reconcile-apply.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reconcile-closure.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reconcile-correlation-scope.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reconcile-replan-e2e.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reconcile-replan.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reentry-finalize-recovery.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    },
+    {
+      "path": "test/workspace-reentry-plan.test.ts",
+      "owner": "P06",
+      "action": "MIGRATE_OR_DELETE"
+    }
+  ],
+  "closed": []
+}

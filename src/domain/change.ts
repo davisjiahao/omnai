@@ -53,6 +53,31 @@ export type {
   WorkMode,
 } from './public.js';
 
+// persistent schema 可在 authority await 后执行；集合约束必须绑定模块初始化时的 intrinsic。
+const reflectApplyIntrinsic = Reflect.apply;
+const SetIntrinsic = Set;
+const setAddIntrinsic = Set.prototype.add;
+const setHasIntrinsic = Set.prototype.has;
+const setSizeIntrinsic = Object.getOwnPropertyDescriptor(Set.prototype, 'size')!.get!;
+
+function setAdd<Value>(set: Set<Value>, value: Value): void {
+  reflectApplyIntrinsic(setAddIntrinsic, set, [value]);
+}
+
+function setFromValues<Value>(values: readonly Value[]): Set<Value> {
+  const set = new SetIntrinsic<Value>();
+  for (let index = 0; index < values.length; index += 1) setAdd(set, values[index]!);
+  return set;
+}
+
+function setHas<Value>(set: Set<Value>, value: Value): boolean {
+  return reflectApplyIntrinsic(setHasIntrinsic, set, [value]) as boolean;
+}
+
+function setSize<Value>(set: Set<Value>): number {
+  return reflectApplyIntrinsic(setSizeIntrinsic, set, []) as number;
+}
+
 function freezeDomainRegistry<const Values extends readonly string[]>(values: Values): Values {
   return Object.freeze([...values]) as unknown as Values;
 }
@@ -61,7 +86,7 @@ const sortedStringArray = z.array(nonemptySingleLineSchema).superRefine((values,
   requireCodeUnitSortedUnique(values, (value) => value, context, []);
 });
 const uniqueStringArray = z.array(nonemptySingleLineSchema).superRefine((values, context) => {
-  if (new Set(values).size !== values.length) {
+  if (setSize(setFromValues(values)) !== values.length) {
     context.addIssue({ code: 'custom', message: 'NATIVE_SCHEMA_MISMATCH: collection must be unique' });
   }
 });
@@ -166,19 +191,20 @@ const scenarioProfileRawSchema = z.strictObject({
   riskDimensions: riskDimensionsRawSchema,
   defaultImpact: impactModelRawSchema,
 }).superRefine((profile, context) => {
-  if (new Set(profile.routeOrder).size !== profile.routeOrder.length) {
+  if (setSize(setFromValues(profile.routeOrder)) !== profile.routeOrder.length) {
     context.addIssue({ code: 'custom', path: ['routeOrder'], message: 'NATIVE_SCHEMA_MISMATCH: routeOrder must be unique' });
   }
-  if (new Set(profile.stages).size !== profile.stages.length) {
+  if (setSize(setFromValues(profile.stages)) !== profile.stages.length) {
     context.addIssue({ code: 'custom', path: ['stages'], message: 'NATIVE_SCHEMA_MISMATCH: stages must be unique' });
   }
-  const required = new Set(profile.stages);
-  const optional = new Set(profile.optionalStages);
-  if (profile.optionalStages.some((capability) => required.has(capability))) {
+  const required = setFromValues(profile.stages);
+  const optional = setFromValues(profile.optionalStages);
+  if (profile.optionalStages.some((capability) => setHas(required, capability))) {
     context.addIssue({ code: 'custom', path: ['optionalStages'], message: 'NATIVE_SCHEMA_MISMATCH: optional stages must be disjoint from required stages' });
   }
-  const union = new Set([...profile.stages, ...profile.optionalStages]);
-  if (profile.routeOrder.length !== union.size || profile.routeOrder.some((capability) => !union.has(capability))) {
+  const union = setFromValues([...profile.stages, ...profile.optionalStages]);
+  if (profile.routeOrder.length !== setSize(union)
+    || profile.routeOrder.some((capability) => !setHas(union, capability))) {
     context.addIssue({ code: 'custom', path: ['routeOrder'], message: 'NATIVE_SCHEMA_MISMATCH: routeOrder must equal required and optional stage union' });
   }
   let requiredIndex = 0;
@@ -334,18 +360,18 @@ const taskFileRawSchema = z.strictObject({
   generatedFrom: sortedStringArray,
   tasks: z.array(taskRawSchema),
 }).superRefine((taskFile, context) => {
-  const earlier = new Set<string>();
+  const earlier = new SetIntrinsic<string>();
   taskFile.tasks.forEach((task, index) => {
     const expected = `TASK-${String(index + 1).padStart(3, '0')}`;
     if (task.id !== expected) {
       context.addIssue({ code: 'custom', path: ['tasks', index, 'id'], message: 'NATIVE_SCHEMA_MISMATCH: Task IDs must be contiguous and ordered' });
     }
     for (const dependency of task.dependsOn) {
-      if (!earlier.has(dependency)) {
+      if (!setHas(earlier, dependency)) {
         context.addIssue({ code: 'custom', path: ['tasks', index, 'dependsOn'], message: 'NATIVE_SCHEMA_MISMATCH: dependency must name an earlier Task' });
       }
     }
-    earlier.add(task.id);
+    setAdd(earlier, task.id);
   });
 });
 export const taskFileSchema = guardStrictPersistentInput(taskFileRawSchema);
@@ -574,8 +600,8 @@ const flowPlanRawSchema = z.strictObject({
   if (plan.decisionIds.length !== plan.decisionBindings.length || plan.decisionIds.some((id, index) => id !== plan.decisionBindings[index]?.id)) {
     context.addIssue({ code: 'custom', path: ['decisionBindings'], message: 'NATIVE_SCHEMA_MISMATCH: Decision inventory and bindings must match one-to-one' });
   }
-  const inventory = new Set(plan.decisionIds);
-  if (plan.assessment.decisionIds.some((id) => !inventory.has(id))) {
+  const inventory = setFromValues(plan.decisionIds);
+  if (plan.assessment.decisionIds.some((id) => !setHas(inventory, id))) {
     context.addIssue({ code: 'custom', path: ['assessment', 'decisionIds'], message: 'NATIVE_SCHEMA_MISMATCH: assessment Decisions must be a Flow inventory subset' });
   }
 });
